@@ -3,13 +3,10 @@ import torch
 
 class Model(torch.nn.Module):
     """
-    Model object containing an ML model and a function for calling said model.
-
-    `model_call` should have a signature of model_call(model, data), meaning
-    that one data object will be passed to it at a time, along with the model.
-    At a very minimum the `model_call` function will simply call the model on
-    the data object, but if any operations are required on the data the
-    `model_call` function should take care of them.
+    Model object containing a `representation` Module that will take an input
+    and convert it into some representation, and a `strategy` module that will
+    take a complex representation and any number of constituent "part"
+    representations, and convert to a final scalar value.
     """
     def __init__(self, representation, strategy):
         super(Model, self).__init__()
@@ -31,8 +28,10 @@ class Model(torch.nn.Module):
         return(self.representation(*args, **kwargs))
 
     def forward(self, comp, *parts):
-        complex_rep = self.get_representation(*comp)
-        parts_rep = [self.get_representation(*p) for p in parts]
+        ## This implementation of the forward function assumes the
+        ##  get_representation function takes a single data object
+        complex_rep = self.get_representation(comp)
+        parts_rep = [self.get_representation(p) for p in parts]
 
         return(self.strategy(complex_rep, *parts_rep))
 
@@ -43,6 +42,10 @@ class Strategy(torch.nn.Module):
     pass
 
 class DeltaStrategy(Strategy):
+    """
+    Simple strategy for subtracting the sum of the individual component energies
+    from the complex energy.
+    """
     def __init__(self, energy_func):
         super(DeltaStrategy, self).__init__()
         self.energy_func: torch.nn.Module = energy_func
@@ -52,6 +55,11 @@ class DeltaStrategy(Strategy):
             - sum([self.energy_func(p) for p in parts]))
 
 class ConcatStrategy(Strategy):
+    """
+    Strategy for combining the complex representation and parts representations
+    in some learned manner, using sum-pooling to ensure permutation-invariance
+    of the parts.
+    """
     def __init__(self):
         super(ConcatStrategy, self).__init__()
         self.reduce_nn: torch.nn.Module = None
