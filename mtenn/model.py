@@ -1,3 +1,4 @@
+from itertools import permutations
 import torch
 
 class Model(torch.nn.Module):
@@ -15,10 +16,7 @@ class Model(torch.nn.Module):
         self.representation: Representation = representation
         self.strategy: Strategy = strategy
 
-    def __call__(self, data):
-        return self.model_call(self.model, data)
-
-    def get_representation(self, input):
+    def get_representation(self, *args, **kwargs):
         """
         Takes system topolgy and coordinates and returns Nxhidden dimension
         representation.
@@ -30,11 +28,13 @@ class Model(torch.nn.Module):
         -------
         """
 
-    def forward(self, input0, input1):
-        rep0 = self.get_representation(input0)
-        rep1 = self.get_representation(input1)
+        return(self.representation(*args, **kwargs))
 
-        result = self.strategy(rep0, rep1)
+    def forward(self, comp, *parts):
+        complex_rep = self.get_representation(*comp)
+        parts_rep = [self.get_representation(*p) for p in parts]
+
+        return(self.strategy(complex_rep, *parts_rep))
 
 class Representation(torch.nn.Module):
     pass
@@ -44,21 +44,32 @@ class Strategy(torch.nn.Module):
 
 class DeltaStrategy(Strategy):
     def __init__(self, energy_func):
+        super(DeltaStrategy, self).__init__()
         self.energy_func: torch.nn.Module = energy_func
 
-    def forward(self, complex, *parts):
-        return(self.energy_func(complex)
+    def forward(self, comp, *parts):
+        return(self.energy_func(comp)
             - sum([self.energy_func(p) for p in parts]))
 
 class ConcatStrategy(Strategy):
-    def __init__(self, in_nodes):
-        self.reduce_nn: torch.nn.Module = torch.nn.Linear(in_nodes, 1)
+    def __init__(self):
+        super(ConcatStrategy, self).__init__()
+        self.reduce_nn: torch.nn.Module = None
 
-    def forward(self, complex, *parts):
+    def forward(self, comp, *parts):
+        parts_size = sum([p.shape[1] for p in parts])
         if self.reduce_nn is None:
-            self._init_nn([len(complex)] + [len(p) for p in parts])
-        ## Enumerate all possible enumerations of parts + push through reduce_nn
-        for
-        ## Concat complex w/ permut-invariant parts representation
-        full_embedded = torch.concat([complex, parts_embedded])
+            ## These should already by representations, so initialize a Linear
+            ##  module with appropriate input size
+            input_size = comp.shape[1] + parts_size
+            self.reduce_nn = torch.nn.Linear(input_size, 1)
+
+        ## Enumerate all possible permutations of parts + add together
+        parts_cat = torch.zeros((1,parts_size))
+        for idxs in permutations(range(len(parts)), len(parts)):
+            parts_cat += torch.cat([parts[i] for i in idxs], dim=1)
+
+        ## Concat comp w/ permut-invariant parts representation
+        full_embedded = torch.cat([comp, parts_cat], dim=1)
+
         return(self.reduce_nn(full_embedded))
