@@ -12,89 +12,75 @@ Modular Training and Evaluation of Neural Networks
 Copyright (c) 2022, Benjamin Kaminow
 
 ### Minimal usage example
-A minimal example of how to use this package (based on [the pytorch Quickstart
-guide](https://pytorch.org/tutorials/beginner/basics/quickstart_tutorial.html)).
+A minimal example of how to use this package (with some random data).
 
-First load the data
-```python
-from torchvision import datasets
-from torchvision.transforms import ToTensor
-
-# Download training data from open datasets.
-training_data = datasets.FashionMNIST(
-    root="data",
-    train=True,
-    download=True,
-    transform=ToTensor(),
-)
-
-# Download test data from open datasets.
-test_data = datasets.FashionMNIST(
-    root="data",
-    train=False,
-    download=True,
-    transform=ToTensor(),
-)
-```
-
-Construct the ```pytorch``` model, loss function, and optimizer
+First generate the data
 ```python
 import torch
-from torch import nn
 
-# Just use cpu for now
-device = 'cpu'
+## Complex data
+##  z: random integers (0-10)
+##  pos: random position floats
+z_comp = torch.randint(10, (10,))
+pos_comp = torch.rand((10,3))
 
-# Define model
-class NeuralNetwork(nn.Module):
-    def __init__(self):
-        super(NeuralNetwork, self).__init__()
-        self.flatten = nn.Flatten()
-        self.linear_relu_stack = nn.Sequential(
-            nn.Linear(28*28, 512),
-            nn.ReLU(),
-            nn.Linear(512, 512),
-            nn.ReLU(),
-            nn.Linear(512, 10)
-        )
+## Protein data
+z_prot = z_comp[:7]
+pos_prot = pos_comp[:7,:]
 
-    def forward(self, x):
-        x = self.flatten(x)
-        logits = self.linear_relu_stack(x)
-        return logits
-
-model = NeuralNetwork().to(device)
-
-loss_fn = nn.CrossEntropyLoss()
-optimizer = torch.optim.SGD(model.parameters(), lr=1e-3)
+## Ligand data
+z_lig = z_comp[7:]
+pos_lig = pos_comp[7:,:]
 ```
 
-Build the ```mtenn``` systems
+Construct the ```mtenn``` SchNet models
 ```python
-from mtenn.training import Trainer
-from mtenn.model import Model
+from mtenn.conversion_utils import SchNet
 
-m = Model(model, lambda model, d: model(d))
-t = Trainer(loss_fn, optimizer, m)
+## Generate an instance of the mtenn SchNet model
+m = SchNet()
+
+## Use that model to construct a Model object using the delta strategy and one
+##  using the concat strategy
+delta_model = SchNet.get_model(model=m, strategy='delta')
+concat_model = SchNet.get_model(model=m, strategy='concat')
 ```
 
 Rearrange data to pass to ```mtenn```
 ```python
-train_Xs, train_ys = zip(*[(X, y) for X, y in training_data])
-train_datasets = [train_Xs]
-train_targets = [train_ys]
+## Our SchNet models take a tuple of (atomic_numbers, positions)
 
-eval_Xs, eval_ys = zip(*[(X, y) for X, y in training_data])
-eval_datasets = [eval_Xs]
-eval_targets = [eval_ys]
+## Complex representation
+rep_comp = (z_comp, pos_comp)
+
+## Protein representation
+rep_prot = (z_prot, pos_prot)
+
+## Ligand representation
+rep_lig = (z_lig, pos_lig)
 ```
 
-Train the model for 10 epochs
+Calculate energies using the different models
 ```python
-train_loss, eval_loss = t.train(train_datasets, eval_datasets, train_targets,
-    eval_targets, 10)
-print(train_loss[0].mean())
-print(eval_loss[0].mean())
+## First predict energies using the vanilla SchNet model
+e_comp = m(rep_comp)
+e_prot = m(rep_prot)
+e_lig = m(rep_lig)
+## Calculate delta energy using
+delta_e_og = e_comp - (e_prot + e_lig)
+
+## Use the mtenn Model object to directly predict the same delta energy with
+delta_e_new = delta_model(rep_comp, rep_prot, rep_lig)
+# won't be exactly equal bc floating point inaccuracy
+assert torch.isclose(delta_e_og, delta_e_new)
+
+## Use the concat Model to predict delta energy (this will be different from
+##  the other predicted energies)
+concat_e = concat_model(rep_comp, rep_prot, rep_lig)
+
+print(f'Using vanilla SchNet model: {delta_e_og.item():0.5f}')
+print(f'Using delta Model: {delta_e_new.item():0.5f}')
+print(f'Using concat Model: {concat_e.item():0.5f}')
 ```
 
 #### Acknowledgements
