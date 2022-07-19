@@ -4,7 +4,7 @@ Representation and strategy for e3nn model.
 from copy import deepcopy
 import torch
 from e3nn import o3
-from e3nn.nn.models.gate_points_2101 import Network, Convolution
+from e3nn.nn.models.gate_points_2101 import Network
 
 from ..model import ConcatStrategy, DeltaStrategy, Model
 
