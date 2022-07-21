@@ -14,7 +14,7 @@ class E3NN(Network):
         ##  all parameters and weights over
         if model is None:
             super(E3NN, self).__init__(**model_kwargs)
-            self.parameters = model_kwargs
+            self.model_parameters = model_kwargs
         else:
             # this will need changing to include  model features of e3nn
             atomref = model.atomref.weight.detach().clone()
@@ -23,7 +23,7 @@ class E3NN(Network):
                 model.cutoff, model.max_num_neighbors,model.readout,
                 model.dipole, model.mean, model.std, atomref)
             super(E3NN, self).__init__(*model_params)
-            self.parameters = model_params
+            self.model_parameters = model_params
             self.load_state_dict(model.state_dict())
 
     def forward(self, data):
@@ -70,7 +70,7 @@ class E3NN(Network):
 
         final_conv  = deepcopy(self)
         
-        conv_kwargs = deepcopy(self.parameters)
+        conv_kwargs = deepcopy(self.model_parameters)
         conv_kwargs['layers'] = 0
 
         new_model = Network(**conv_kwargs)
