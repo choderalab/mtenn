@@ -1,0 +1,13 @@
+dataset :  #input directory for PDB files
+dataset_labels : # input file for affinity data
+train_split : 0.7
+val_split : 0.15
+random_seed : 42
+n_epochs: 1000
+batch_size : 8
+model : 'e3nn' #change model types, can be 'schnet' instead
+cont : False #continue training model from model_o
+model_in: #input path for pretrained model
+model_o : #input path to save trained model
+plot_o : #input path to save plots
+qm9 : #input path for qm9 pretrained model, if using QM9 pretraining (for SchNet)
