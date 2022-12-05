@@ -2,6 +2,7 @@
 
 # Add imports here
 from .mtenn import *
+from . import conversion_utils
 
 # Handle versioneer
 from ._version import get_versions

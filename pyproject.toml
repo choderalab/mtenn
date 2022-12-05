@@ -1,0 +1,28 @@
+## pyproject.toml file for setuptools
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mtenn"
+authors = [
+    {name = "Benjamin Kaminow", email = "benjamin.kaminow@choderalab.org"}
+]
+description = "Modular Training and Evaluation of Neural Networks"
+readme = "README.md"
+version = "0.0.0"
+requires-python = ">=3"
+license = {text = "MIT"}
+dependencies = [
+    "h5py",
+    "numpy",
+    "torch",
+    "torch-scatter",
+    "torch-sparse",
+    "torch-geometric",
+    "e3nn"
+]
+urls = {github = "https://github.com/choderalab/mtenn/"}
+
+[tool.setuptools.packages.find]
+exclude = ["mtenn.tests"]
