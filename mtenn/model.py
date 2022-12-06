@@ -1,3 +1,4 @@
+from copy import deepcopy
 from itertools import permutations
 import torch
 
@@ -31,9 +32,50 @@ class Model(torch.nn.Module):
         ## This implementation of the forward function assumes the
         ##  get_representation function takes a single data object
         complex_rep = self.get_representation(comp)
+
+        if len(parts) == 0:
+            parts = Model._split_parts(comp)
         parts_rep = [self.get_representation(p) for p in parts]
 
         return(self.strategy(complex_rep, *parts_rep))
+
+    @staticmethod
+    def _split_parts(comp):
+        """
+        Helper method to split up the complex representation into different
+        parts for protein and ligand.
+
+        Parameters
+        ----------
+        comp : Dict[str, object]
+            Dictionary representing the complex data object. Must have "lig" as
+            a key that contains the index for splitting the data.
+
+        Returns
+        -------
+        Dict[str, object]
+            Protein representation
+        Dict[str, object]
+            Ligand representation
+        """
+        try:
+            idx = comp["lig"]
+        except KeyError:
+            raise RuntimeError("Data object has no key \"lig\".")
+
+        prot_rep = {}
+        lig_rep = {}
+        for k, v in comp.items():
+            if type(v) is not torch.Tensor:
+                prot_rep[k] = v
+                lig_rep[k] = v
+            else:
+                prot_idx = torch.range(len(idx))[~idx]
+                lig_idx = torch.range(len(idx))[idx]
+                prot_rep[k] = deepcopy(torch.index_select(v, 0, prot_idx))
+                lig_rep[k] = deepcopy(torch.index_select(v, 0, lig_idx))
+
+        return prot_rep, lig_rep
 
 class Representation(torch.nn.Module):
     pass
