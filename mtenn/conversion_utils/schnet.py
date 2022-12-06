@@ -23,7 +23,7 @@ class SchNet(PygSchNet):
             self.load_state_dict(model.state_dict())
 
     def forward(self, data):
-        return(super(SchNet, self).forward(data[0], data[1]))
+        return(super(SchNet, self).forward(data["z"], data["pos"]))
 
     def _get_representation(self):
         """
