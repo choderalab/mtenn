@@ -72,10 +72,12 @@ class Model(torch.nn.Module):
                 prot_rep[k] = v
                 lig_rep[k] = v
             else:
-                prot_idx = torch.range(len(idx))[~idx]
-                lig_idx = torch.range(len(idx))[idx]
-                prot_rep[k] = deepcopy(torch.index_select(v, 0, prot_idx))
-                lig_rep[k] = deepcopy(torch.index_select(v, 0, lig_idx))
+                # prot_idx = torch.arange(len(idx))[~idx].to(v.device)
+                # lig_idx = torch.arange(len(idx))[idx].to(v.device)
+                # prot_rep[k] = torch.index_select(v, 0, prot_idx)
+                # lig_rep[k] = torch.index_select(v, 0, lig_idx)
+                prot_rep[k] = v[~idx]
+                lig_rep[k] = v[idx]
 
         return prot_rep, lig_rep
 
@@ -123,8 +125,11 @@ class ConcatStrategy(Strategy):
             input_size = comp.shape[1] + parts_size
             self.reduce_nn = torch.nn.Linear(input_size, 1)
 
-        ## Enumerate all possible permutations of parts + add together
-        parts_cat = torch.zeros((1, parts_size))
+        ## Move self.reduce_nn to appropriate torch device
+        self.reduce_nn = self.reduce_nn.to(comp.device)
+
+        ## Enumerate all possible permutations of parts and add together
+        parts_cat = torch.zeros((1, parts_size), device=comp.device)
         for idxs in permutations(range(len(parts)), len(parts)):
             parts_cat += torch.cat([parts[i] for i in idxs], dim=1)
 
