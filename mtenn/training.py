@@ -2,14 +2,18 @@ import numpy as np
 import torch
 
 from .model import Model
+
 # Model contains model object and model call
 
-class Trainer():
+
+class Trainer:
     """
     Trainer object containing loss function, optimizer, and training function.
     """
-    def __init__(self, loss_func, optimizer, model, device='cpu',
-            early_stopping=None):
+
+    def __init__(
+        self, loss_func, optimizer, model, device="cpu", early_stopping=None
+    ):
         super(Trainer, self).__init__()
         self.loss_func: torch.nn.modules.loss._Loss = loss_func
         self.optimizer: torch.optim.Optimizer = optimizer
@@ -19,11 +23,8 @@ class Trainer():
         self.model.model = self.model.model.to(device)
 
     def _train_one(
-            self,
-            train_datasets,
-            eval_datasets,
-            train_targets,
-            eval_targets):
+        self, train_datasets, eval_datasets, train_targets, eval_targets
+    ):
         """
         One iteration of a training loop. This gives a minimal example, but
         subclasses of Trainer should overload this method to implement
@@ -74,16 +75,17 @@ class Trainer():
                     tmp_loss.append(loss.item())
                 eval_loss.append(torch.tensor(tmp_loss))
 
-        return(train_loss, eval_loss)
+        return (train_loss, eval_loss)
 
     def train(
-            self,
-            train_datasets,
-            eval_datasets,
-            train_targets,
-            eval_targets,
-            n_epochs,
-            save_file=None):
+        self,
+        train_datasets,
+        eval_datasets,
+        train_targets,
+        eval_targets,
+        n_epochs,
+        save_file=None,
+    ):
         """
         Full training process.
 
@@ -123,38 +125,51 @@ class Trainer():
         train_loss = None
         eval_loss = None
         for idx in range(n_epochs):
-            print(f'Epoch {idx}/{n_epochs}', flush=True)
+            print(f"Epoch {idx}/{n_epochs}", flush=True)
             if idx % 10 == 0 and idx > 0:
-                train_loss_print = ' '.join(
-                    [f'{t[-1,:].mean():0.5f}' for t in train_loss])
-                eval_loss_print = ' '.join(
-                    [f'{t[-1,:].mean():0.5f}' for t in eval_loss])
-                print(f'Train losses: {train_loss_print}')
-                print(f'Eval losses: {eval_loss_print}')
+                train_loss_print = " ".join(
+                    [f"{t[-1,:].mean():0.5f}" for t in train_loss]
+                )
+                eval_loss_print = " ".join(
+                    [f"{t[-1,:].mean():0.5f}" for t in eval_loss]
+                )
+                print(f"Train losses: {train_loss_print}")
+                print(f"Eval losses: {eval_loss_print}")
 
             epoch_train_loss, epoch_eval_loss = self._train_one(
-                train_datasets, eval_datasets, train_targets, eval_targets)
+                train_datasets, eval_datasets, train_targets, eval_targets
+            )
             if train_loss is None:
-                train_loss = [t.detach().reshape((1,-1)) for t in epoch_train_loss]
-                eval_loss = [t.detach().reshape((1,-1)) for t in epoch_eval_loss]
+                train_loss = [
+                    t.detach().reshape((1, -1)) for t in epoch_train_loss
+                ]
+                eval_loss = [
+                    t.detach().reshape((1, -1)) for t in epoch_eval_loss
+                ]
             else:
-                train_loss = [torch.vstack((t1, t2.detach())) \
-                    for t1, t2 in zip(train_loss, epoch_train_loss)]
-                eval_loss = [torch.vstack((t1, t2.detach())) \
-                    for t1, t2 in zip(eval_loss, epoch_eval_loss)]
+                train_loss = [
+                    torch.vstack((t1, t2.detach()))
+                    for t1, t2 in zip(train_loss, epoch_train_loss)
+                ]
+                eval_loss = [
+                    torch.vstack((t1, t2.detach()))
+                    for t1, t2 in zip(eval_loss, epoch_eval_loss)
+                ]
 
             if save_file is None:
                 continue
             elif os.path.isdir(save_file):
-                torch.save(self.model.model.state_dict(),
-                    f'{save_file}/{epoch_idx}.th')
-                pkl.dump(train_loss, open(f'{save_file}/train_loss.pkl', 'wb'))
-                pkl.dump(val_loss, open(f'{save_file}/val_loss.pkl', 'wb'))
-                pkl.dump(test_loss, open(f'{save_file}/test_loss.pkl', 'wb'))
-            elif '{}' in save_file:
-                torch.save(self.model.model.state_dict(),
-                    save_file.format(epoch_idx))
+                torch.save(
+                    self.model.model.state_dict(), f"{save_file}/{epoch_idx}.th"
+                )
+                pkl.dump(train_loss, open(f"{save_file}/train_loss.pkl", "wb"))
+                pkl.dump(val_loss, open(f"{save_file}/val_loss.pkl", "wb"))
+                pkl.dump(test_loss, open(f"{save_file}/test_loss.pkl", "wb"))
+            elif "{}" in save_file:
+                torch.save(
+                    self.model.model.state_dict(), save_file.format(epoch_idx)
+                )
             else:
                 torch.save(self.model.model.state_dict(), save_file)
 
-        return(train_loss, eval_loss)
+        return (train_loss, eval_loss)

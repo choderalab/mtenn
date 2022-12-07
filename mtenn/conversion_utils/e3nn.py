@@ -8,6 +8,7 @@ from e3nn.nn.models.gate_points_2101 import Network
 
 from ..model import ConcatStrategy, DeltaStrategy, Model
 
+
 class E3NN(Network):
     def __init__(self, model_kwargs, model=None):
         ## If no model is passed, construct E3NN model with model_kwargs, otherwise copy
@@ -18,10 +19,19 @@ class E3NN(Network):
         else:
             # this will need changing to include  model features of e3nn
             atomref = model.atomref.weight.detach().clone()
-            model_params = (model.hidden_channels, model.num_filters,
-                model.num_interactions, model.num_gaussians,
-                model.cutoff, model.max_num_neighbors,model.readout,
-                model.dipole, model.mean, model.std, atomref)
+            model_params = (
+                model.hidden_channels,
+                model.num_filters,
+                model.num_interactions,
+                model.num_gaussians,
+                model.cutoff,
+                model.max_num_neighbors,
+                model.readout,
+                model.dipole,
+                model.mean,
+                model.std,
+                atomref,
+            )
             super(E3NN, self).__init__(*model_params)
             self.model_parameters = model_params
             self.load_state_dict(model.state_dict())
@@ -29,9 +39,8 @@ class E3NN(Network):
     def forward(self, data):
         x = super(E3NN, self).forward(data)
         copy = deepcopy(data)
-        copy['x'] = torch.clone(x)
+        copy["x"] = torch.clone(x)
         return copy
-
 
     def _get_representation(self):
         """
@@ -52,8 +61,7 @@ class E3NN(Network):
         model_copy.layers = model_copy.layers[:-1]
         model_copy.reduce_output = False
 
-        return(model_copy)
-    
+        return model_copy
 
     def _get_energy_func(self):
         """
@@ -68,16 +76,16 @@ class E3NN(Network):
             Copy of `model`'s last layer
         """
 
-        final_conv  = deepcopy(self)
-        
+        final_conv = deepcopy(self)
+
         conv_kwargs = deepcopy(self.model_parameters)
-        conv_kwargs['layers'] = 0
+        conv_kwargs["layers"] = 0
 
         new_model = Network(**conv_kwargs)
 
         new_model.layers[0] = final_conv.layers[-1]
 
-        return(new_model)
+        return new_model
 
     def _get_delta_strategy(self):
         """
@@ -92,10 +100,10 @@ class E3NN(Network):
             DeltaStrategy built from `model`
         """
 
-        return(DeltaStrategy(self._get_energy_func()))
+        return DeltaStrategy(self._get_energy_func())
 
     @staticmethod
-    def get_model(model=None, model_kwargs=None, strategy: str='delta'):
+    def get_model(model=None, model_kwargs=None, strategy: str = "delta"):
         """
         Exposed function to build a Model object from a E3NN object. If none
         is provided, a default model is initialized.
@@ -124,9 +132,9 @@ class E3NN(Network):
 
         ## Construct strategy module based on model and
         ##  representation (if necessary)
-        if strategy == 'delta':
+        if strategy == "delta":
             strategy = model._get_delta_strategy()
-        elif strategy == 'concat':
+        elif strategy == "concat":
             strategy = ConcatStrategy()
 
-        return(Model(representation, strategy))
+        return Model(representation, strategy)
