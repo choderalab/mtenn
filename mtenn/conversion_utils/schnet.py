@@ -15,7 +15,10 @@ class SchNet(PygSchNet):
         if model is None:
             super(SchNet, self).__init__()
         else:
-            atomref = model.atomref.weight.detach().clone()
+            try:
+                atomref = model.atomref.weight.detach().clone()
+            except AttributeError:
+                atomref = None
             model_params = (
                 model.hidden_channels,
                 model.num_filters,
