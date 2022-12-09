@@ -138,9 +138,10 @@ class DeltaStrategy(Strategy):
     from the complex energy.
     """
 
-    def __init__(self, energy_func):
+    def __init__(self, energy_func, pic50=True):
         super(DeltaStrategy, self).__init__()
         self.energy_func: torch.nn.Module = energy_func
+        self.pic50 = pic50
 
     def forward(self, comp, *parts):
         ## First calculat delta G
@@ -148,7 +149,34 @@ class DeltaStrategy(Strategy):
             [self.energy_func(p) for p in parts]
         )
 
-        return delta_g
+        ## If desired, convert to pIC50 value
+        if self.pic50:
+            return DeltaStrategy._convert_pic50(delta_g)
+        else:
+            return delta_g
+
+    @staticmethod
+    def _convert_pic50(delta_g):
+        """
+        Method to convert a predicted delta G value into a pIC50 value.
+
+        Parameters
+        ----------
+        delta_g : torch.Tensor
+            Input delta G value.
+
+        Returns
+        -------
+        float
+            Calculated pIC50 value.
+        """
+        from simtk.unit import BOLTZMANN_CONSTANT_kB as kB
+
+        ## Assume T = 298K
+        kT = kB * 298
+
+        ## IC50 value = exp(dG/kT) => pic50 = -log10(exp(dg/kT))
+        return -torch.log10(torch.exp(delta_g / kT._value))
 
 
 class ConcatStrategy(Strategy):
