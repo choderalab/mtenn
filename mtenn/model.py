@@ -210,3 +210,15 @@ class ConcatStrategy(Strategy):
         full_embedded = torch.cat([comp, parts_cat], dim=1)
 
         return self.reduce_nn(full_embedded)
+
+
+class BoltzmannCombination(Combination):
+    """
+    Combine a list of deltaG predictions according to their Boltzmann weight.
+    """
+
+    def __init__(self):
+        super(BoltzmannCombination, self).__init__()
+
+    def forward(self, predictions: torch.Tensor):
+        return -kT * torch.log(torch.sum(torch.exp(-predictions)))
