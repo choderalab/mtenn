@@ -82,11 +82,53 @@ class Model(torch.nn.Module):
         return prot_rep, lig_rep
 
 
+class GroupedModel(Model):
+    """
+    Subclass of the above `Model` for use with grouped data, eg multiple docked
+    poses of the same molecule with the same protein. In addition to the
+    `Representation` and `Strategy` modules in the `Model` class, `GroupedModel`
+    also has a `Comination` module, that dictates how the `Model` predictions
+    for each item in the group of data are combined.
+    """
+
+    def __init__(self, representation, strategy, combination):
+        super(GroupedModel, self).__init__(representation, strategy)
+        self.combination: Combination = combination
+
+    def forward(self, input_list):
+        """
+        Forward method for `GroupedModel` class. Will call the `forward` method
+        of `Model` for each entry in `input_list`.
+
+        Parameters
+        ----------
+        input_list : List[Tuple[Dict]]
+            List of tuples of (complex representation, part representations)
+
+        Returns
+        -------
+        torch.Tensor
+            Combination of all predictions
+        """
+        ## Get predictions for all inputs in the list, and combine them in a
+        ##  tensor (while keeping track of gradients)
+        all_reps = torch.stack(
+            [super(GroupedModel, self).forward(inp) for inp in input_list]
+        )
+
+        ## Combine each prediction according to `self.combination`
+        return self.combination(all_reps)
+
+
 class Representation(torch.nn.Module):
     pass
 
 
 class Strategy(torch.nn.Module):
+    pass
+
+
+class Combination(torch.nn.Module):
     pass
 
 
@@ -101,9 +143,12 @@ class DeltaStrategy(Strategy):
         self.energy_func: torch.nn.Module = energy_func
 
     def forward(self, comp, *parts):
-        return self.energy_func(comp) - sum(
+        ## First calculat delta G
+        delta_g = self.energy_func(comp) - sum(
             [self.energy_func(p) for p in parts]
         )
+
+        return delta_g
 
 
 class ConcatStrategy(Strategy):
