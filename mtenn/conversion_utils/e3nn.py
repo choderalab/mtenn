@@ -18,9 +18,9 @@ from ..model import (
 
 
 class E3NN(Network):
-    def __init__(self, model_kwargs, model=None):
-        ## If no model is passed, construct E3NN model with model_kwargs, otherwise copy
-        ##  all parameters and weights over
+    def __init__(self, model=None, model_kwargs=None):
+        ## If no model is passed, construct E3NN model with model_kwargs,
+        ##  otherwise copy all parameters and weights over
         if model is None:
             super(E3NN, self).__init__(**model_kwargs)
             self.model_parameters = model_kwargs
@@ -111,7 +111,15 @@ class E3NN(Network):
         return DeltaStrategy(self._get_energy_func())
 
     @staticmethod
-    def get_model(model=None, model_kwargs=None, strategy: str = "delta"):
+    def get_model(
+        model=None,
+        model_kwargs=None,
+        grouped=False,
+        strategy: str = "delta",
+        combination=None,
+        pred_readout=None,
+        comb_readout=None,
+    ):
         """
         Exposed function to build a Model object from a E3NN object. If none
         is provided, a default model is initialized.
