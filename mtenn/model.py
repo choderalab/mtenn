@@ -117,9 +117,9 @@ class GroupedModel(Model):
             Strategy object to get convert the representations into energy preds.
         combination : Combination
             Combination object for combining the energy predictions.
-        pred_readout : Readout
+        pred_readout : Readout, optional
             Readout object for the energy predictions.
-        comb_readout : Readout
+        comb_readout : Readout, optional
             Readout object for the combination output.
         """
         super(GroupedModel, self).__init__(
@@ -222,6 +222,18 @@ class ConcatStrategy(Strategy):
         full_embedded = torch.cat([comp, parts_cat], dim=1)
 
         return self.reduce_nn(full_embedded)
+
+
+class MeanCombination(Combination):
+    """
+    Combine a list of predictions by taking the mean.
+    """
+
+    def __init__(self):
+        super(MeanCombination, self).__init__()
+
+    def forward(self, predictions: torch.Tensor):
+        return torch.mean(predictions)
 
 
 class BoltzmannCombination(Combination):
