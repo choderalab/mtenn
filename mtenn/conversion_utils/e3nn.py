@@ -115,6 +115,7 @@ class E3NN(Network):
         model=None,
         model_kwargs=None,
         grouped=False,
+        fix_device=False,
         strategy: str = "delta",
         combination=None,
         pred_readout=None,
@@ -133,6 +134,9 @@ class E3NN(Network):
         grouped: bool, default=False
             Whether this model should accept groups of inputs or one input at a
             time.
+        fix_device: bool, default=False
+            If True, make sure the input is on the same device as the model,
+            copying over as necessary.
         strategy: str, default='delta'
             Strategy to use to combine representation of the different parts.
             Options are ['delta', 'concat']
@@ -181,6 +185,7 @@ class E3NN(Network):
                 combination,
                 pred_readout,
                 comb_readout,
+                fix_device,
             )
         else:
-            return Model(representation, strategy, pred_readout)
+            return Model(representation, strategy, pred_readout, fix_device)
