@@ -6,7 +6,15 @@ import torch
 from e3nn import o3
 from e3nn.nn.models.gate_points_2101 import Network
 
-from ..model import ConcatStrategy, DeltaStrategy, Model
+from ..model import (
+    BoltzmannCombination,
+    ConcatStrategy,
+    DeltaStrategy,
+    GroupedModel,
+    MeanCombination,
+    Model,
+    PIC50Readout,
+)
 
 
 class E3NN(Network):
@@ -114,9 +122,21 @@ class E3NN(Network):
             default model will be initialized and used
         model_kwargs: dict, optional
             Dictionary used to initialize E3NN model if model is not passed in
+        grouped: bool, default=False
+            Whether this model should accept groups of inputs or one input at a
+            time.
         strategy: str, default='delta'
             Strategy to use to combine representation of the different parts.
             Options are ['delta', 'concat']
+        combination: Combination, optional
+            Combination object to use to combine predictions in a group. A value
+            must be passed if `grouped` is `True`.
+        pred_readout : Readout
+            Readout object for the energy predictions. If `grouped` is `False`,
+            this option will still be used in the construction of the `Model`
+            object.
+        comb_readout : Readout
+            Readout object for the combination output.
         Returns
         -------
         Model
@@ -132,9 +152,27 @@ class E3NN(Network):
 
         ## Construct strategy module based on model and
         ##  representation (if necessary)
+        strategy = strategy.lower()
         if strategy == "delta":
             strategy = model._get_delta_strategy()
         elif strategy == "concat":
             strategy = ConcatStrategy()
+        else:
+            raise ValueError(f"Unknown strategy: {strategy}")
 
-        return Model(representation, strategy)
+        ## Check on `combination`
+        if grouped and (combination is None):
+            raise ValueError(
+                f"Must pass a value for `combination` if `grouped` is `True`."
+            )
+
+        if grouped:
+            return GroupedModel(
+                representation,
+                strategy,
+                combination,
+                pred_readout,
+                comb_readout,
+            )
+        else:
+            return Model(representation, strategy, pred_readout)

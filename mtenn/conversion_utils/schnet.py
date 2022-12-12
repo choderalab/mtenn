@@ -5,7 +5,15 @@ from copy import deepcopy
 import torch
 from torch_geometric.nn.models import SchNet as PygSchNet
 
-from ..model import ConcatStrategy, DeltaStrategy, Model
+from ..model import (
+    BoltzmannCombination,
+    ConcatStrategy,
+    DeltaStrategy,
+    GroupedModel,
+    MeanCombination,
+    Model,
+    PIC50Readout,
+)
 
 
 class SchNet(PygSchNet):
@@ -95,7 +103,14 @@ class SchNet(PygSchNet):
         return DeltaStrategy(self._get_energy_func())
 
     @staticmethod
-    def get_model(model=None, strategy: str = "delta"):
+    def get_model(
+        model=None,
+        grouped=False,
+        strategy: str = "delta",
+        combination=None,
+        pred_readout=None,
+        comb_readout=None,
+    ):
         """
         Exposed function to build a Model object from a SchNet object. If none
         is provided, a default model is initialized.
@@ -105,9 +120,21 @@ class SchNet(PygSchNet):
         model: SchNet, optional
             SchNet model to use to build the Model object. If left as none, a
             default model will be initialized and used
+        grouped: bool, default=False
+            Whether this model should accept groups of inputs or one input at a
+            time.
         strategy: str, default='delta'
             Strategy to use to combine representation of the different parts.
             Options are ['delta', 'concat']
+        combination: Combination, optional
+            Combination object to use to combine predictions in a group. A value
+            must be passed if `grouped` is `True`.
+        pred_readout : Readout
+            Readout object for the energy predictions. If `grouped` is `False`,
+            this option will still be used in the construction of the `Model`
+            object.
+        comb_readout : Readout
+            Readout object for the combination output.
 
         Returns
         -------
@@ -122,9 +149,27 @@ class SchNet(PygSchNet):
 
         ## Construct strategy module based on model and
         ##  representation (if necessary)
+        strategy = strategy.lower()
         if strategy == "delta":
             strategy = model._get_delta_strategy()
         elif strategy == "concat":
             strategy = ConcatStrategy()
+        else:
+            raise ValueError(f"Unknown strategy: {strategy}")
 
-        return Model(representation, strategy)
+        ## Check on `combination`
+        if grouped and (combination is None):
+            raise ValueError(
+                f"Must pass a value for `combination` if `grouped` is `True`."
+            )
+
+        if grouped:
+            return GroupedModel(
+                representation,
+                strategy,
+                combination,
+                pred_readout,
+                comb_readout,
+            )
+        else:
+            return Model(representation, strategy, pred_readout)
