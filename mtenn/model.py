@@ -66,10 +66,11 @@ class Model(torch.nn.Module):
         if not self.fix_device:
             return data
 
+        device = next(self.parameters()).device
         tmp_data = {}
         for k, v in data.items():
             try:
-                tmp_data[k] = v.to(self.device)
+                tmp_data[k] = v.to(device)
             except AttributeError:
                 tmp_data[k] = v
 
@@ -297,9 +298,16 @@ class PIC50Readout(Readout):
         """
         super(PIC50Readout, self).__init__()
 
-        from simtk.unit import BOLTZMANN_CONSTANT_kB as kB
+        from simtk.unit import (
+            BOLTZMANN_CONSTANT_kB as kB,
+            elementary_charge,
+            coulomb,
+        )
 
-        self.kT = (kB * T)._value
+        ## Convert kB to eV (calibrate to SchNet predictions)
+        electron_volt = elementary_charge.conversion_factor_to(coulomb)
+
+        self.kT = (kB / electron_volt * T)._value
 
     def forward(self, delta_g):
         """
@@ -316,4 +324,10 @@ class PIC50Readout(Readout):
             Calculated pIC50 value.
         """
         ## IC50 value = exp(dG/kT) => pic50 = -log10(exp(dg/kT))
-        return -torch.log10(torch.exp(delta_g / self.kT))
+        ## Rearrange a bit more to avoid disappearing floats:
+        ##  pic50 = -dg/kT / ln(10)
+        return (
+            -delta_g
+            / self.kT
+            / torch.log(torch.tensor(10, dtype=delta_g.dtype))
+        )
