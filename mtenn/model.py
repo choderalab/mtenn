@@ -11,10 +11,11 @@ class Model(torch.nn.Module):
     representations, and convert to a final scalar value.
     """
 
-    def __init__(self, representation, strategy):
+    def __init__(self, representation, strategy, readout=None):
         super(Model, self).__init__()
         self.representation: Representation = representation
         self.strategy: Strategy = strategy
+        self.readout: Readout = readout
 
     def get_representation(self, *args, **kwargs):
         """
@@ -39,7 +40,11 @@ class Model(torch.nn.Module):
             parts = Model._split_parts(comp)
         parts_rep = [self.get_representation(p) for p in parts]
 
-        return self.strategy(complex_rep, *parts_rep)
+        energy_val = self.strategy(complex_rep, *parts_rep)
+        if self.readout:
+            return self.readout(energy_val)
+        else:
+            return energy_val
 
     @staticmethod
     def _split_parts(comp):
@@ -91,9 +96,37 @@ class GroupedModel(Model):
     for each item in the group of data are combined.
     """
 
-    def __init__(self, representation, strategy, combination):
-        super(GroupedModel, self).__init__(representation, strategy)
-        self.combination: Combination = combination
+    def __init__(
+        self,
+        representation,
+        strategy,
+        combination,
+        pred_readout=None,
+        comb_readout=None,
+    ):
+        """
+        The `representation`, `strategy`, and `pred_readout` options will be used
+        to initialize the underlying `Model` object, while the `combination` and
+        `comb_readout` modules will be applied to the output of the `Model` preds.
+
+        Parameters
+        ----------
+        representation : Representation
+            Representation object to get the representation of the input data.
+        strategy : Strategy
+            Strategy object to get convert the representations into energy preds.
+        combination : Combination
+            Combination object for combining the energy predictions.
+        pred_readout : Readout
+            Readout object for the energy predictions.
+        comb_readout : Readout
+            Readout object for the combination output.
+        """
+        super(GroupedModel, self).__init__(
+            representation, strategy, pred_readout
+        )
+        self.combination = combination
+        self.readout = comb_readout
 
     def forward(self, input_list):
         """
@@ -117,7 +150,11 @@ class GroupedModel(Model):
         )
 
         ## Combine each prediction according to `self.combination`
-        return self.combination(all_reps)
+        comb_pred = self.combination(all_reps)
+        if self.readout:
+            return self.readout(comb_pred)
+        else:
+            return comb_pred
 
 
 class Representation(torch.nn.Module):
@@ -129,6 +166,10 @@ class Strategy(torch.nn.Module):
 
 
 class Combination(torch.nn.Module):
+    pass
+
+
+class Readout(torch.nn.Module):
     pass
 
 
@@ -144,39 +185,10 @@ class DeltaStrategy(Strategy):
         self.pic50 = pic50
 
     def forward(self, comp, *parts):
-        ## First calculat delta G
-        delta_g = self.energy_func(comp) - sum(
+        ## Calculat delta G
+        return self.energy_func(comp) - sum(
             [self.energy_func(p) for p in parts]
         )
-
-        ## If desired, convert to pIC50 value
-        if self.pic50:
-            return DeltaStrategy._convert_pic50(delta_g)
-        else:
-            return delta_g
-
-    @staticmethod
-    def _convert_pic50(delta_g):
-        """
-        Method to convert a predicted delta G value into a pIC50 value.
-
-        Parameters
-        ----------
-        delta_g : torch.Tensor
-            Input delta G value.
-
-        Returns
-        -------
-        float
-            Calculated pIC50 value.
-        """
-        from simtk.unit import BOLTZMANN_CONSTANT_kB as kB
-
-        ## Assume T = 298K
-        kT = kB * 298
-
-        ## IC50 value = exp(dG/kT) => pic50 = -log10(exp(dg/kT))
-        return -torch.log10(torch.exp(delta_g / kT._value))
 
 
 class ConcatStrategy(Strategy):
@@ -222,3 +234,41 @@ class BoltzmannCombination(Combination):
 
     def forward(self, predictions: torch.Tensor):
         return -kT * torch.log(torch.sum(torch.exp(-predictions)))
+
+
+class PIC50Readout(Readout):
+    """
+    Readout implementation to convert delta G values to pIC50 values.
+    """
+
+    def __init__(self, T=298.0):
+        """
+        Initialize conversion with specified T (assume 298 K).
+
+        Parameters
+        ----------
+        T : float, default=298
+            Temperature for conversion.
+        """
+        super(PIC50Readout, self).__init__()
+
+        from simtk.unit import BOLTZMANN_CONSTANT_kB as kB
+
+        self.kT = (kB * T)._value
+
+    def forward(self, delta_g):
+        """
+        Method to convert a predicted delta G value into a pIC50 value.
+
+        Parameters
+        ----------
+        delta_g : torch.Tensor
+            Input delta G value.
+
+        Returns
+        -------
+        float
+            Calculated pIC50 value.
+        """
+        ## IC50 value = exp(dG/kT) => pic50 = -log10(exp(dg/kT))
+        return -torch.log10(torch.exp(delta_g / self.kT))
