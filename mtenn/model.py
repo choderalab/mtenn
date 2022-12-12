@@ -11,11 +11,22 @@ class Model(torch.nn.Module):
     representations, and convert to a final scalar value.
     """
 
-    def __init__(self, representation, strategy, readout=None):
+    def __init__(
+        self, representation, strategy, readout=None, fix_device=False
+    ):
+        """
+        Parameters
+        ----------
+        fix_device: bool, default=False
+            If True, make sure the input is on the same device as the model,
+            copying over as necessary.
+        """
         super(Model, self).__init__()
         self.representation: Representation = representation
         self.strategy: Strategy = strategy
         self.readout: Readout = readout
+
+        self.fix_device = fix_device
 
     def get_representation(self, *args, **kwargs):
         """
@@ -34,17 +45,35 @@ class Model(torch.nn.Module):
     def forward(self, comp, *parts):
         ## This implementation of the forward function assumes the
         ##  get_representation function takes a single data object
-        complex_rep = self.get_representation(comp)
+        tmp_comp = self._fix_device(comp)
+        complex_rep = self.get_representation(tmp_comp)
 
         if len(parts) == 0:
-            parts = Model._split_parts(comp)
-        parts_rep = [self.get_representation(p) for p in parts]
+            parts = Model._split_parts(tmp_comp)
+        parts_rep = [
+            self.get_representation(self._fix_device(p)) for p in parts
+        ]
 
         energy_val = self.strategy(complex_rep, *parts_rep)
         if self.readout:
             return self.readout(energy_val)
         else:
             return energy_val
+
+    def _fix_device(self, data):
+        ## We'll call this on everything for uniformity, but if we fix_deivec is
+        ##  False we can just return
+        if not self.fix_device:
+            return data
+
+        tmp_data = {}
+        for k, v in data.items():
+            try:
+                tmp_data[k] = v.to(self.device)
+            except AttributeError:
+                tmp_data[k] = v
+
+        return tmp_data
 
     @staticmethod
     def _split_parts(comp):
@@ -103,6 +132,7 @@ class GroupedModel(Model):
         combination,
         pred_readout=None,
         comb_readout=None,
+        fix_device=False,
     ):
         """
         The `representation`, `strategy`, and `pred_readout` options will be used
@@ -121,9 +151,12 @@ class GroupedModel(Model):
             Readout object for the energy predictions.
         comb_readout : Readout, optional
             Readout object for the combination output.
+        fix_device: bool, default=False
+            If True, make sure the input is on the same device as the model,
+            copying over as necessary.
         """
         super(GroupedModel, self).__init__(
-            representation, strategy, pred_readout
+            representation, strategy, pred_readout, fix_device
         )
         self.combination = combination
         self.readout = comb_readout
