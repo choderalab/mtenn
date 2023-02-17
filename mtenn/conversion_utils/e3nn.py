@@ -50,13 +50,16 @@ class E3NN(Network):
         copy["x"] = torch.clone(x)
         return copy
 
-    def _get_representation(self):
+    def _get_representation(self, reduce_output=False):
         """
         Input model, remove last layer.
         Parameters
         ----------
-        model: E3NN
-            e3nn model
+        reduce_output: bool, default=False
+            Whether to reduce output across nodes. This should be set to True
+            if you want a uniform size tensor for every input size (eg when
+            using a ConcatStrategy).
+
         Returns
         -------
         E3NN
@@ -67,7 +70,7 @@ class E3NN(Network):
         model_copy = deepcopy(self)
         ## Remove last layer
         model_copy.layers = model_copy.layers[:-1]
-        model_copy.reduce_output = False
+        model_copy.reduce_output = reduce_output
 
         return model_copy
 
@@ -97,18 +100,28 @@ class E3NN(Network):
 
     def _get_delta_strategy(self):
         """
-        Build a DeltaStrategy object based on the passed model.
-        Parameters
-        ----------
-        model: E3NN
-            e3nn model
+        Build a DeltaStrategy object based on the calling model.
+
         Returns
         -------
         DeltaStrategy
-            DeltaStrategy built from `model`
+            DeltaStrategy built from the model
         """
 
         return DeltaStrategy(self._get_energy_func())
+
+    def _get_concat_strategy(self):
+        """
+        Build a ConcatStrategy object using the key "x" to extract the tensor
+        representation from the data dict.
+
+        Returns
+        -------
+        ConcatStrategy
+            ConcatStrategy for the model
+        """
+
+        return ConcatStrategy(extract_key="x")
 
     @staticmethod
     def get_model(
@@ -124,6 +137,7 @@ class E3NN(Network):
         """
         Exposed function to build a Model object from a E3NN object. If none
         is provided, a default model is initialized.
+
         Parameters
         ----------
         model: E3NN, optional
@@ -159,18 +173,20 @@ class E3NN(Network):
         if model is None:
             model = E3NN(model_kwargs)
 
-        ## First get representation module
-        representation = model._get_representation()
-
         ## Construct strategy module based on model and
         ##  representation (if necessary)
         strategy = strategy.lower()
         if strategy == "delta":
             strategy = model._get_delta_strategy()
+            reduce_output = False
         elif strategy == "concat":
-            strategy = ConcatStrategy()
+            strategy = model._get_concat_strategy()
+            reduce_output = True
         else:
             raise ValueError(f"Unknown strategy: {strategy}")
+
+        ## Get representation module
+        representation = model._get_representation(reduce_output=reduce_output)
 
         ## Check on `combination`
         if grouped and (combination is None):
