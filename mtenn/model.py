@@ -291,8 +291,19 @@ class BoltzmannCombination(Combination):
     def __init__(self):
         super(BoltzmannCombination, self).__init__()
 
+        from simtk.unit import (
+            BOLTZMANN_CONSTANT_kB as kB,
+            elementary_charge,
+            coulomb,
+        )
+
+        ## Convert kB to eV (calibrate to SchNet predictions)
+        electron_volt = elementary_charge.conversion_factor_to(coulomb)
+
+        self.kT = (kB / electron_volt * 298.0)._value
+
     def forward(self, predictions: torch.Tensor):
-        return -kT * torch.log(torch.sum(torch.exp(-predictions)))
+        return -self.kT * torch.logsumexp(-predictions, dim=0)
 
 
 class PIC50Readout(Readout):
