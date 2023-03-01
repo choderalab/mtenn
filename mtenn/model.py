@@ -1,5 +1,6 @@
 from copy import deepcopy
 from itertools import permutations
+import os
 import torch
 
 
@@ -107,10 +108,6 @@ class Model(torch.nn.Module):
                 prot_rep[k] = v
                 lig_rep[k] = v
             else:
-                # prot_idx = torch.arange(len(idx))[~idx].to(v.device)
-                # lig_idx = torch.arange(len(idx))[idx].to(v.device)
-                # prot_rep[k] = torch.index_select(v, 0, prot_idx)
-                # lig_rep[k] = torch.index_select(v, 0, lig_idx)
                 prot_rep[k] = v[~idx]
                 lig_rep[k] = v[idx]
 
@@ -232,28 +229,44 @@ class ConcatStrategy(Strategy):
     of the parts.
     """
 
-    def __init__(self):
+    def __init__(self, extract_key=None):
+        """
+        Parameters
+        ----------
+        extract_key : str, optional
+            Key to use to extract representation from a dict
+        """
         super(ConcatStrategy, self).__init__()
         self.reduce_nn: torch.nn.Module = None
+        self.extract_key = extract_key
 
     def forward(self, comp, *parts):
-        parts_size = sum([p.shape[1] for p in parts])
+        ## Extract representation from dict
+        if self.extract_key:
+            comp = comp[self.extract_key]
+            parts = [p[self.extract_key] for p in parts]
+
+        ## Flatten tensors
+        comp = comp.flatten()
+        parts = [p.flatten() for p in parts]
+
+        parts_size = sum([len(p) for p in parts])
         if self.reduce_nn is None:
             ## These should already by representations, so initialize a Linear
             ##  module with appropriate input size
-            input_size = comp.shape[1] + parts_size
+            input_size = len(comp) + parts_size
             self.reduce_nn = torch.nn.Linear(input_size, 1)
 
         ## Move self.reduce_nn to appropriate torch device
         self.reduce_nn = self.reduce_nn.to(comp.device)
 
         ## Enumerate all possible permutations of parts and add together
-        parts_cat = torch.zeros((1, parts_size), device=comp.device)
+        parts_cat = torch.zeros((parts_size), device=comp.device)
         for idxs in permutations(range(len(parts)), len(parts)):
-            parts_cat += torch.cat([parts[i] for i in idxs], dim=1)
+            parts_cat += torch.cat([parts[i] for i in idxs])
 
         ## Concat comp w/ permut-invariant parts representation
-        full_embedded = torch.cat([comp, parts_cat], dim=1)
+        full_embedded = torch.cat([comp, parts_cat])
 
         return self.reduce_nn(full_embedded)
 
