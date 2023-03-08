@@ -6,13 +6,21 @@ import torch
 from e3nn import o3
 from e3nn.nn.models.gate_points_2101 import Network
 
-from ..model import ConcatStrategy, DeltaStrategy, Model
+from ..model import (
+    BoltzmannCombination,
+    ConcatStrategy,
+    DeltaStrategy,
+    GroupedModel,
+    MeanCombination,
+    Model,
+    PIC50Readout,
+)
 
 
 class E3NN(Network):
-    def __init__(self, model_kwargs, model=None):
-        ## If no model is passed, construct E3NN model with model_kwargs, otherwise copy
-        ##  all parameters and weights over
+    def __init__(self, model=None, model_kwargs=None):
+        ## If no model is passed, construct E3NN model with model_kwargs,
+        ##  otherwise copy all parameters and weights over
         if model is None:
             super(E3NN, self).__init__(**model_kwargs)
             self.model_parameters = model_kwargs
@@ -42,13 +50,16 @@ class E3NN(Network):
         copy["x"] = torch.clone(x)
         return copy
 
-    def _get_representation(self):
+    def _get_representation(self, reduce_output=False):
         """
         Input model, remove last layer.
         Parameters
         ----------
-        model: E3NN
-            e3nn model
+        reduce_output: bool, default=False
+            Whether to reduce output across nodes. This should be set to True
+            if you want a uniform size tensor for every input size (eg when
+            using a ConcatStrategy).
+
         Returns
         -------
         E3NN
@@ -59,7 +70,7 @@ class E3NN(Network):
         model_copy = deepcopy(self)
         ## Remove last layer
         model_copy.layers = model_copy.layers[:-1]
-        model_copy.reduce_output = False
+        model_copy.reduce_output = reduce_output
 
         return model_copy
 
@@ -89,24 +100,44 @@ class E3NN(Network):
 
     def _get_delta_strategy(self):
         """
-        Build a DeltaStrategy object based on the passed model.
-        Parameters
-        ----------
-        model: E3NN
-            e3nn model
+        Build a DeltaStrategy object based on the calling model.
+
         Returns
         -------
         DeltaStrategy
-            DeltaStrategy built from `model`
+            DeltaStrategy built from the model
         """
 
         return DeltaStrategy(self._get_energy_func())
 
+    def _get_concat_strategy(self):
+        """
+        Build a ConcatStrategy object using the key "x" to extract the tensor
+        representation from the data dict.
+
+        Returns
+        -------
+        ConcatStrategy
+            ConcatStrategy for the model
+        """
+
+        return ConcatStrategy(extract_key="x")
+
     @staticmethod
-    def get_model(model=None, model_kwargs=None, strategy: str = "delta"):
+    def get_model(
+        model=None,
+        model_kwargs=None,
+        grouped=False,
+        fix_device=False,
+        strategy: str = "delta",
+        combination=None,
+        pred_readout=None,
+        comb_readout=None,
+    ):
         """
         Exposed function to build a Model object from a E3NN object. If none
         is provided, a default model is initialized.
+
         Parameters
         ----------
         model: E3NN, optional
@@ -114,9 +145,24 @@ class E3NN(Network):
             default model will be initialized and used
         model_kwargs: dict, optional
             Dictionary used to initialize E3NN model if model is not passed in
+        grouped: bool, default=False
+            Whether this model should accept groups of inputs or one input at a
+            time.
+        fix_device: bool, default=False
+            If True, make sure the input is on the same device as the model,
+            copying over as necessary.
         strategy: str, default='delta'
             Strategy to use to combine representation of the different parts.
             Options are ['delta', 'concat']
+        combination: Combination, optional
+            Combination object to use to combine predictions in a group. A value
+            must be passed if `grouped` is `True`.
+        pred_readout : Readout
+            Readout object for the energy predictions. If `grouped` is `False`,
+            this option will still be used in the construction of the `Model`
+            object.
+        comb_readout : Readout
+            Readout object for the combination output.
         Returns
         -------
         Model
@@ -127,14 +173,35 @@ class E3NN(Network):
         if model is None:
             model = E3NN(model_kwargs)
 
-        ## First get representation module
-        representation = model._get_representation()
-
         ## Construct strategy module based on model and
         ##  representation (if necessary)
+        strategy = strategy.lower()
         if strategy == "delta":
             strategy = model._get_delta_strategy()
+            reduce_output = False
         elif strategy == "concat":
-            strategy = ConcatStrategy()
+            strategy = model._get_concat_strategy()
+            reduce_output = True
+        else:
+            raise ValueError(f"Unknown strategy: {strategy}")
 
-        return Model(representation, strategy)
+        ## Get representation module
+        representation = model._get_representation(reduce_output=reduce_output)
+
+        ## Check on `combination`
+        if grouped and (combination is None):
+            raise ValueError(
+                f"Must pass a value for `combination` if `grouped` is `True`."
+            )
+
+        if grouped:
+            return GroupedModel(
+                representation,
+                strategy,
+                combination,
+                pred_readout,
+                comb_readout,
+                fix_device,
+            )
+        else:
+            return Model(representation, strategy, pred_readout, fix_device)
