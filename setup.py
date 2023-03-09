@@ -39,16 +39,25 @@ setup(
     # Customize MANIFEST.in if the general case does not suit your needs
     # Comment out this line to prevent the files from being packaged with your software
     include_package_data=True,
-    # # Allows `setup.py test` to work correctly with pytest
+    # Allows `setup.py test` to work correctly with pytest
     setup_requires=[] + pytest_runner,
-    # # required packages
-    # install_requires=[],
-    # platforms=[
-    #     "Linux",
-    #     "Mac OS-X",
-    #     "Unix",
-    #     "Windows",
-    # ],  # Valid platforms your code works on, adjust to your flavor
+    # required packages
+    install_requires=[
+        "h5py",
+        "numpy",
+        "torch",
+        "torch-cluster",
+        "torch-scatter",
+        "torch-sparse",
+        "torch-geometric",
+        "e3nn"
+    ],
+    platforms=[
+        "Linux",
+        "Mac OS-X",
+        "Unix",
+        "Windows",
+    ],  # Valid platforms your code works on, adjust to your flavor
     python_requires=">=3.8",  # Python version restrictions
     # Manual control if final package is compressible or not, set False to prevent the .egg from being made
     # zip_safe=False,
