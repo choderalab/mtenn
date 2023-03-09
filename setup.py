@@ -38,19 +38,11 @@ setup(
     # Optional include package data to ship with your package
     # Customize MANIFEST.in if the general case does not suit your needs
     # Comment out this line to prevent the files from being packaged with your software
-    # include_package_data=True,
+    include_package_data=True,
     # # Allows `setup.py test` to work correctly with pytest
-    # setup_requires=[] + pytest_runner,
+    setup_requires=[] + pytest_runner,
     # # required packages
-    # install_requires=[
-    #     # "h5py",
-    #     # "numpy",
-    #     # "torch-cluster",
-    #     # "torch-scatter",
-    #     # "torch-sparse",
-    #     # "torch-geometric",
-    #     # "e3nn",
-    # ],
+    # install_requires=[],
     # platforms=[
     #     "Linux",
     #     "Mac OS-X",
