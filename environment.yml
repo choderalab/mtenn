@@ -1,14 +1,6 @@
 name: mtenn-env
 channels:
-  - conda-forge
-  - defaults
-  - pyg
-dependencies:
-  - h5py
-  - numpy
   - pytorch
-  - pytorch-cluster
-  - pytorch-scatter
-  - pytorch-sparse
-  - pyg
-  - e3nn
+dependencies:
+  - pytorch
+  
