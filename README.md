@@ -93,9 +93,10 @@ conda env create --file environment.yml
 conda activate mtenn
 ```
 
+Installation of pytorch **MUST** be done before installing the package itself.
 See the pytorch documentation on how to best install pytorch for your system.
 
- To install the package, run
+ To install mtenn and its dependencies (excluding pytorch), run
 ```bash
 pip install -e .
 ```
