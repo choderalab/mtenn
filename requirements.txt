@@ -1,0 +1,8 @@
+h5py
+numpy
+torch
+torch-cluster
+torch-scatter
+torch-sparse
+torch-geometric
+e3nn
