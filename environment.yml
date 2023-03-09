@@ -1,4 +1,4 @@
-name: mtenn-env
+name: mtenn
 channels:
   - pytorch
 dependencies:
