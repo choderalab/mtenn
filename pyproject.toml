@@ -1,22 +1,23 @@
 ## pyproject.toml file for setuptools
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools", "versioneer[toml]>=0.26"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "mtenn"
+dynamic = ["version"]
 authors = [
     {name = "Benjamin Kaminow", email = "benjamin.kaminow@choderalab.org"}
 ]
 description = "Modular Training and Evaluation of Neural Networks"
 readme = "README.md"
-version = "0.0.0"
-requires-python = ">=3"
+requires-python = ">=3.8"
 license = {text = "MIT"}
 dependencies = [
     "h5py",
     "numpy",
     "torch",
+    "torch-cluster",
     "torch-scatter",
     "torch-sparse",
     "torch-geometric",
@@ -26,3 +27,11 @@ urls = {github = "https://github.com/choderalab/mtenn/"}
 
 [tool.setuptools.packages.find]
 exclude = ["mtenn.tests"]
+
+[tool.versioneer]
+VCS = "git"
+style = "pep440"
+versionfile_source = "mtenn/_version.py"
+versionfile_build = "mtenn/_version.py"
+tag_prefix = ""
+parentdir_prefix = "mtenn-"
