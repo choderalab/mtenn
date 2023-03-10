@@ -47,7 +47,7 @@ jobs:
 
         channels: conda-forge,defaults
 
-        activate-environment: test
+        activate-environment: mtenn
         auto-update-conda: false
         auto-activate-base: false
         show-channel-urls: true
@@ -67,7 +67,7 @@ jobs:
       shell: bash -l {0}
 
       run: |
-        pytest -v --cov=mtenn --cov-report=xml --color=yes mtenn/tests/
+        python -m pip install pytest && pytest -v --cov=mtenn --cov-report=xml --color=yes mtenn/tests/
 
     - name: CodeCov
       uses: codecov/codecov-action@v1
