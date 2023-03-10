@@ -85,7 +85,7 @@ print(f'Using concat Model: {concat_e.item():0.5f}')
 
 ### Installation
 
-Installation of pytorch is required. We provide a minimal environment file to install pytorch for conda users in ```environment.yml```. You should create a new environment
+Installation of pytorch is required. We provide a minimal environment file to install pytorch and conda dependencies for conda users in ```environment.yml```. You should create a new environment
 like so:
 
 ```bash
@@ -93,18 +93,15 @@ conda env create --file environment.yml
 conda activate mtenn
 ```
 
-Installation of pytorch **MUST** be done before installing the package itself.
-See the pytorch documentation on how to best install pytorch for your system.
+If not using conda an installation of pytorch **MUST** be done before installing the package itself. See the pytorch documentation on how to best install pytorch for your system.
 
  To install mtenn and its dependencies (excluding pytorch), run
 ```bash
 pip install -e .
 ```
 
-For some of the `mtenn` dependencies do not come with pre-built wheels for all
-platforms, so pip may need to build them from source. This requires a C++ compiler
-and may take a while. For advanced users you can directly install the dependency
-packages listed in the `requirements.txt` using manually specified wheels you can find on `https://data.pyg.org/whl/`.
+If not using conda some of the `mtenn` dependencies do not come with pre-built wheels for all platforms, so pip may need to build them from source. This requires a C++ compiler and may take a while.
+For advanced users you can directly install the dependency packages listed in the `requirements.txt` using manually specified wheels you can find on `https://data.pyg.org/whl/`.
 
 If compatibility is proving difficult you may need to purge your pip cache
 
