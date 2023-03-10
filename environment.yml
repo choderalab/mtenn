@@ -1,5 +1,14 @@
 name: mtenn
 channels:
   - pytorch
+  - pyg
+  - conda-forge
 dependencies:
   - pytorch
+  - pyg
+  - pytorch-cluster
+  - pytorch-scatter
+  - pytorch-sparse
+  - numpy
+  - h5py
+  - e3nn
