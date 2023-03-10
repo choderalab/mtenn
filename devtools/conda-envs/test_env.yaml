@@ -1,20 +1,19 @@
 name: test
 channels:
-
+  - pytorch
+  - pyg
   - conda-forge
-
-  - defaults
 dependencies:
-    # Base depends
-  - python
-  - pip
-
-    # Testing
+  - pytorch
+  - pyg
+  - pytorch-cluster
+  - pytorch-scatter
+  - pytorch-sparse
+  - numpy
+  - h5py
+  - e3nn
+  # testing dependencies
   - pytest
   - pytest-cov
   - codecov
-
-    # Pip-only installs
-  #- pip:
-  #  - codecov
 
