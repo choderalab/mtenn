@@ -106,7 +106,12 @@ platforms, so pip may need to build them from source. This requires a C++ compil
 and may take a while. For advanced users you can directly install the dependency
 packages listed in the `requirements.txt` using manually specified wheels you can find on `https://data.pyg.org/whl/`.
 
-If compatibiliyt is
+If compatibility is proving difficult you may need to purge your pip cache
+
+```bash
+pip cache purge
+```
+
 
 #### Acknowledgements
 
