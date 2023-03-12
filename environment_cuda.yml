@@ -1,0 +1,15 @@
+name: mtenn
+channels:
+  - pytorch
+  - pyg
+  - conda-forge
+  - nvidia
+dependencies:
+  - pytorch-cuda
+  - pyg
+  - pytorch-cluster
+  - pytorch-scatter
+  - pytorch-sparse
+  - numpy
+  - h5py
+  - e3nn
