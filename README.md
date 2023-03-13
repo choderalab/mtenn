@@ -93,6 +93,14 @@ conda env create --file environment.yml
 conda activate mtenn
 ```
 
+Training and inference is often faster using the GPU version of pytorch.
+We provide a minimal environment file to install GPU versions of pytorch and conda dependencies for conda users in ```environment_cuda.yml```. You should create a new environment like so:
+
+ ```bash
+conda env create --file environment-cuda.yml
+conda activate mtenn-cuda
+```
+
 If not using conda an installation of pytorch **MUST** be done before installing the package itself. See the pytorch documentation on how to best install pytorch for your system.
 
  To install mtenn and its dependencies (excluding pytorch), run
