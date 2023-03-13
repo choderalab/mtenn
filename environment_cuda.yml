@@ -1,4 +1,4 @@
-name: mtenn
+name: mtenn-cuda
 channels:
   - pytorch
   - pyg
