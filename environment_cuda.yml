@@ -5,6 +5,7 @@ channels:
   - conda-forge
   - nvidia
 dependencies:
+  - pytorch
   - pytorch-cuda
   - pyg
   - pytorch-cluster
