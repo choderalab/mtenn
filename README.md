@@ -94,7 +94,7 @@ conda activate mtenn
 ```
 
 Training and inference is often faster using the GPU version of pytorch.
-We provide a minimal environment file to install GPU versions of pytorch and conda dependencies for conda users in ```environment_cuda.yml```. You should create a new environment like so:
+We provide a minimal environment file to install GPU versions of pytorch and conda dependencies for conda users in ```environment-gpu.yml```. You should create a new environment like so:
 
  ```bash
 conda env create --file environment-gpu.yml
