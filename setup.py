@@ -42,16 +42,7 @@ setup(
     # Allows `setup.py test` to work correctly with pytest
     setup_requires=[] + pytest_runner,
     # required packages
-    install_requires=[
-        "h5py",
-        "numpy",
-        "torch",
-        "torch-cluster",
-        "torch-scatter",
-        "torch-sparse",
-        "torch-geometric",
-        "e3nn"
-    ],
+    install_requires=[],
     platforms=[
         "Linux",
         "Mac OS-X",
