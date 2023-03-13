@@ -1,0 +1,13 @@
+name: mtenn-gpu
+channels:
+  - conda-forge
+dependencies:
+  - pytorch
+  - pytorch-gpu
+  - pytorch_geometric
+  - pytorch_cluster
+  - pytorch_scatter
+  - pytorch_sparse
+  - numpy
+  - h5py
+  - e3nn
