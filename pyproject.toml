@@ -1,6 +1,6 @@
 ## pyproject.toml file for setuptools
 [build-system]
-requires = ["setuptools", "versioneer[toml]>=0.26"]
+requires = ["setuptools", "versioningit~=2.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -13,16 +13,31 @@ description = "Modular Training and Evaluation of Neural Networks"
 readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
-dependencies = []
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Development Status :: 3 - Alpha"
+]
 urls = {github = "https://github.com/choderalab/mtenn/"}
+dependencies = []
 
 [tool.setuptools.packages.find]
 exclude = ["mtenn.tests"]
 
-[tool.versioneer]
-VCS = "git"
-style = "pep440"
-versionfile_source = "mtenn/_version.py"
-versionfile_build = "mtenn/_version.py"
-tag_prefix = ""
-parentdir_prefix = "mtenn-"
+[tool.versioningit]
+default-version = "1+unknown"
+
+[tool.versioningit.format]
+distance = "{base_version}+{distance}.{vcs}{rev}"
+dirty = "{base_version}+{distance}.{vcs}{rev}.dirty"
+distance-dirty = "{base_version}+{distance}.{vcs}{rev}.dirty"
+
+[tool.versioningit.vcs]
+# The method key:
+method = "git"  # <- The method name
+# Parameters to pass to the method:
+match = ["*"]
+default-tag = "0.0.0"
+
+[tool.versioningit.write]
+file = "mtenn/_version.py"
