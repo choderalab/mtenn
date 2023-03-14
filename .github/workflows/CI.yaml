@@ -40,8 +40,7 @@ jobs:
 
 
     # More info on options: https://github.com/conda-incubator/setup-miniconda
-    - name: Setup Conda (linux, macos)
-      if: matrix.os != 'windows-latest'
+    - name: Setup Conda
       uses: conda-incubator/setup-miniconda@v2
       with:
         python-version: ${{ matrix.python-version }}
@@ -52,18 +51,6 @@ jobs:
         auto-activate-base: false
         show-channel-urls: true
     
-    - name: Setup Conda (windows)
-      if: matrix.os == 'windows-latest'
-      uses: conda-incubator/setup-miniconda@v2
-      with:
-        python-version: ${{ matrix.python-version }}
-        environment-file: devtools/conda-envs/test_env_windows.yaml
-
-        activate-environment: test
-        auto-update-conda: false
-        auto-activate-base: false
-        show-channel-urls: true
-
     - name: Install package
 
       # conda setup requires this special shell
