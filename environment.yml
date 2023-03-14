@@ -1,4 +1,4 @@
-name: test
+name: mtenn
 channels:
   - conda-forge
 dependencies:
@@ -10,8 +10,3 @@ dependencies:
   - numpy
   - h5py
   - e3nn
-  # testing dependencies
-  - pytest
-  - pytest-cov
-  - codecov
-

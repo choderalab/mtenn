@@ -1,1 +1,2 @@
-mtenn/_version.py export-subst
+*/_version_git.py export-subst
+
