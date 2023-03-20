@@ -47,6 +47,9 @@ coverage.xml
 *.cover
 .hypothesis/
 
+# In-tree generated files
+*/_version.py
+
 # Translations
 *.mo
 *.pot
