@@ -87,9 +87,10 @@ class GAT(torch.nn.Module):
         )
 
     def forward(self, data):
-        return torch.reshape(
-            super(GAT, self).forward(data["g"], data["g"].ndata["h"]), (-1, 1)
-        )
+        g = data["g"]
+        node_feats = self.gnn(g, g.ndata["h"])
+        graph_feats = self.readout(g, node_feats)
+        return self.predict(graph_feats)
 
     def _get_representation(self):
         """
@@ -118,25 +119,12 @@ class GAT(torch.nn.Module):
 
         return torch.nn.Sequential(deepcopy(self.readout), deepcopy(self.predict))
 
-    def _get_delta_strategy(self):
-        """
-        Build a DeltaStrategy object based on the passed model.
-
-        Returns
-        -------
-        DeltaStrategy
-            DeltaStrategy built from `model`
-        """
-
-        return DeltaStrategy(self._get_energy_func())
-
     @staticmethod
     def get_model(
         *args,
         model=None,
         grouped=False,
         fix_device=False,
-        strategy: str = "delta",
         combination=None,
         pred_readout=None,
         comb_readout=None,
@@ -156,9 +144,6 @@ class GAT(torch.nn.Module):
         fix_device: bool, default=False
             If True, make sure the input is on the same device as the model,
             copying over as necessary.
-        strategy: str, default='delta'
-            Strategy to use to combine representation of the different parts.
-            Options are ['delta', 'concat']
         combination: Combination, optional
             Combination object to use to combine predictions in a group. A value
             must be passed if `grouped` is `True`.
@@ -180,15 +165,8 @@ class GAT(torch.nn.Module):
         ## First get representation module
         representation = model._get_representation()
 
-        ## Construct strategy module based on model and
-        ##  representation (if necessary)
-        strategy = strategy.lower()
-        if strategy == "delta":
-            strategy = model._get_delta_strategy()
-        elif strategy == "concat":
-            strategy = ConcatStrategy()
-        else:
-            raise ValueError(f"Unknown strategy: {strategy}")
+        ## No strategy since ligand-only, so just pass energy function
+        strategy = model._get_energy_func()
 
         ## Check on `combination`
         if grouped and (combination is None):
