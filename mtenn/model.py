@@ -12,9 +12,7 @@ class Model(torch.nn.Module):
     representations, and convert to a final scalar value.
     """
 
-    def __init__(
-        self, representation, strategy, readout=None, fix_device=False
-    ):
+    def __init__(self, representation, strategy, readout=None, fix_device=False):
         """
         Parameters
         ----------
@@ -51,9 +49,7 @@ class Model(torch.nn.Module):
 
         if len(parts) == 0:
             parts = Model._split_parts(tmp_comp)
-        parts_rep = [
-            self.get_representation(self._fix_device(p)) for p in parts
-        ]
+        parts_rep = [self.get_representation(self._fix_device(p)) for p in parts]
 
         energy_val = self.strategy(complex_rep, *parts_rep)
         if self.readout:
@@ -205,6 +201,40 @@ class GroupedModel(Model):
             return comb_pred
 
 
+class LigandOnlyModel(Model):
+    """
+    A ligand-only version of the Model. In this case, the `representation` block will
+    hold the entire model, while the `strategy` block will simply be set as an Identity
+    module.
+    """
+
+    def __init__(self, model, readout=None, fix_device=False):
+        """
+        Parameters
+        ----------
+        fix_device: bool, default=False
+            If True, make sure the input is on the same device as the model,
+            copying over as necessary.
+        """
+        super(LigandOnlyModel, self).__init__(
+            representation=model,
+            strategy=torch.nn.Identity(),
+            readout=readout,
+            fix_device=fix_device,
+        )
+
+    def forward(self, rep):
+        ## This implementation of the forward function assumes the
+        ##  get_representation function takes a single data object
+        tmp_rep = self._fix_device(rep)
+        pred = self.get_representation(tmp_rep)
+
+        if self.readout:
+            return self.readout(pred)
+        else:
+            return pred
+
+
 class Representation(torch.nn.Module):
     pass
 
@@ -234,9 +264,7 @@ class DeltaStrategy(Strategy):
 
     def forward(self, comp, *parts):
         ## Calculat delta G
-        return self.energy_func(comp) - sum(
-            [self.energy_func(p) for p in parts]
-        )
+        return self.energy_func(comp) - sum([self.energy_func(p) for p in parts])
 
 
 class ConcatStrategy(Strategy):
@@ -367,8 +395,4 @@ class PIC50Readout(Readout):
         ## IC50 value = exp(dG/kT) => pic50 = -log10(exp(dg/kT))
         ## Rearrange a bit more to avoid disappearing floats:
         ##  pic50 = -dg/kT / ln(10)
-        return (
-            -delta_g
-            / self.kT
-            / torch.log(torch.tensor(10, dtype=delta_g.dtype))
-        )
+        return -delta_g / self.kT / torch.log(torch.tensor(10, dtype=delta_g.dtype))
