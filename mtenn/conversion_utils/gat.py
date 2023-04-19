@@ -12,7 +12,7 @@ from ..model import (
     DeltaStrategy,
     GroupedModel,
     MeanCombination,
-    Model,
+    LigandOnlyModel,
     PIC50Readout,
 )
 
@@ -123,65 +123,33 @@ class GAT(torch.nn.Module):
     def get_model(
         *args,
         model=None,
-        grouped=False,
         fix_device=False,
-        combination=None,
         pred_readout=None,
-        comb_readout=None,
         **kwargs,
     ):
         """
-        Exposed function to build a Model object from a GAT object (or args/kwargs).
+        Exposed function to build a LigandOnlyModel object from a GAT object
+        (or args/kwargs).
 
         Parameters
         ----------
         model: GAT, optional
-            GAT model to use to build the Model object. If left as none, a
+            GAT model to use to build the LigandOnlyModel object. If left as none, a
             default model will be initialized and used
-        grouped: bool, default=False
-            Whether this model should accept groups of inputs or one input at a
-            time.
         fix_device: bool, default=False
             If True, make sure the input is on the same device as the model,
             copying over as necessary.
-        combination: Combination, optional
-            Combination object to use to combine predictions in a group. A value
-            must be passed if `grouped` is `True`.
         pred_readout : Readout
             Readout object for the energy predictions. If `grouped` is `False`,
-            this option will still be used in the construction of the `Model`
+            this option will still be used in the construction of the `LigandOnlyModel`
             object.
-        comb_readout : Readout
-            Readout object for the combination output.
 
         Returns
         -------
-        Model
-            Model object containing the desired Representation and Strategy
+        LigandOnlyModel
+            LigandOnlyModel object containing the desired Representation and Strategy
         """
         if model is None:
             model = GAT(*args, **kwargs)
 
-        ## First get representation module
-        representation = model._get_representation()
-
-        ## No strategy since ligand-only, so just pass energy function
-        strategy = model._get_energy_func()
-
-        ## Check on `combination`
-        if grouped and (combination is None):
-            raise ValueError(
-                f"Must pass a value for `combination` if `grouped` is `True`."
-            )
-
-        if grouped:
-            return GroupedModel(
-                representation,
-                strategy,
-                combination,
-                pred_readout,
-                comb_readout,
-                fix_device,
-            )
-        else:
-            return Model(representation, strategy, pred_readout, fix_device)
+        return LigandOnlyModel(model=model, readout=pred_readout, fix_device=fix_device)
