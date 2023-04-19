@@ -10,6 +10,7 @@ dependencies:
   - numpy
   - h5py
   - e3nn
+  - dgllife
   # testing dependencies
   - pytest
   - pytest-cov
