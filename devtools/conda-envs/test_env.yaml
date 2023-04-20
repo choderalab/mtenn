@@ -13,6 +13,7 @@ dependencies:
   - e3nn
   - dgllife
   - dgl
+  - rdkit
   # testing dependencies
   - pytest
   - pytest-cov
