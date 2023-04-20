@@ -1,5 +1,5 @@
 """
-Representation and strategy for SchNet model.
+Representation and strategy for GAT model.
 """
 from copy import deepcopy
 import torch
