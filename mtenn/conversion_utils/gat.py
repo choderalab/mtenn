@@ -19,10 +19,11 @@ from ..model import (
 
 class GAT(torch.nn.Module):
     def __init__(self, *args, model=None, **kwargs):
+        super().__init__()
+
         ## If no model is passed, construct model based on passed args, otherwise copy
         ##  all parameters and weights over
         if model is None:
-            super().__init__()
             self.gnn = GAT_dgl(*args, **kwargs)
         else:
             # Parameters that are conveniently accessible from the top level
@@ -38,10 +39,13 @@ class GAT(torch.nn.Module):
                     gc.feat_drop.p,
                     gc.attn_drop.p,
                     gc.leaky_relu.negative_slope,
-                    bool(gc.res_fc),
                     gc.activation,
-                    gc.res_fc.bias if gc.has_linear_res else gc.has_explicit_bias,
+                    bool(gc.res_fc),
+                    (gc.res_fc.bias is not None)
+                    if gc.has_linear_res
+                    else gc.has_explicit_bias,
                 )
+                layer_params += [new_params]
 
             (
                 feat_drops,
