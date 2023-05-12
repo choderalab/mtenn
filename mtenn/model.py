@@ -341,8 +341,8 @@ class MaxCombination(Combination):
             Negate the predictions before calculating the LSE, effectively finding
             the min. Preds are negated again before being returned
         scale : float, default=1000.0
-            Fixed value to scale predictions by before taking the LSE. This tightens
-            the bounds of the LSE approximation
+            Fixed positive value to scale predictions by before taking the LSE. This
+            tightens the bounds of the LSE approximation
         """
         super(MaxCombination, self).__init__()
 
@@ -359,25 +359,21 @@ class MaxCombination(Combination):
 
 class BoltzmannCombination(Combination):
     """
-    Combine a list of deltaG predictions according to their Boltzmann weight.
+    Combine a list of deltaG predictions according to their Boltzmann weight. Use LSE
+    approximation of min energy to improve numerical stability. Treat energy in implicit
+    kT units.
     """
 
     def __init__(self):
         super(BoltzmannCombination, self).__init__()
 
-        from simtk.unit import (
-            BOLTZMANN_CONSTANT_kB as kB,
-            elementary_charge,
-            coulomb,
-        )
-
-        ## Convert kB to eV (calibrate to SchNet predictions)
-        electron_volt = elementary_charge.conversion_factor_to(coulomb)
-
-        self.kT = (kB / electron_volt * 298.0)._value
-
     def forward(self, predictions: torch.Tensor):
-        return -self.kT * torch.logsumexp(-predictions, dim=0)
+        # First calculate LSE (no scale here bc math)
+        lse = torch.logsumexp(-predictions, dim=0)
+        # Calculate Boltzmann weights for each prediction
+        w = torch.exp(-predictions - lse)
+
+        return torch.dot(w, predictions)
 
 
 class PIC50Readout(Readout):
