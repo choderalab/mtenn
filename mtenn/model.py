@@ -328,6 +328,35 @@ class MeanCombination(Combination):
         return torch.mean(predictions)
 
 
+class MaxCombination(Combination):
+    """
+    Approximate max/min of the predictions using the LogSumExp function for smoothness.
+    """
+
+    def __init__(self, neg=True, scale=1000.0):
+        """
+        Parameters
+        ----------
+        neg : bool, default=True
+            Negate the predictions before calculating the LSE, effectively finding
+            the min. Preds are negated again before being returned
+        scale : float, default=1000.0
+            Fixed value to scale predictions by before taking the LSE. This tightens
+            the bounds of the LSE approximation
+        """
+        super(MaxCombination, self).__init__()
+
+        self.neg = -1 * neg
+        self.scale = scale
+
+    def forward(self, predictions: torch.Tensor):
+        return (
+            self.neg
+            * torch.logsumexp(self.neg * self.scale * predictions, dim=0)
+            / self.scale
+        )
+
+
 class BoltzmannCombination(Combination):
     """
     Combine a list of deltaG predictions according to their Boltzmann weight.
