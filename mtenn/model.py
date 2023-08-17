@@ -378,8 +378,10 @@ class BoltzmannCombination(Combination):
 
 class PIC50Readout(Readout):
     """
-    Readout implementation to convert delta G values to pIC50 values. Assuming implicit
-    energy units:
+    Readout implementation to convert delta G values to pIC50 values. This new
+    implementation assumes implicit energy units, WHICH WILL INVALIDATE MODELS TRAINED
+    PRIOR TO v0.3.0.
+    Assuming implicit energy units:
         deltaG = ln(Ki)
         Ki = exp(deltaG)
     Using the Cheng-Prusoff equation:
