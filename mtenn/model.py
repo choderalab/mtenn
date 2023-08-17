@@ -400,22 +400,24 @@ class PIC50Readout(Readout):
         pIC50 = -deltaG/ln(10)
     """
 
-    def __init__(self, cp_values=None):
+    def __init__(self, substrate: Optional[float] = None, Km: Optional[float] = None):
         """
-        Initialize conversion with specified T (assume 298 K).
+        Initialize conversion with specified substrate concentration and Km. If either
+        is left blank, the IC50 approximation will be used.
 
         Parameters
         ----------
-        cp_values : Tuple[float], optional
-            Substrate concentration and Km values for calculating Ki using the
-            Cheng-Prusoff equation. These values are assumed to be in the same
-            concentration units. If no values are passed for this, pIC50 values
-            will be used as an approximation of the Ki
+        substrate : float, optional
+            Substrate concentration for use in the Cheng-Prusoff equation. Assumed to be
+            in the same units as Km
+        Km : float, optional
+            Km value for use in the Cheng-Prusoff equation. Assumed to be in the same
+            units as substrate
         """
         super(PIC50Readout, self).__init__()
 
-        if cp_values:
-            self.cp_val = 1 + cp_values[0] / cp_values[1]
+        if substrate and Km:
+            self.cp_val = 1 + substrate / Km
         else:
             self.cp_val = None
 
