@@ -6,7 +6,8 @@ need to store more than one comp graph at a time. This document contains the der
 of the split up math.
 
 # `MeanCombination`
-Just take the mean of all preds:
+Just take the mean of all preds, so the gradient is straightforward:
 ```math
 \Delta G(\theta) = \frac{1}{N} \sum_{n=1}^{N} \Delta G_n (\theta)
+\frac{\partial \Delta G(\theta)}{\partial \theta} = \frac{1}{N} \sum_{n=1}^{N} \frac{\partial \Delta G_n (\theta)}{\partial \theta}
 ```
