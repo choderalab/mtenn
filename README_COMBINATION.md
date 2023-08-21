@@ -9,5 +9,7 @@ of the split up math.
 Just take the mean of all preds, so the gradient is straightforward:
 ```math
 \Delta G(\theta) = \frac{1}{N} \sum_{n=1}^{N} \Delta G_n (\theta)
+```
+```math
 \frac{\partial \Delta G(\theta)}{\partial \theta} = \frac{1}{N} \sum_{n=1}^{N} \frac{\partial \Delta G_n (\theta)}{\partial \theta}
 ```
