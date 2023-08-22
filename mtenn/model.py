@@ -173,8 +173,6 @@ class GroupedModel(Model):
         """
         ## Get predictions for all inputs in the list, and combine them in a
         ##  tensor (while keeping track of gradients)
-        all_reps = []
-        orig_dev = None
         for i, inp in enumerate(input_list):
             if "MTENN_VERBOSE" in os.environ:
                 print(f"pose {i}", flush=True)
@@ -191,11 +189,10 @@ class GroupedModel(Model):
                     f"{torch.cuda.memory_allocated():,}",
                     flush=True,
                 )
-            all_reps.append(super(GroupedModel, self).forward(inp))
-        all_reps = torch.stack(all_reps).flatten()
+            self.combination(super(GroupedModel, self).forward(inp), self)
 
         ## Combine each prediction according to `self.combination`
-        comb_pred = self.combination(all_reps)
+        comb_pred = self.combination.predict(self)
         if self.readout:
             return self.readout(comb_pred)
         else:
@@ -245,7 +242,10 @@ class Strategy(torch.nn.Module):
 
 
 class Combination(torch.nn.Module):
-    pass
+    def predict(self):
+        raise NotImplementedError(
+            "A Combination class must have the `predict` method implemented."
+        )
 
 
 class Readout(torch.nn.Module):
@@ -325,8 +325,54 @@ class MeanCombination(Combination):
     def __init__(self):
         super(MeanCombination, self).__init__()
 
-    def forward(self, predictions: torch.Tensor):
-        return torch.mean(predictions)
+        self.gradients = {}
+        self.predictions = []
+
+    def forward(self, prediction: torch.Tensor, model: torch.nn.Module):
+        """
+        Takes a prediction and model, and tracks the pred and the gradient of the pred
+        wrt model parameters.
+
+        Parameters
+        ----------
+        prediction : torch.Tensor
+            Model prediction
+        model : torch.nn.Module
+            The model being trained
+        """
+        # Track prediction
+        self.predictions.append(prediction.item())
+
+        # Get gradients (zero first to get rid of any existing)
+        model.zero_grad()
+        prediction.backward()
+        for n, p in model.named_parameters():
+            try:
+                self.gradients[n].append(p)
+            except KeyError:
+                self.gradients[n] = [p]
+
+    def predict(self, model: torch.nn.Module):
+        """
+        Returns the mean of all stored predictions, and appropriately sets the model
+        parameter grads for an optimizer step.
+
+        Parameters
+        ----------
+        model : torch.nn.Module
+            The model being trained
+
+        Returns
+        -------
+        torch.Tensor
+            Combined prediction (mean of all stored preds)
+        """
+        # Calculate final gradient (derivation details are in README_COMBINATION)
+        for n, p in model.named_parameters():
+            p.grad = torch.stack(self.gradients[n], axis=-1).mean(axis=-1)
+
+        # Return mean of all preds
+        return torch.stack(self.predictions).mean(axis=None)
 
 
 class MaxCombination(Combination):
