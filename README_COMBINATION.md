@@ -25,3 +25,25 @@ Combine according to a smooth max approximation using LSE:
 ```math
     \frac{\partial \Delta G(\theta)}{\partial \theta} = \frac{1000}{Q} \sum_{n=1}^N [\frac{\partial \Delta G_n (\theta)}{\partial \theta} \mathrm{exp} (-1000 \Delta G_n (\theta))]
 ```
+
+# BoltzmannCombination
+Combine according to Boltzmann weighting:
+```math
+    \Delta G(\theta) = \sum_{n=1}^{N} w_n \Delta G_n (\theta)
+```
+
+```math
+    w_n = \mathrm{exp} \left[ -\Delta G_n (\theta) - \mathrm{ln} \sum_{i=1}^N \mathrm{exp} (-\Delta G_i (\theta)) \right]
+```
+
+```math
+    Q = \sum_{n=1}^N \mathrm{exp} (-\Delta G_n (\theta))
+```
+
+```math
+    \frac{\partial \Delta G(\theta)}{\partial \theta} = \sum_{n=1}^N \left[ \frac{\partial w_n}{\partial \theta} \Delta G_n (\theta) + w_n \frac{\partial \Delta G_n (\theta)}{\partial \theta} \right]
+```
+
+```math
+    \frac{\partial w_n}{\partial \theta} = \mathrm{exp} \left[ -\Delta G_n (\theta) -\mathrm{ln} Q \right] \left[ \frac{-\partial \Delta G_n (\theta)}{\partial \theta} + \frac{1}{Q} \sum_{i=1}^{N} \left[ \frac{\partial \Delta G_i (\theta)}{\partial \theta} \mathrm{exp} (-\Delta G_i (\theta)) \right] \right]
+```
