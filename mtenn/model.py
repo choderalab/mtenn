@@ -242,6 +242,40 @@ class Strategy(torch.nn.Module):
 
 
 class Combination(torch.nn.Module):
+    def __init__(self):
+        """
+        Stuff that will be common among all Combination subclasses.
+        """
+        super(Combination, self).__init__()
+
+        self.gradients = {}
+        self.predictions = []
+
+    def forward(self, prediction: torch.Tensor, model: torch.nn.Module):
+        """
+        Takes a prediction and model, and tracks the pred and the gradient of the pred
+        wrt model parameters. This part should be the same for all Combination methdos,
+        so we can put it in the base class.
+
+        Parameters
+        ----------
+        prediction : torch.Tensor
+            Model prediction
+        model : torch.nn.Module
+            The model being trained
+        """
+        # Track prediction
+        self.predictions.append(prediction.detach())
+
+        # Get gradients (zero first to get rid of any existing)
+        model.zero_grad()
+        prediction.backward()
+        for n, p in model.named_parameters():
+            try:
+                self.gradients[n].append(p)
+            except KeyError:
+                self.gradients[n] = [p]
+
     def predict(self):
         raise NotImplementedError(
             "A Combination class must have the `predict` method implemented."
@@ -324,33 +358,6 @@ class MeanCombination(Combination):
 
     def __init__(self):
         super(MeanCombination, self).__init__()
-
-        self.gradients = {}
-        self.predictions = []
-
-    def forward(self, prediction: torch.Tensor, model: torch.nn.Module):
-        """
-        Takes a prediction and model, and tracks the pred and the gradient of the pred
-        wrt model parameters.
-
-        Parameters
-        ----------
-        prediction : torch.Tensor
-            Model prediction
-        model : torch.nn.Module
-            The model being trained
-        """
-        # Track prediction
-        self.predictions.append(prediction.detach())
-
-        # Get gradients (zero first to get rid of any existing)
-        model.zero_grad()
-        prediction.backward()
-        for n, p in model.named_parameters():
-            try:
-                self.gradients[n].append(p)
-            except KeyError:
-                self.gradients[n] = [p]
 
     def predict(self, model: torch.nn.Module):
         """
