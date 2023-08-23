@@ -409,6 +409,40 @@ class MaxCombination(Combination):
         self.neg = -1 * neg
         self.scale = scale
 
+    def predict(self, model: torch.nn.Module):
+        """
+        Returns the max/min of all stored predictions, and appropriately sets the model
+        parameter grads for an optimizer step.
+
+        Parameters
+        ----------
+        model : torch.nn.Module
+            The model being trained
+
+        Returns
+        -------
+        torch.Tensor
+            Combined prediction (LSE max approximation of all stored preds)
+        """
+        # Calculate the actual prediction
+        final_pred = (
+            self.neg
+            * torch.logsumexp(self.neg * self.scale * self.predictions, dim=0)
+            / self.scale
+        ).detach()
+
+        # Calculate once for reuse later
+        exp_preds = [
+            (self.neg * self.scale * pred).detach().exp() for pred in self.predictions
+        ]
+
+        # Calculate final gradients for each parameter
+        final_grads = {}
+        for n, p in self.gradients.items():
+
+
+        Q = torch.logsumexp(self.neg * self.scale * self.predictions, dim=0)
+
     def forward(self, predictions: torch.Tensor):
         return (
             self.neg
