@@ -341,7 +341,7 @@ class MeanCombination(Combination):
             The model being trained
         """
         # Track prediction
-        self.predictions.append(prediction.item())
+        self.predictions.append(prediction.detach())
 
         # Get gradients (zero first to get rid of any existing)
         model.zero_grad()
@@ -372,7 +372,13 @@ class MeanCombination(Combination):
             p.grad = torch.stack(self.gradients[n], axis=-1).mean(axis=-1)
 
         # Return mean of all preds
-        return torch.stack(self.predictions).mean(axis=None)
+        final_pred = torch.stack(self.predictions).mean(axis=None).detach()
+
+        # Reset internal trackers
+        self.gradients = {}
+        self.predictions = []
+
+        return final_pred
 
 
 class MaxCombination(Combination):
