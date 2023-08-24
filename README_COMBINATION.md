@@ -17,13 +17,15 @@ Just take the mean of all preds, so the gradient is straightforward:
 # `MaxCombination`
 Combine according to a smooth max approximation using LSE:
 ```math
-    \Delta G(\theta) = -\mathrm{ln} \sum_{n=1}^N \mathrm{exp} (-1000 \Delta G_n (\theta))
+    \Delta G(\theta) = \frac{-1}{t} \mathrm{ln} \sum_{n=1}^N \mathrm{exp} (-t \Delta G_n (\theta))
 ```
+
 ```math
-    Q = \sum_{n=1}^N \mathrm{exp} (-1000 \Delta G_n (\theta))
+    Q = \sum_{n=1}^N \mathrm{exp} (-t \Delta G_n (\theta))
 ```
+
 ```math
-    \frac{\partial \Delta G(\theta)}{\partial \theta} = \frac{1000}{Q} \sum_{n=1}^N [\frac{\partial \Delta G_n (\theta)}{\partial \theta} \mathrm{exp} (-1000 \Delta G_n (\theta))]
+    \frac{\partial \Delta G(\theta)}{\partial \theta} = \frac{1}{Q} \sum_{n=1}^N \left[ \frac{\partial \Delta G_n (\theta)}{\partial \theta} \mathrm{exp} (-t \Delta G_n (\theta)) \right]
 ```
 
 # `BoltzmannCombination`
