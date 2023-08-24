@@ -435,20 +435,27 @@ class MaxCombination(Combination):
         exp_preds = [
             (self.neg * self.scale * pred).detach().exp() for pred in self.predictions
         ]
+        Q = torch.stack(exp_preds).detach().sum(axis=None)
 
         # Calculate final gradients for each parameter
         final_grads = {}
         for n, p in self.gradients.items():
+            final_grads[n] = (
+                torch.stack([g * pred for g, pred in zip(p, exp_preds)], axis=-1)
+                .detach()
+                .sum(axis=-1)
+            )
+            final_grads[n] *= 1 / Q
 
+        # Set weights gradients
+        for n, p in model.named_parameters():
+            p.grad = final_grads[n]
 
-        Q = torch.logsumexp(self.neg * self.scale * self.predictions, dim=0)
+        # Reset internal trackers
+        self.gradients = {}
+        self.predictions = []
 
-    def forward(self, predictions: torch.Tensor):
-        return (
-            self.neg
-            * torch.logsumexp(self.neg * self.scale * predictions, dim=0)
-            / self.scale
-        )
+        return final_pred
 
 
 class BoltzmannCombination(Combination):
