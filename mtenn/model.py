@@ -272,9 +272,9 @@ class Combination(torch.nn.Module):
         prediction.backward()
         for n, p in model.named_parameters():
             try:
-                self.gradients[n].append(p.grad)
+                self.gradients[n].append(p.grad.detach())
             except KeyError:
-                self.gradients[n] = [p.grad]
+                self.gradients[n] = [p.grad.detach()]
 
     def predict(self):
         raise NotImplementedError(
