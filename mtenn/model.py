@@ -435,7 +435,7 @@ class MaxCombination(Combination):
 
         # Calculate once for reuse later
         exp_preds = [
-            (self.neg * self.scale * pred).detach().exp().flatten()
+            (self.neg * self.scale * pred).detach().exp().reshape(())
             for pred in self.predictions
         ]
         Q = torch.stack(exp_preds).detach().sum(axis=None)
