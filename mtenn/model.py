@@ -272,9 +272,9 @@ class Combination(torch.nn.Module):
         prediction.backward()
         for n, p in model.named_parameters():
             try:
-                self.gradients[n].append(p)
+                self.gradients[n].append(p.grad)
             except KeyError:
-                self.gradients[n] = [p]
+                self.gradients[n] = [p.grad]
 
     def predict(self):
         raise NotImplementedError(
@@ -427,13 +427,16 @@ class MaxCombination(Combination):
         # Calculate the actual prediction
         final_pred = (
             self.neg
-            * torch.logsumexp(self.neg * self.scale * self.predictions, dim=0)
+            * torch.logsumexp(
+                self.neg * self.scale * torch.stack(self.predictions).flatten(), dim=0
+            )
             / self.scale
         ).detach()
 
         # Calculate once for reuse later
         exp_preds = [
-            (self.neg * self.scale * pred).detach().exp() for pred in self.predictions
+            (self.neg * self.scale * pred).detach().exp().flatten()
+            for pred in self.predictions
         ]
         Q = torch.stack(exp_preds).detach().sum(axis=None)
 
@@ -449,7 +452,11 @@ class MaxCombination(Combination):
 
         # Set weights gradients
         for n, p in model.named_parameters():
-            p.grad = final_grads[n]
+            try:
+                p.grad = final_grads[n]
+            except RuntimeError as e:
+                print(n, p.grad.shape, final_grads[n].shape, flush=True)
+                raise e
 
         # Reset internal trackers
         self.gradients = {}
