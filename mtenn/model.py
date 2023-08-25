@@ -424,31 +424,23 @@ class MaxCombination(Combination):
         torch.Tensor
             Combined prediction (LSE max approximation of all stored preds)
         """
-        # Calculate the actual prediction
-        final_pred = (
-            self.neg
-            * torch.logsumexp(
-                self.neg * self.scale * torch.stack(self.predictions).flatten(), dim=0
-            )
-            / self.scale
-        ).detach()
-
         # Calculate once for reuse later
-        exp_preds = [
-            (self.neg * self.scale * pred).detach().exp().reshape(())
-            for pred in self.predictions
-        ]
-        Q = torch.stack(exp_preds).detach().sum(axis=None)
+        adj_preds = self.neg * self.scale * torch.stack(self.predictions).flatten()
+        Q = torch.logsumexp(adj_preds, dim=0)
+        # Calculate the actual prediction
+        final_pred = (self.neg * Q / self.scale).detach()
 
         # Calculate final gradients for each parameter
         final_grads = {}
         for n, p in self.gradients.items():
             final_grads[n] = (
-                torch.stack([g * pred for g, pred in zip(p, exp_preds)], axis=-1)
+                torch.stack(
+                    [torch.log(g) + pred - Q for g, pred in zip(p, adj_preds)], axis=-1
+                )
                 .detach()
+                .exp()
                 .sum(axis=-1)
             )
-            final_grads[n] *= 1 / Q
 
         # Set weights gradients
         for n, p in model.named_parameters():
