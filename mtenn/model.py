@@ -267,6 +267,10 @@ class Combination(torch.nn.Module):
         # Track prediction
         self.predictions.append(prediction.detach())
 
+        # Don't do anything with gradients if model is in eval mode
+        if not model.training:
+            return
+
         # Get gradients (zero first to get rid of any existing)
         model.zero_grad()
         prediction.backward()
@@ -374,15 +378,16 @@ class MeanCombination(Combination):
         torch.Tensor
             Combined prediction (mean of all stored preds)
         """
-        # Calculate final gradient (derivation details are in README_COMBINATION)
-        for n, p in model.named_parameters():
-            p.grad = torch.stack(self.gradients[n], axis=-1).mean(axis=-1)
-
         # Return mean of all preds
         final_pred = torch.stack(self.predictions).mean(axis=None).detach()
 
-        # Reset internal trackers
-        self.gradients = {}
+        if model.training:
+            # Calculate final gradient (derivation details are in README_COMBINATION)
+            for n, p in model.named_parameters():
+                p.grad = torch.stack(self.gradients[n], axis=-1).mean(axis=-1)
+
+            # Reset internal trackers
+            self.gradients = {}
         self.predictions = []
 
         return final_pred
@@ -430,28 +435,30 @@ class MaxCombination(Combination):
         # Calculate the actual prediction
         final_pred = (self.neg * Q / self.scale).detach()
 
-        # Calculate final gradients for each parameter
-        final_grads = {}
-        for n, p in self.gradients.items():
-            final_grads[n] = (
-                torch.stack(
-                    [torch.log(g) + pred - Q for g, pred in zip(p, adj_preds)], axis=-1
+        if model.training:
+            # Calculate final gradients for each parameter
+            final_grads = {}
+            for n, p in self.gradients.items():
+                final_grads[n] = (
+                    torch.stack(
+                        [torch.log(g) + pred - Q for g, pred in zip(p, adj_preds)],
+                        axis=-1,
+                    )
+                    .detach()
+                    .exp()
+                    .sum(axis=-1)
                 )
-                .detach()
-                .exp()
-                .sum(axis=-1)
-            )
 
-        # Set weights gradients
-        for n, p in model.named_parameters():
-            try:
-                p.grad = final_grads[n]
-            except RuntimeError as e:
-                print(n, p.grad.shape, final_grads[n].shape, flush=True)
-                raise e
+            # Set weights gradients
+            for n, p in model.named_parameters():
+                try:
+                    p.grad = final_grads[n]
+                except RuntimeError as e:
+                    print(n, p.grad.shape, final_grads[n].shape, flush=True)
+                    raise e
 
-        # Reset internal trackers
-        self.gradients = {}
+            # Reset internal trackers
+            self.gradients = {}
         self.predictions = []
 
         return final_pred
