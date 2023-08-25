@@ -21,11 +21,19 @@ Combine according to a smooth max approximation using LSE:
 ```
 
 ```math
-    Q = \sum_{n=1}^N \mathrm{exp} (-t \Delta G_n (\theta))
+    Q = \mathrm{ln} \sum_{n=1}^N \mathrm{exp} (-t \Delta G_n (\theta))
 ```
 
 ```math
-    \frac{\partial \Delta G(\theta)}{\partial \theta} = \frac{1}{Q} \sum_{n=1}^N \left[ \frac{\partial \Delta G_n (\theta)}{\partial \theta} \mathrm{exp} (-t \Delta G_n (\theta)) \right]
+    \frac{\partial \Delta G(\theta)}{\partial \theta} = \frac{1}{\sum_{n=1}^N \mathrm{exp} (-t \Delta G_n (\theta))} \sum_{n=1}^N \left[ \frac{\partial \Delta G_n (\theta)}{\partial \theta} \mathrm{exp} (-t \Delta G_n (\theta)) \right]
+```
+
+```math
+        \frac{\partial \Delta G(\theta)}{\partial \theta} = \frac{1}{\mathrm{exp}(Q)} \sum_{n=1}^N \mathrm{exp} \left[ -t \Delta G_n (\theta) + \mathrm{ln} \left( \frac{\partial \Delta G_n (\theta)}{\partial \theta} \right) \right]
+```
+
+```math
+        \frac{\partial \Delta G(\theta)}{\partial \theta} = \sum_{n=1}^N \mathrm{exp} \left[ -t \Delta G_n (\theta) + \mathrm{ln} \left( \frac{\partial \Delta G_n (\theta)}{\partial \theta} \right) - Q \right]
 ```
 
 # `BoltzmannCombination`
