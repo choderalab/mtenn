@@ -47,7 +47,7 @@ Combine according to Boltzmann weighting:
 ```
 
 ```math
-    Q = \sum_{n=1}^N \mathrm{exp} (-\Delta G_n (\theta))
+    Q = \mathrm{ln} \sum_{n=1}^N \mathrm{exp} (-\Delta G_n (\theta))
 ```
 
 ```math
@@ -55,5 +55,17 @@ Combine according to Boltzmann weighting:
 ```
 
 ```math
-    \frac{\partial w_n}{\partial \theta} = \mathrm{exp} \left[ -\Delta G_n (\theta) -\mathrm{ln} Q \right] \left[ \frac{-\partial \Delta G_n (\theta)}{\partial \theta} + \frac{1}{Q} \sum_{i=1}^{N} \left[ \frac{\partial \Delta G_i (\theta)}{\partial \theta} \mathrm{exp} (-\Delta G_i (\theta)) \right] \right]
+    \frac{\partial w_n}{\partial \theta} = \mathrm{exp} \left[ -\Delta G_n (\theta) - Q \right] \left[ \frac{-\partial \Delta G_n (\theta)}{\partial \theta} - \frac{\partial Q}{\partial \theta}  \right]
+```
+
+```math
+    \frac{\partial Q}{\partial \theta} = \frac{1}{\sum_{n=1}^N \mathrm{exp} (-\Delta G_n (\theta))} \sum_{i=1}^{N} \left[ \mathrm{exp} (-\Delta G_i (\theta)) \frac{-\partial \Delta G_i (\theta)}{\partial \theta} \right]
+```
+
+```math
+    \frac{\partial Q}{\partial \theta} = \frac{-1}{\mathrm{exp} (Q)} \sum_{n=1}^{N} \left[ \mathrm{exp} (-\Delta G_n (\theta)) \frac{\partial \Delta G_n (\theta)}{\partial \theta} \right]
+```
+
+```math
+    \frac{\partial Q}{\partial \theta} =  -\sum_{n=1}^{N} \left[ \mathrm{exp} (-\Delta G_n (\theta) - Q) \frac{\partial \Delta G_n (\theta)}{\partial \theta} \right]
 ```
