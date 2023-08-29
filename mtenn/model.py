@@ -465,21 +465,83 @@ class MaxCombination(Combination):
 
 class BoltzmannCombination(Combination):
     """
-    Combine a list of deltaG predictions according to their Boltzmann weight. Use LSE
-    approximation of min energy to improve numerical stability. Treat energy in implicit
-    kT units.
+    Combine a list of deltaG predictions according to their Boltzmann weight.
+    Treat energy in implicit kT units.
     """
 
     def __init__(self):
         super(BoltzmannCombination, self).__init__()
 
-    def forward(self, predictions: torch.Tensor):
-        # First calculate LSE (no scale here bc math)
-        lse = torch.logsumexp(-predictions, dim=0)
-        # Calculate Boltzmann weights for each prediction
-        w = torch.exp(-predictions - lse)
+    def predict(self, model: torch.nn.Module):
+        """
+        Returns the Boltzmann weighted average of all stored predictions, and
+        appropriately sets the model parameter grads for an optimizer step.
 
-        return torch.dot(w, predictions)
+        Parameters
+        ----------
+        model : torch.nn.Module
+            The model being trained
+
+        Returns
+        -------
+        torch.Tensor
+            Combined prediction (Boltzmann-weighted average)
+        """
+        # Save for later so we don't have to keep redoing this
+        adj_preds = torch.stack(-self.predictions).flatten().detach()
+
+        # First calculate the normalization factor
+        Q = torch.logsumexp(adj_preds, dim=0)
+
+        # Calculate w
+        w = (adj_preds - Q).exp()
+
+        # Calculate final pred
+        final_pred = torch.dot(w, -adj_preds)
+
+        if model.training:
+            # Calculate dQ/d_theta
+            dQ = {
+                n: -torch.stack(
+                    [(p - Q).exp() * g for p, g in zip(adj_preds, grads)], axis=-1
+                ).sum(axis=-1)
+                for n, grads in self.gradients.items()
+            }
+
+            # Calculate dw/d_theta
+            dw = {
+                n: [(p - Q).exp() * (-g - dQ[n]) for p, g in zip(adj_preds, grads)]
+                for n, grads in self.gradients.items()
+            }
+
+            # Calculate final grads
+            final_grads = {}
+            for n, p in self.gradients.items():
+                final_grads[n] = (
+                    torch.stack(
+                        [
+                            w_grad * pred + w_val * grad
+                            for w_grad, pred, w_val, grad in zip(dw[n], adj_preds, w, p)
+                        ],
+                        axis=-1,
+                    )
+                    .detach()
+                    .sum(axis=-1)
+                )
+
+            # Set weights gradients
+            for n, p in model.named_parameters():
+                try:
+                    p.grad = final_grads[n]
+                except RuntimeError as e:
+                    print(n, p.grad.shape, final_grads[n].shape, flush=True)
+                    raise e
+
+            # Reset internal trackers
+            self.gradients = {}
+        self.predictions = []
+
+        return final_pred
 
 
 class PIC50Readout(Readout):
