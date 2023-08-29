@@ -488,7 +488,7 @@ class BoltzmannCombination(Combination):
             Combined prediction (Boltzmann-weighted average)
         """
         # Save for later so we don't have to keep redoing this
-        adj_preds = torch.stack(-self.predictions).flatten().detach()
+        adj_preds = -torch.stack(self.predictions).flatten().detach()
 
         # First calculate the normalization factor
         Q = torch.logsumexp(adj_preds, dim=0)
@@ -520,7 +520,7 @@ class BoltzmannCombination(Combination):
                 final_grads[n] = (
                     torch.stack(
                         [
-                            w_grad * pred + w_val * grad
+                            w_grad * -pred + w_val * grad
                             for w_grad, pred, w_val, grad in zip(dw[n], adj_preds, w, p)
                         ],
                         axis=-1,
