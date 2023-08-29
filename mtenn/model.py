@@ -441,11 +441,10 @@ class MaxCombination(Combination):
             for n, p in self.gradients.items():
                 final_grads[n] = (
                     torch.stack(
-                        [torch.log(g) + pred - Q for g, pred in zip(p, adj_preds)],
+                        [g * (pred - Q).exp() for g, pred in zip(p, adj_preds)],
                         axis=-1,
                     )
                     .detach()
-                    .exp()
                     .sum(axis=-1)
                 )
 
