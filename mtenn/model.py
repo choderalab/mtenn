@@ -584,10 +584,19 @@ class PIC50Readout(Readout):
         """
         super(PIC50Readout, self).__init__()
 
+        self.substrate = substrate
+        self.Km = Km
+
         if substrate and Km:
             self.cp_val = 1 + substrate / Km
         else:
             self.cp_val = None
+
+    def __repr__(self):
+        return f"PIC50Readout(substrate={self.substrate}, Km={self.Km})"
+
+    def __str__(self):
+        return repr(self)
 
     def forward(self, delta_g):
         """
