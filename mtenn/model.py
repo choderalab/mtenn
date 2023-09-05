@@ -414,6 +414,12 @@ class MaxCombination(Combination):
         self.neg = -1 * neg
         self.scale = scale
 
+    def __repr__(self):
+        return f"MaxCombination(neg={self.neg}, scale={self.scale})"
+
+    def __str__(self):
+        return repr(self)
+
     def predict(self, model: torch.nn.Module):
         """
         Returns the max/min of all stored predictions, and appropriately sets the model
