@@ -154,7 +154,7 @@ class GroupedModel(Model):
             representation, strategy, pred_readout, fix_device
         )
         self.combination = combination
-        self.readout = comb_readout
+        self.comb_readout = comb_readout
 
     def forward(self, input_list):
         """
@@ -193,8 +193,8 @@ class GroupedModel(Model):
 
         ## Combine each prediction according to `self.combination`
         comb_pred = self.combination.predict(self)
-        if self.readout:
-            return self.readout(comb_pred)
+        if self.comb_readout:
+            return self.comb_readout(comb_pred)
         else:
             return comb_pred
 
