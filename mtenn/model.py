@@ -192,11 +192,11 @@ class GroupedModel(Model):
             self.combination(super(GroupedModel, self).forward(inp), self)
 
         ## Combine each prediction according to `self.combination`
-        comb_pred = self.combination.predict(self)
+        comb_pred, all_preds = self.combination.predict(self)
         if self.comb_readout:
-            return self.comb_readout(comb_pred)
+            return self.comb_readout(comb_pred), all_preds
         else:
-            return comb_pred
+            return comb_pred, all_preds
 
 
 class LigandOnlyModel(Model):
@@ -379,7 +379,8 @@ class MeanCombination(Combination):
             Combined prediction (mean of all stored preds)
         """
         # Return mean of all preds
-        final_pred = torch.stack(self.predictions).mean(axis=None).detach()
+        all_preds = torch.stack(self.predictions).flatten()
+        final_pred = all_preds.mean(axis=None).detach()
 
         if model.training:
             # Calculate final gradient (derivation details are in README_COMBINATION)
@@ -390,7 +391,7 @@ class MeanCombination(Combination):
             self.gradients = {}
         self.predictions = []
 
-        return final_pred
+        return final_pred, all_preds
 
 
 class MaxCombination(Combination):
@@ -436,7 +437,8 @@ class MaxCombination(Combination):
             Combined prediction (LSE max approximation of all stored preds)
         """
         # Calculate once for reuse later
-        adj_preds = self.neg * self.scale * torch.stack(self.predictions).flatten()
+        all_preds = torch.stack(self.predictions).flatten()
+        adj_preds = self.neg * self.scale * all_preds.detach()
         Q = torch.logsumexp(adj_preds, dim=0)
         # Calculate the actual prediction
         final_pred = (self.neg * Q / self.scale).detach()
@@ -466,7 +468,7 @@ class MaxCombination(Combination):
             self.gradients = {}
         self.predictions = []
 
-        return final_pred
+        return final_pred, all_preds
 
 
 class BoltzmannCombination(Combination):
