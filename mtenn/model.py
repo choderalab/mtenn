@@ -173,8 +173,10 @@ class GroupedModel(Model):
         torch.Tensor
             Combination of all predictions
         """
-        ## Get predictions for all inputs in the list, and combine them in a
-        ##  tensor (while keeping track of gradients)
+        # Get predictions for all inputs in the list, and combine them in a
+        #  tensor (while keeping track of gradients)
+        pred_list = []
+        grad_dict = {}
         for i, inp in enumerate(input_list):
             if "MTENN_VERBOSE" in os.environ:
                 print(f"pose {i}", flush=True)
@@ -191,14 +193,29 @@ class GroupedModel(Model):
                     f"{torch.cuda.memory_allocated():,}",
                     flush=True,
                 )
-            self.combination(super(GroupedModel, self).forward(inp), self)
+            # First get prediction
+            pred = super().forward(inp)
+            pred_list.append(pred.detach())
 
-        ## Combine each prediction according to `self.combination`
-        comb_pred, all_preds = self.combination.predict(self)
+            # Get gradient per sample
+            self.zero_grad()
+            pred.backward()
+            for n, p in self.named_parameters():
+                try:
+                    grad_dict[n].append(p.grad.detach())
+                except KeyError:
+                    grad_dict[n] = [p.grad.detach()]
+        # Zero grads again just to make sure nothing gets accumulated
+        self.zero_grad()
+
+        # Separate out param names and params
+        param_names, model_params = zip(*self.named_parameters())
+        comb_pred = self.combination(pred_list, grad_dict, param_names, *model_params)
+
         if self.comb_readout:
-            return self.comb_readout(comb_pred), all_preds
+            return self.comb_readout(comb_pred), pred_list
         else:
-            return comb_pred, all_preds
+            return comb_pred, pred_list
 
 
 class LigandOnlyModel(Model):
