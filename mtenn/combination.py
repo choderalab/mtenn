@@ -2,48 +2,80 @@ import torch
 
 
 class Combination(torch.nn.Module):
-    def __init__(self):
+    def forward(self, pred_list, grad_dict, param_names, *model_params):
         """
-        Stuff that will be common among all Combination subclasses.
-        """
-        super(Combination, self).__init__()
-
-        self.gradients = {}
-        self.predictions = []
-
-    def forward(self, prediction: torch.Tensor, model: torch.nn.Module):
-        """
-        Takes a prediction and model, and tracks the pred and the gradient of the pred
-        wrt model parameters. This part should be the same for all Combination methdos,
-        so we can put it in the base class.
+        This function signature should be the same for any Combination subclass
+        implementation.
 
         Parameters
         ----------
-        prediction : torch.Tensor
-            Model prediction
-        model : torch.nn.Module
-            The model being trained
+        pred_list: List[torch.Tensor]
+            List of delta G predictions to be combined using LSE
+        grad_dict: dict[str, List[torch.Tensor]]
+            Dict mapping from parameter name to list of gradients
+        param_names: List[str]
+            List of parameter names
+        model_params: torch.Tensor
+            Actual parameters that we'll return the gradients for. Each param
+            should be passed individually for the backward pass to work right.
         """
-        # Track prediction
-        self.predictions.append(prediction.detach())
+        raise NotImplementedError("Must implement the `forward` method.")
 
-        # Don't do anything with gradients if model is in eval mode
-        if not model.training:
-            return
+    @staticmethod
+    def split_grad_dict(grad_dict):
+        """
+        Helper method used by all Combination classes to split up the passed grad_dict
+        for saving by context manager.
 
-        # Get gradients (zero first to get rid of any existing)
-        model.zero_grad()
-        prediction.backward()
-        for n, p in model.named_parameters():
+        Parameters
+        ----------
+        grad_dict : Dict[str, List[torch.Tensor]]
+            Dict mapping from parameter name to list of gradients
+
+        Returns
+        -------
+        List[str]
+            Key in grad_dict corresponding 1:1 with the gradients
+        List[torch.Tensor]
+            Gradients from grad_dict corresponding 1:1 with the keys
+        """
+        # Deconstruct grad_dict to be saved for backwards
+        grad_dict_keys = [
+            k for k, grad_list in grad_dict.items() for _ in range(len(grad_list))
+        ]
+        grad_dict_tensors = [
+            grad for grad_list in grad_dict.values() for grad in grad_list
+        ]
+
+        return grad_dict_keys, grad_dict_tensors
+
+    @staticmethod
+    def join_grad_dict(grad_dict_keys, grad_dict_tensors):
+        """
+        Helper method used by all Combination classes to reconstruct the grad_dict
+        from keys and grad tensors.
+
+        Parameters
+        ----------
+        grad_dict_keys : List[str]
+            Key in grad_dict corresponding 1:1 with the gradients
+        grad_dict_tensors : List[torch.Tensor]
+            Gradients from grad_dict corresponding 1:1 with the keys
+
+        Returns
+        -------
+        Dict[str, List[torch.Tensor]]
+            Dict mapping from parameter name to list of gradients
+        """
+        # Reconstruct grad_dict
+        grad_dict = {}
+        for k, grad in zip(grad_dict_keys, grad_dict_tensors):
             try:
-                self.gradients[n].append(p.grad.detach())
+                grad_dict[k].append(grad)
             except KeyError:
-                self.gradients[n] = [p.grad.detach()]
+                grad_dict[k] = [grad]
 
-    def predict(self):
-        raise NotImplementedError(
-            "A Combination class must have the `predict` method implemented."
-        )
+        return grad_dict
 
 
 class MeanCombination(Combination):
@@ -54,35 +86,66 @@ class MeanCombination(Combination):
     def __init__(self):
         super(MeanCombination, self).__init__()
 
-    def predict(self, model: torch.nn.Module):
-        """
-        Returns the mean of all stored predictions, and appropriately sets the model
-        parameter grads for an optimizer step.
+    def forward(self, pred_list, grad_dict, param_names, *model_params):
+        return _MeanCombinationFunc.apply(pred_list, grad_dict, *model_params)
 
-        Parameters
-        ----------
-        model : torch.nn.Module
-            The model being trained
 
-        Returns
-        -------
-        torch.Tensor
-            Combined prediction (mean of all stored preds)
-        """
+class _MeanCombinationFunc(torch.autograd.Function):
+    """
+    Custom autograd function that will handle the gradient math for us.
+    """
+
+    @staticmethod
+    def forward(pred_list, grad_dict, param_names, *model_params):
         # Return mean of all preds
-        all_preds = torch.stack(self.predictions).flatten()
+        all_preds = torch.stack(pred_list).flatten()
         final_pred = all_preds.mean(axis=None).detach()
 
-        if model.training:
-            # Calculate final gradient (derivation details are in README_COMBINATION)
-            for n, p in model.named_parameters():
-                p.grad = torch.stack(self.gradients[n], axis=-1).mean(axis=-1)
+        return final_pred
 
-            # Reset internal trackers
-            self.gradients = {}
-        self.predictions = []
+    @staticmethod
+    def setup_context(ctx, inputs, output):
+        pred_list, grad_dict, param_names, *model_params = inputs
 
-        return final_pred, all_preds
+        grad_dict_keys, grad_dict_tensors = Combination.split_grad_dict(grad_dict)
+
+        # Save non-Tensors for backward
+        ctx.grad_dict_keys = grad_dict_keys
+        ctx.param_names = param_names
+
+        # Save Tensors for backward
+        # Saving:
+        #  * Predictions (1 tensor)
+        #  * Grad tensors (N params * M poses tensors)
+        #  * Model param tensors (N params tensors)
+        ctx.save_for_backward(
+            torch.stack(pred_list).flatten(),
+            *grad_dict_tensors,
+            *model_params,
+        )
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        # Unpack saved tensors
+        preds, *other_tensors = ctx.saved_tensors
+
+        # Split up other_tensors
+        grad_dict_tensors = other_tensors[: len(ctx.grad_dict_keys)]
+
+        grad_dict = Combination.join_grad_dict(ctx.grad_dict_keys, grad_dict_tensors)
+
+        # Calculate final gradients for each parameter
+        final_grads = {}
+        for n, grad_list in grad_dict.items():
+            final_grads[n] = torch.stack(grad_list, axis=-1).mean(axis=-1)
+
+        # Adjust gradients by grad_output
+        for grad in final_grads.values():
+            grad *= grad_output
+
+        # Pull out return vals
+        return_vals = [None] * 3 + [final_grads[n] for n in ctx.param_names]
+        return tuple(return_vals)
 
 
 class MaxCombination(Combination):
@@ -103,7 +166,7 @@ class MaxCombination(Combination):
         """
         super(MaxCombination, self).__init__()
 
-        self.neg = -1 * neg
+        self.neg = neg
         self.scale = scale
 
     def __repr__(self):
@@ -112,54 +175,108 @@ class MaxCombination(Combination):
     def __str__(self):
         return repr(self)
 
-    def predict(self, model: torch.nn.Module):
-        """
-        Returns the max/min of all stored predictions, and appropriately sets the model
-        parameter grads for an optimizer step.
+    def forward(self, pred_list, grad_dict, param_names, *model_params):
+        return _MaxCombinationFunc.apply(
+            self.neg, self.scale, pred_list, grad_dict, *model_params
+        )
 
-        Parameters
-        ----------
-        model : torch.nn.Module
-            The model being trained
 
-        Returns
-        -------
-        torch.Tensor
-            Combined prediction (LSE max approximation of all stored preds)
+class _MaxCombinationFunc(torch.autograd.Function):
+    """
+    Custom autograd function that will handle the gradient math for us.
+    """
+
+    @staticmethod
+    def forward(neg, scale, pred_list, grad_dict, param_names, *model_params):
         """
+        neg: bool
+            Negate the predictions before calculating the LSE, effectively finding
+            the min. Preds are negated again before being returned
+        scale: float
+            Fixed positive value to scale predictions by before taking the LSE. This
+            tightens the bounds of the LSE approximation
+        pred_list: List[torch.Tensor]
+            List of delta G predictions to be combined using LSE
+        grad_dict: dict[str, List[torch.Tensor]]
+            Dict mapping from parameter name to list of gradients
+        param_names: List[str]
+            List of parameter names
+        model_params: torch.Tensor
+            Actual parameters that we'll return the gradients for. Each param
+            should be passed individually for the backward pass to work right.
+        """
+        neg = (-1) ** neg
         # Calculate once for reuse later
-        all_preds = torch.stack(self.predictions).flatten()
-        adj_preds = self.neg * self.scale * all_preds.detach()
+        all_preds = torch.stack(pred_list).flatten()
+        adj_preds = neg * scale * all_preds.detach()
         Q = torch.logsumexp(adj_preds, dim=0)
         # Calculate the actual prediction
-        final_pred = (self.neg * Q / self.scale).detach()
+        final_pred = (neg * Q / scale).detach()
 
-        if model.training:
-            # Calculate final gradients for each parameter
-            final_grads = {}
-            for n, p in self.gradients.items():
-                final_grads[n] = (
-                    torch.stack(
-                        [g * (pred - Q).exp() for g, pred in zip(p, adj_preds)],
-                        axis=-1,
-                    )
-                    .detach()
-                    .sum(axis=-1)
+        return final_pred
+
+    @staticmethod
+    def setup_context(ctx, inputs, output):
+        neg, scale, pred_list, grad_dict, param_names, *model_params = inputs
+
+        grad_dict_keys, grad_dict_tensors = Combination.split_grad_dict(grad_dict)
+
+        # Save non-Tensors for backward
+        ctx.neg = neg
+        ctx.scale = scale
+        ctx.grad_dict_keys = grad_dict_keys
+        ctx.param_names = param_names
+
+        # Save Tensors for backward
+        # Saving:
+        #  * Predictions (1 tensor)
+        #  * Grad tensors (N params * M poses tensors)
+        #  * Model param tensors (N params tensors)
+        ctx.save_for_backward(
+            torch.stack(pred_list).flatten(),
+            *grad_dict_tensors,
+            *model_params,
+        )
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        # Unpack saved tensors
+        preds, *other_tensors = ctx.saved_tensors
+
+        # Split up other_tensors
+        grad_dict_tensors = other_tensors[: len(ctx.grad_dict_keys)]
+
+        grad_dict = Combination.join_grad_dict(ctx.grad_dict_keys, grad_dict_tensors)
+
+        # Begin calculations
+        neg = (-1) ** ctx.neg
+
+        # Calculate once for reuse later
+        adj_preds = neg * ctx.scale * preds.detach()
+        Q = torch.logsumexp(adj_preds, dim=0)
+
+        # Calculate final gradients for each parameter
+        final_grads = {}
+        for n, grad_list in grad_dict.items():
+            final_grads[n] = (
+                torch.stack(
+                    [
+                        grad * (pred - Q).exp()
+                        for grad, pred in zip(grad_list, adj_preds)
+                    ],
+                    axis=-1,
                 )
+                .detach()
+                .sum(axis=-1)
+            )
 
-            # Set weights gradients
-            for n, p in model.named_parameters():
-                try:
-                    p.grad = final_grads[n]
-                except RuntimeError as e:
-                    print(n, p.grad.shape, final_grads[n].shape, flush=True)
-                    raise e
+        # Adjust gradients by grad_output
+        for grad in final_grads.values():
+            grad *= grad_output
 
-            # Reset internal trackers
-            self.gradients = {}
-        self.predictions = []
-
-        return final_pred, all_preds
+        # Pull out return vals
+        return_vals = [None] * 5 + [final_grads[n] for n in ctx.param_names]
+        return tuple(return_vals)
 
 
 class BoltzmannCombination(Combination):
@@ -171,23 +288,30 @@ class BoltzmannCombination(Combination):
     def __init__(self):
         super(BoltzmannCombination, self).__init__()
 
-    def predict(self, model: torch.nn.Module):
+    def forward(self, pred_list, grad_dict, param_names, *model_params):
+        return _BoltzmannCombinationFunc.apply(pred_list, grad_dict, *model_params)
+
+
+class _BoltzmannCombinationFunc(torch.autograd.Function):
+    """
+    Custom autograd function that will handle the gradient math for us.
+    """
+
+    @staticmethod
+    def forward(pred_list, grad_dict, param_names, *model_params):
         """
-        Returns the Boltzmann weighted average of all stored predictions, and
-        appropriately sets the model parameter grads for an optimizer step.
-
-        Parameters
-        ----------
-        model : torch.nn.Module
-            The model being trained
-
-        Returns
-        -------
-        torch.Tensor
-            Combined prediction (Boltzmann-weighted average)
+        pred_list: List[torch.Tensor]
+            List of delta G predictions to be combined using LSE
+        grad_dict: dict[str, List[torch.Tensor]]
+            Dict mapping from parameter name to list of gradients
+        param_names: List[str]
+            List of parameter names
+        model_params: torch.Tensor
+            Actual parameters that we'll return the gradients for. Each param
+            should be passed individually for the backward pass to work right.
         """
         # Save for later so we don't have to keep redoing this
-        adj_preds = -torch.stack(self.predictions).flatten().detach()
+        adj_preds = -torch.stack(pred_list).flatten().detach()
 
         # First calculate the normalization factor
         Q = torch.logsumexp(adj_preds, dim=0)
@@ -198,46 +322,88 @@ class BoltzmannCombination(Combination):
         # Calculate final pred
         final_pred = torch.dot(w, -adj_preds)
 
-        if model.training:
-            # Calculate dQ/d_theta
-            dQ = {
-                n: -torch.stack(
-                    [(p - Q).exp() * g for p, g in zip(adj_preds, grads)], axis=-1
-                ).sum(axis=-1)
-                for n, grads in self.gradients.items()
-            }
-
-            # Calculate dw/d_theta
-            dw = {
-                n: [(p - Q).exp() * (-g - dQ[n]) for p, g in zip(adj_preds, grads)]
-                for n, grads in self.gradients.items()
-            }
-
-            # Calculate final grads
-            final_grads = {}
-            for n, p in self.gradients.items():
-                final_grads[n] = (
-                    torch.stack(
-                        [
-                            w_grad * -pred + w_val * grad
-                            for w_grad, pred, w_val, grad in zip(dw[n], adj_preds, w, p)
-                        ],
-                        axis=-1,
-                    )
-                    .detach()
-                    .sum(axis=-1)
-                )
-
-            # Set weights gradients
-            for n, p in model.named_parameters():
-                try:
-                    p.grad = final_grads[n]
-                except RuntimeError as e:
-                    print(n, p.grad.shape, final_grads[n].shape, flush=True)
-                    raise e
-
-            # Reset internal trackers
-            self.gradients = {}
-        self.predictions = []
-
         return final_pred
+
+    @staticmethod
+    def setup_context(ctx, inputs, output):
+        pred_list, grad_dict, param_names, *model_params = inputs
+
+        grad_dict_keys, grad_dict_tensors = Combination.split_grad_dict(grad_dict)
+
+        # Save non-Tensors for backward
+        ctx.grad_dict_keys = grad_dict_keys
+        ctx.param_names = param_names
+
+        # Save Tensors for backward
+        # Saving:
+        #  * Predictions (1 tensor)
+        #  * Grad tensors (N params * M poses tensors)
+        #  * Model param tensors (N params tensors)
+        ctx.save_for_backward(
+            torch.stack(pred_list).flatten(),
+            *grad_dict_tensors,
+            *model_params,
+        )
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        # Unpack saved tensors
+        preds, *other_tensors = ctx.saved_tensors
+
+        # Split up other_tensors
+        grad_dict_tensors = other_tensors[: len(ctx.grad_dict_keys)]
+
+        grad_dict = Combination.join_grad_dict(ctx.grad_dict_keys, grad_dict_tensors)
+
+        # Begin calculations
+        # Save for later so we don't have to keep redoing this
+        adj_preds = -preds.detach()
+
+        # First calculate the normalization factor
+        Q = torch.logsumexp(adj_preds, dim=0)
+
+        # Calculate w
+        w = (adj_preds - Q).exp()
+
+        # Calculate dQ/d_theta
+        dQ = {
+            n: -torch.stack(
+                [(pred - Q).exp() * grad for pred, grad in zip(adj_preds, grad_list)],
+                axis=-1,
+            ).sum(axis=-1)
+            for n, grad_list in grad_dict.items()
+        }
+
+        # Calculate dw/d_theta
+        dw = {
+            n: [
+                (pred - Q).exp() * (-grad - dQ[n])
+                for pred, grad in zip(adj_preds, grad_list)
+            ]
+            for n, grad_list in grad_dict.items()
+        }
+
+        # Calculate final grads
+        final_grads = {}
+        for n, grad_list in grad_dict.items():
+            final_grads[n] = (
+                torch.stack(
+                    [
+                        w_grad * -pred + w_val * grad
+                        for w_grad, pred, w_val, grad in zip(
+                            dw[n], adj_preds, w, grad_list
+                        )
+                    ],
+                    axis=-1,
+                )
+                .detach()
+                .sum(axis=-1)
+            )
+
+        # Adjust gradients by grad_output
+        for grad in final_grads.values():
+            grad *= grad_output
+
+        # Pull out return vals
+        return_vals = [None] * 3 + [final_grads[n] for n in ctx.param_names]
+        return tuple(return_vals)
