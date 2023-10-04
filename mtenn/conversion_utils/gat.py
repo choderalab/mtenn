@@ -6,15 +6,7 @@ import torch
 from dgllife.model import GAT as GAT_dgl
 from dgllife.model import WeightedSumAndMax
 
-from ..model import (
-    BoltzmannCombination,
-    ConcatStrategy,
-    DeltaStrategy,
-    GroupedModel,
-    MeanCombination,
-    LigandOnlyModel,
-    PIC50Readout,
-)
+from mtenn.model import LigandOnlyModel
 
 
 class GAT(torch.nn.Module):

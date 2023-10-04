@@ -5,15 +5,8 @@ from copy import deepcopy
 import torch
 from torch_geometric.nn.models import SchNet as PygSchNet
 
-from ..model import (
-    BoltzmannCombination,
-    ConcatStrategy,
-    DeltaStrategy,
-    GroupedModel,
-    MeanCombination,
-    Model,
-    PIC50Readout,
-)
+from mtenn.model import GroupedModel, Model
+from mtenn.strategy import ConcatStrategy, DeltaStrategy
 
 
 class SchNet(PygSchNet):
@@ -165,7 +158,7 @@ class SchNet(PygSchNet):
         ## Check on `combination`
         if grouped and (combination is None):
             raise ValueError(
-                f"Must pass a value for `combination` if `grouped` is `True`."
+                "Must pass a value for `combination` if `grouped` is `True`."
             )
 
         if grouped:

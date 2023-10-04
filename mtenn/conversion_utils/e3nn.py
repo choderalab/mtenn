@@ -3,18 +3,10 @@ Representation and strategy for e3nn model.
 """
 from copy import deepcopy
 import torch
-from e3nn import o3
 from e3nn.nn.models.gate_points_2101 import Network
 
-from ..model import (
-    BoltzmannCombination,
-    ConcatStrategy,
-    DeltaStrategy,
-    GroupedModel,
-    MeanCombination,
-    Model,
-    PIC50Readout,
-)
+from mtenn.model import GroupedModel, Model
+from mtenn.strategy import ConcatStrategy, DeltaStrategy
 
 
 class E3NN(Network):
@@ -191,7 +183,7 @@ class E3NN(Network):
         ## Check on `combination`
         if grouped and (combination is None):
             raise ValueError(
-                f"Must pass a value for `combination` if `grouped` is `True`."
+                "Must pass a value for `combination` if `grouped` is `True`."
             )
 
         if grouped:
