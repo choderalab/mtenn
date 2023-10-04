@@ -179,7 +179,7 @@ class MaxCombination(Combination):
 
     def forward(self, pred_list, grad_dict, param_names, *model_params):
         return _MaxCombinationFunc.apply(
-            self.neg, self.scale, pred_list, grad_dict, param_names * model_params
+            self.neg, self.scale, pred_list, grad_dict, param_names, *model_params
         )
 
 
