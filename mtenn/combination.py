@@ -87,7 +87,9 @@ class MeanCombination(Combination):
         super(MeanCombination, self).__init__()
 
     def forward(self, pred_list, grad_dict, param_names, *model_params):
-        return _MeanCombinationFunc.apply(pred_list, grad_dict, *model_params)
+        return _MeanCombinationFunc.apply(
+            pred_list, grad_dict, param_names, *model_params
+        )
 
 
 class _MeanCombinationFunc(torch.autograd.Function):
@@ -177,7 +179,7 @@ class MaxCombination(Combination):
 
     def forward(self, pred_list, grad_dict, param_names, *model_params):
         return _MaxCombinationFunc.apply(
-            self.neg, self.scale, pred_list, grad_dict, *model_params
+            self.neg, self.scale, pred_list, grad_dict, param_names * model_params
         )
 
 
@@ -289,7 +291,9 @@ class BoltzmannCombination(Combination):
         super(BoltzmannCombination, self).__init__()
 
     def forward(self, pred_list, grad_dict, param_names, *model_params):
-        return _BoltzmannCombinationFunc.apply(pred_list, grad_dict, *model_params)
+        return _BoltzmannCombinationFunc.apply(
+            pred_list, grad_dict, param_names, *model_params
+        )
 
 
 class _BoltzmannCombinationFunc(torch.autograd.Function):
