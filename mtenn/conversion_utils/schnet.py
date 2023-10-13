@@ -6,7 +6,7 @@ import torch
 from torch_geometric.nn.models import SchNet as PygSchNet
 
 from mtenn.model import GroupedModel, Model
-from mtenn.strategy import ConcatStrategy, DeltaStrategy
+from mtenn.strategy import ComplexOnlyStrategy, ConcatStrategy, DeltaStrategy
 
 
 class SchNet(PygSchNet):
@@ -96,6 +96,23 @@ class SchNet(PygSchNet):
 
         return DeltaStrategy(self._get_energy_func())
 
+    def _get_complex_only_strategy(self):
+        """
+        Build a ComplexOnlyStrategy object based on the passed model.
+
+        Parameters
+        ----------
+        model: SchNet
+            SchNet model
+
+        Returns
+        -------
+        ComplexOnlyStrategy
+            ComplexOnlyStrategy built from `model`
+        """
+
+        return ComplexOnlyStrategy(self._get_energy_func())
+
     @staticmethod
     def get_model(
         model=None,
@@ -123,7 +140,7 @@ class SchNet(PygSchNet):
             copying over as necessary.
         strategy: str, default='delta'
             Strategy to use to combine representation of the different parts.
-            Options are ['delta', 'concat']
+            Options are ['delta', 'concat', 'complex']
         combination: Combination, optional
             Combination object to use to combine predictions in a group. A value
             must be passed if `grouped` is `True`.
@@ -152,6 +169,8 @@ class SchNet(PygSchNet):
             strategy = model._get_delta_strategy()
         elif strategy == "concat":
             strategy = ConcatStrategy()
+        elif strategy == "complex":
+            strategy = model._get_complex_only_strategy()
         else:
             raise ValueError(f"Unknown strategy: {strategy}")
 
