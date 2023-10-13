@@ -76,3 +76,19 @@ class ConcatStrategy(Strategy):
         full_embedded = torch.cat([comp, parts_cat])
 
         return self.reduce_nn(full_embedded)
+
+
+class ComplexOnlyStrategy(Strategy):
+    """
+    Strategy to only return prediction for the complex. This is useful if you want to
+    make a prediction on just the ligand or just the protein, and essentially just
+    reduces to a standard version of whatever your underlying model is.
+    """
+
+    def __init__(self, energy_func):
+        super().__init__()
+        self.energy_func: torch.nn.Module = energy_func
+
+    def forward(self, comp, *parts):
+        complex_pred = self.energy_func(comp)
+        return complex_pred
