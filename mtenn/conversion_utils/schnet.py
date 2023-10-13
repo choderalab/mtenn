@@ -100,15 +100,10 @@ class SchNet(PygSchNet):
         """
         Build a ComplexOnlyStrategy object based on the passed model.
 
-        Parameters
-        ----------
-        model: SchNet
-            SchNet model
-
         Returns
         -------
         ComplexOnlyStrategy
-            ComplexOnlyStrategy built from `model`
+            ComplexOnlyStrategy built from `self`
         """
 
         return ComplexOnlyStrategy(self._get_energy_func())
