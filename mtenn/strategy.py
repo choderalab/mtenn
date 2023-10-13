@@ -19,7 +19,14 @@ class DeltaStrategy(Strategy):
 
     def forward(self, comp, *parts):
         ## Calculat delta G
-        return self.energy_func(comp) - sum([self.energy_func(p) for p in parts])
+        complex_pred = self.energy_func(comp)
+        parts_preds = [self.energy_func(p) for p in parts]
+        parts_preds = [
+            p if len(p.flatten()) > 0 else torch.zeros_like(complex_pred)
+            for p in parts_preds
+        ]
+        dG_pred = complex_pred - sum(parts_preds)
+        return dG_pred
 
 
 class ConcatStrategy(Strategy):
