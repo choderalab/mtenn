@@ -6,7 +6,7 @@ import torch
 from e3nn.nn.models.gate_points_2101 import Network
 
 from mtenn.model import GroupedModel, Model
-from mtenn.strategy import ConcatStrategy, DeltaStrategy
+from mtenn.strategy import ComplexOnlyStrategy, ConcatStrategy, DeltaStrategy
 
 
 class E3NN(Network):
@@ -102,6 +102,18 @@ class E3NN(Network):
 
         return DeltaStrategy(self._get_energy_func())
 
+    def _get_complex_only_strategy(self):
+        """
+        Build a ComplexOnlyStrategy object based on the passed model.
+
+        Returns
+        -------
+        ComplexOnlyStrategy
+            ComplexOnlyStrategy built from `self`
+        """
+
+        return ComplexOnlyStrategy(self._get_energy_func())
+
     def _get_concat_strategy(self):
         """
         Build a ConcatStrategy object using the key "x" to extract the tensor
@@ -145,7 +157,7 @@ class E3NN(Network):
             copying over as necessary.
         strategy: str, default='delta'
             Strategy to use to combine representation of the different parts.
-            Options are ['delta', 'concat']
+            Options are ['delta', 'concat', 'complex']
         combination: Combination, optional
             Combination object to use to combine predictions in a group. A value
             must be passed if `grouped` is `True`.
@@ -174,6 +186,9 @@ class E3NN(Network):
         elif strategy == "concat":
             strategy = model._get_concat_strategy()
             reduce_output = True
+        elif strategy == "complex":
+            strategy = model._get_complex_only_strategy()
+            reduce_output = False
         else:
             raise ValueError(f"Unknown strategy: {strategy}")
 
