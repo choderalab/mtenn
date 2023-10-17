@@ -18,10 +18,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [macOS-latest, ubuntu-latest]
-        python-version: [3.9, "3.10"]
+        python-version: [3.9, "3.10", 3.11]
 
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout Repository
+      uses: actions/checkout@v3
 
     - name: Additional info about the build
       shell: bash
@@ -57,11 +58,13 @@ jobs:
       run: |
         pytest -v --cov=mtenn --cov-report=xml --color=yes mtenn/tests/
 
-    - name: CodeCov
+    - name: Upload Code Coverage to Codecov
+      uses: codecov/codecov-action@v3
+      # Don't upload coverage scheduled or on fork
       if: ${{ github.repository == 'choderalab/mtenn'
-                && github.event != 'schedule' }}
-      uses: codecov/codecov-action@v1
+              && github.event != 'schedule' }}
       with:
         file: ./coverage.xml
         flags: unittests
         name: codecov-${{ matrix.os }}-py${{ matrix.python-version }}
+        fail_ci_if_error: false
