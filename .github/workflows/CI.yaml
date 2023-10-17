@@ -43,11 +43,11 @@ jobs:
 
     # More info on options: https://github.com/conda-incubator/setup-miniconda
     - name: Setup Micromamba
-      uses: mamba-org/provision-with-micromamba@main
+      uses: mamba-org/provision-with-micromamba@v1
       with:
         environment-file: devtools/conda-envs/test_env.yaml
         environment-name: test
-        extra-specs: |
+        create-args: >-
           python==${{ matrix.python-version }}
     
     - name: Install package
