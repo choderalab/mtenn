@@ -56,9 +56,9 @@ class Model(torch.nn.Module):
 
         energy_val = self.strategy(complex_rep, *parts_rep)
         if self.readout:
-            return self.readout(energy_val)
+            return self.readout(energy_val), [energy_val]
         else:
-            return energy_val
+            return energy_val, [energy_val]
 
     def _fix_device(self, data):
         ## We'll call this on everything for uniformity, but if we fix_deivec is
@@ -194,7 +194,7 @@ class GroupedModel(Model):
                     flush=True,
                 )
             # First get prediction
-            pred = super().forward(inp)
+            pred, _ = super().forward(inp)
             pred_list.append(pred.detach())
 
             # Get gradient per sample

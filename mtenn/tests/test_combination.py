@@ -37,7 +37,7 @@ def test_mean_combination(models_and_inputs):
     model_test, model_ref, inp_list, target, loss_func = models_and_inputs
 
     # Ref calc
-    pred_list = [model_ref(X) for X in inp_list]
+    pred_list = [model_ref(X)[0] for X in inp_list]
     pred_ref = torch.stack(pred_list).mean(axis=0)
     loss = loss_func(pred_ref, target)
     loss.backward()
@@ -66,7 +66,7 @@ def test_max_combination(models_and_inputs):
     model_test, model_ref, inp_list, target, loss_func = models_and_inputs
 
     # Ref calc
-    pred_list = [model_ref(X) for X in inp_list]
+    pred_list = [model_ref(X)[0] for X in inp_list]
     pred = torch.logsumexp(torch.stack(pred_list), axis=0)
     loss = loss_func(pred, target)
     loss.backward()
@@ -98,7 +98,7 @@ def test_boltzmann_combination(models_and_inputs):
     model_test, model_ref, inp_list, target, loss_func = models_and_inputs
 
     # Ref calc
-    pred_list = torch.stack([model_ref(X) for X in inp_list])
+    pred_list = torch.stack([model_ref(X)[0] for X in inp_list])
     w = torch.exp(-pred_list - torch.logsumexp(-pred_list, axis=0))
     pred_ref = torch.dot(w.flatten(), pred_list.flatten())
     loss = loss_func(pred_ref, target)
