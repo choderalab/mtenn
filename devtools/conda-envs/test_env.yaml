@@ -1,6 +1,7 @@
 name: test
 channels:
   - conda-forge
+  - dglteam
 dependencies:
   - pytorch
   - pytorch_geometric
@@ -10,6 +11,9 @@ dependencies:
   - numpy
   - h5py
   - e3nn
+  - dgllife
+  - dgl
+  - rdkit
   # testing dependencies
   - pytest
   - pytest-cov
