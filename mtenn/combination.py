@@ -1,7 +1,9 @@
+import abc
 import torch
 
 
-class Combination(torch.nn.Module):
+class Combination(torch.nn.Module, abc.ABC):
+    @abc.abstractmethod
     def forward(self, pred_list, grad_dict, param_names, *model_params):
         """
         This function signature should be the same for any Combination subclass

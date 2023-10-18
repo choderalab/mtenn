@@ -1,8 +1,9 @@
+import abc
 from itertools import permutations
 import torch
 
 
-class Strategy(torch.nn.Module):
+class Strategy(torch.nn.Module, abc.ABC):
     pass
 
 

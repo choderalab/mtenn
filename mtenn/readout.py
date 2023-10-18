@@ -1,8 +1,9 @@
+import abc
 import torch
 from typing import Optional
 
 
-class Readout(torch.nn.Module):
+class Readout(torch.nn.Module, abc.ABC):
     pass
 
 
