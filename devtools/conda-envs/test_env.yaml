@@ -1,7 +1,6 @@
 name: test
 channels:
   - conda-forge
-  - dglteam
 dependencies:
   - pytorch
   - pytorch_geometric
