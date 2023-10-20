@@ -1,7 +1,6 @@
 name: mtenn
 channels:
   - conda-forge
-  - dglteam
 dependencies:
   - pytorch
   - pytorch_geometric
@@ -13,3 +12,5 @@ dependencies:
   - e3nn
   - dgllife
   - dgl
+  - rdkit
+  - ase
