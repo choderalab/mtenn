@@ -3,7 +3,7 @@ channels:
   - conda-forge
 dependencies:
   - pytorch
-  - pytorch_geometric
+  - pytorch_geometric <=2.3.0
   - pytorch_cluster
   - pytorch_scatter
   - pytorch_sparse
