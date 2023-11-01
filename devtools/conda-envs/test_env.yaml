@@ -13,6 +13,7 @@ dependencies:
   - dgllife
   - dgl
   - rdkit
+  - ase
   # testing dependencies
   - pytest
   - pytest-cov

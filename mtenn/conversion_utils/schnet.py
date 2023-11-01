@@ -5,15 +5,8 @@ from copy import deepcopy
 import torch
 from torch_geometric.nn.models import SchNet as PygSchNet
 
-from ..model import (
-    BoltzmannCombination,
-    ConcatStrategy,
-    DeltaStrategy,
-    GroupedModel,
-    MeanCombination,
-    Model,
-    PIC50Readout,
-)
+from mtenn.model import GroupedModel, Model
+from mtenn.strategy import ComplexOnlyStrategy, ConcatStrategy, DeltaStrategy
 
 
 class SchNet(PygSchNet):
@@ -103,6 +96,18 @@ class SchNet(PygSchNet):
 
         return DeltaStrategy(self._get_energy_func())
 
+    def _get_complex_only_strategy(self):
+        """
+        Build a ComplexOnlyStrategy object based on the passed model.
+
+        Returns
+        -------
+        ComplexOnlyStrategy
+            ComplexOnlyStrategy built from `self`
+        """
+
+        return ComplexOnlyStrategy(self._get_energy_func())
+
     @staticmethod
     def get_model(
         model=None,
@@ -130,7 +135,7 @@ class SchNet(PygSchNet):
             copying over as necessary.
         strategy: str, default='delta'
             Strategy to use to combine representation of the different parts.
-            Options are ['delta', 'concat']
+            Options are ['delta', 'concat', 'complex']
         combination: Combination, optional
             Combination object to use to combine predictions in a group. A value
             must be passed if `grouped` is `True`.
@@ -159,13 +164,15 @@ class SchNet(PygSchNet):
             strategy = model._get_delta_strategy()
         elif strategy == "concat":
             strategy = ConcatStrategy()
+        elif strategy == "complex":
+            strategy = model._get_complex_only_strategy()
         else:
             raise ValueError(f"Unknown strategy: {strategy}")
 
         ## Check on `combination`
         if grouped and (combination is None):
             raise ValueError(
-                f"Must pass a value for `combination` if `grouped` is `True`."
+                "Must pass a value for `combination` if `grouped` is `True`."
             )
 
         if grouped:

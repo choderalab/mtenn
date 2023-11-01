@@ -1,7 +1,6 @@
 name: mtenn-gpu
 channels:
   - conda-forge
-  - dglteam
 dependencies:
   - pytorch
   - pytorch-gpu
@@ -14,3 +13,5 @@ dependencies:
   - e3nn
   - dgllife
   - dgl
+  - rdkit 
+  - ase
