@@ -247,6 +247,6 @@ class LigandOnlyModel(Model):
         pred = self.get_representation(tmp_rep)
 
         if self.readout:
-            return self.readout(pred)
+            return self.readout(pred), [pred]
         else:
-            return pred
+            return pred, [pred]
