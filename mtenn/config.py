@@ -8,7 +8,21 @@ from typing import Callable, ClassVar
 import mtenn
 
 
-class ModelType(str, Enum):
+class StringEnum(str, Enum):
+    @classmethod
+    def get_values(cls) -> list[str]:
+        return [member.value for member in cls]
+
+    @classmethod
+    def reverse_lookup(cls, value):
+        return cls(value)
+
+    @classmethod
+    def get_names(cls) -> list[str]:
+        return [member.name for member in cls]
+
+
+class ModelType(StringEnum):
     """
     Enum for model types
 
@@ -36,7 +50,7 @@ class ModelType(str, Enum):
         return [member.name for member in cls]
 
 
-class StrategyConfig(str, Enum):
+class StrategyConfig(StringEnum):
     """
     Enum for possible MTENN Strategy classes.
     """
@@ -49,7 +63,7 @@ class StrategyConfig(str, Enum):
     complex = "complex"
 
 
-class ReadoutConfig(str, Enum):
+class ReadoutConfig(StringEnum):
     """
     Enum for possible MTENN Readout classes.
     """
@@ -57,7 +71,7 @@ class ReadoutConfig(str, Enum):
     pic50 = "pic50"
 
 
-class CombinationConfig(str, Enum):
+class CombinationConfig(StringEnum):
     """
     Enum for possible MTENN Readout classes.
     """
