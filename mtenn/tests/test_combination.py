@@ -2,7 +2,6 @@ from copy import deepcopy
 import numpy as np
 import pytest
 import torch
-from torch_geometric.nn import SchNet as PygSchNet
 
 from mtenn.combination import MeanCombination, MaxCombination, BoltzmannCombination
 from mtenn.conversion_utils import SchNet
@@ -11,7 +10,7 @@ from mtenn.conversion_utils import SchNet
 @pytest.fixture()
 def models_and_inputs():
     model_test = SchNet(
-        PygSchNet(hidden_channels=2, num_filters=2, num_interactions=2, num_gaussians=2)
+        hidden_channels=2, num_filters=2, num_interactions=2, num_gaussians=2
     )
     model_ref = deepcopy(model_test)
     model_ref = SchNet.get_model(model_ref, strategy="complex")
