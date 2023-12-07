@@ -341,7 +341,7 @@ class GATModelConfig(ModelConfigBase):
             "Passing a str or list of strs functions similarly as for hidden_feats."
         ),
     )
-    activations: list[Callable] | None = Field(
+    activations: list[Callable] | list[None] | None = Field(
         None,
         description=(
             "Activation function for each GAT layer. Passing a function or "
