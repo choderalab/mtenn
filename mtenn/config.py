@@ -648,7 +648,7 @@ class E3NNModelConfig(ModelConfigBase):
         irreps = values["irreps_hidden"]
         # First see if this string should be converted into a dict
         if isinstance(irreps, str):
-            if ("," in irreps) and (":" in irreps):
+            if ":" in irreps:
                 orig_irreps = irreps
                 irreps = [i.split(":") for i in irreps.split(",")]
                 try:
