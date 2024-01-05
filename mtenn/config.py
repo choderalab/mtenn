@@ -80,6 +80,9 @@ class ModelConfigBase(BaseModel):
         None, type=int, description="Random seed to set for Python, PyTorch, and NumPy."
     )
 
+    # Model weights
+    model_weights: dict | None = Field(None, type=dict, description="Model weights.")
+
     # Shared parameters for MTENN
     grouped: bool = Field(False, description="Model is a grouped (multi-pose) model.")
     strategy: StrategyConfig = Field(
@@ -218,7 +221,13 @@ class ModelConfigBase(BaseModel):
         }
 
         # Build the actual Model
-        return self._build(mtenn_params)
+        model = self._build(mtenn_params)
+
+        # Set model weights
+        if self.model_weights:
+            model.load_state_dict(self.model_weights)
+
+        return model
 
     def update(self, config_updates={}) -> ModelConfigBase:
         return self._update(config_updates)
