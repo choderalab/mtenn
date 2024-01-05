@@ -3,9 +3,12 @@ from __future__ import annotations
 import abc
 from enum import Enum
 from pydantic import BaseModel, Field, root_validator
+import random
 from typing import Callable, ClassVar
 
 import mtenn
+import numpy as np
+import torch
 
 
 class StringEnum(str, Enum):
@@ -71,6 +74,11 @@ class CombinationConfig(StringEnum):
 
 class ModelConfigBase(BaseModel):
     model_type: ModelType = Field(ModelType.INVALID, const=True, allow_mutation=False)
+
+    # Random seed optional for reproducibility
+    rand_seed: int | None = Field(
+        None, type=int, description="Random seed to set for Python, PyTorch, and NumPy."
+    )
 
     # Shared parameters for MTENN
     grouped: bool = Field(False, description="Model is a grouped (multi-pose) model.")
@@ -168,6 +176,12 @@ class ModelConfigBase(BaseModel):
         ...
 
     def build(self) -> mtenn.model.Model:
+        # First set random seeds if applicable
+        if self.rand_seed is not None:
+            random.seed(self.rand_seed)
+            torch.manual_seed(self.rand_seed)
+            np.random.seed(self.rand_seed)
+
         # First handle the MTENN classes
         match self.combination:
             case CombinationConfig.mean:
