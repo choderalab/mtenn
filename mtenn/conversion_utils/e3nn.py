@@ -10,12 +10,12 @@ from mtenn.strategy import ComplexOnlyStrategy, ConcatStrategy, DeltaStrategy
 
 
 class E3NN(Network):
-    def __init__(self, model=None, model_kwargs=None):
+    def __init__(self, *args, model=None, **kwargs):
         ## If no model is passed, construct E3NN model with model_kwargs,
         ##  otherwise copy all parameters and weights over
         if model is None:
-            super(E3NN, self).__init__(**model_kwargs)
-            self.model_parameters = model_kwargs
+            super(E3NN, self).__init__(*args, **kwargs)
+            self.model_parameters = kwargs
         else:
             # this will need changing to include  model features of e3nn
             atomref = model.atomref.weight.detach().clone()

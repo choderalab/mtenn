@@ -10,11 +10,11 @@ from mtenn.strategy import ComplexOnlyStrategy, ConcatStrategy, DeltaStrategy
 
 
 class SchNet(PygSchNet):
-    def __init__(self, model=None):
+    def __init__(self, *args, model=None, **kwargs):
         ## If no model is passed, construct default SchNet model, otherwise copy
         ##  all parameters and weights over
         if model is None:
-            super(SchNet, self).__init__()
+            super(SchNet, self).__init__(*args, **kwargs)
         else:
             try:
                 atomref = model.atomref.weight.detach().clone()
