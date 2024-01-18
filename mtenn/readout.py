@@ -100,7 +100,7 @@ class KiReadout(Readout):
         ----------
         None
         """
-        super(KiReadout, self).__init__()  #TODO Remove?
+        super(KiReadout, self).__init__()
 
     def __repr__(self):
         return f"KiReadout()"
@@ -119,6 +119,6 @@ class KiReadout(Readout):
         float
             Calculated Ki value.
         """
-        ki = torch.exp(delta_g).item()
+        ki = torch.exp(delta_g)
 
         return ki
