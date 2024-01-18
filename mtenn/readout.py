@@ -70,7 +70,7 @@ class PIC50Readout(Readout):
 
         Returns
         -------
-        float
+        torch.Tensor
             Calculated pIC50 value.
         """
         pic50 = -delta_g / torch.log(torch.tensor(10, dtype=delta_g.dtype))
@@ -116,7 +116,7 @@ class KiReadout(Readout):
 
         Returns
         -------
-        float
+        torch.Tensor
             Calculated Ki value.
         """
         ki = torch.exp(delta_g)
