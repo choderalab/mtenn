@@ -39,7 +39,7 @@ class ModelType(StringEnum):
     schnet = "schnet"
     e3nn = "e3nn"
     INVALID = "INVALID"
-
+    visnet = "visnet"
 
 class StrategyConfig(StringEnum):
     """
@@ -741,6 +741,124 @@ class E3NNModelConfig(ModelConfigBase):
         comb_readout = mtenn_params.get("comb_readout", None)
 
         return E3NN.get_model(
+            model=model,
+            grouped=self.grouped,
+            fix_device=True,
+            strategy=self.strategy,
+            combination=combination,
+            pred_readout=pred_readout,
+            comb_readout=comb_readout,
+        )
+
+
+
+#FIXME: Update to ViSNet API
+class ViSNetModelConfig(ModelConfigBase):
+    """
+    Class for constructing a SchNet ML model. Default values here are the default values
+    given in PyG.
+    """
+
+    model_type: ModelType = Field(ModelType.visnet, const=True)
+    lmax: int = Field(1, description="The maximum degree of the spherical harmonics.")
+    vecnorm_type: str | None = Field(
+        None, description="The type of normalization to apply to the vectors."
+    )
+    trainable_vecnorm: bool = Field(
+        False, description="Whether the normalization weights are trainable."
+    )
+    num_heads: int = Field(8, description="The number of attention heads.")
+    num_layers: int = Field(6, description="The number of layers in the network.")
+    hidden_channels: int = Field(
+        128, description="The number of hidden channels in the node embeddings."
+    )
+    num_rbf: int = Field(32, description="The number of radial basis functions.")
+    trainable_rbf: bool = Field(
+        False, description="Whether the radial basis function parameters are trainable."
+    )
+    max_z: int = Field(100, description="The maximum atomic numbers.")
+    cutoff: float = Field(5.0, description="The cutoff distance.")
+    max_num_neighbors: int = Field(
+        32, 
+        description="The maximum number of neighbors considered for each atom."
+    )
+    vertex: bool = Field(
+        False, 
+        description="Whether to use vertex geometric features."
+    )
+    atomref: torch.Tensor | None = Field(
+        None,
+        description=(
+            "Reference values for single-atom properties. Should have length of 100 to "
+            "match with PyG."
+            )    
+    )
+    reduce_op: str = Field(
+        "sum", 
+        description="The type of reduction operation to apply. ['sum', 'mean']"
+    )
+    mean: float | None = Field(0.0, description="The mean of the output distribution.")
+    std: float | None = Field(1.0, description="The standard deviation of the output distribution.")
+    derivative: bool = Field(
+        False, 
+        description="Whether to compute the derivative of the output with respect to the positions."
+    )
+
+    @root_validator(pre=False)
+    def validate(cls, values):
+        # Make sure the grouped stuff is properly assigned
+        ModelConfigBase._check_grouped(values)
+
+        # Make sure atomref length is correct (this is required by PyG)
+        atomref = values["atomref"]
+        if (atomref is not None) and (len(atomref) != 100):
+            raise ValueError(f"atomref must be length 100 (got {len(atomref)})")
+
+        return values
+
+    def _build(self, mtenn_params={}):
+        """
+        Build an MTENN ViSNet Model from this config.
+
+        Parameters
+        ----------
+        mtenn_params: dict
+            Dict giving the MTENN Readout. This will be passed by the `build` method in
+            the abstract base class
+
+        Returns
+        -------
+        mtenn.model.Model
+            MTENN ViSNet Model/GroupedModel
+        """
+        from mtenn.conversion_utils import ViSNet
+
+        # Create an MTENN ViSNet model from PyG ViSNet model
+        model = ViSNet(
+            lmax=self.lmax,
+            vecnorm_type=self.vecnorm_type,
+            trainable_vector_norm=self.trainable_vecnorm,
+            num_heads=self.num_heads,
+            num_layers=self.num_layers,
+            hidden_channels=self.hidden_channels,
+            num_rbf=self.num_rbf,
+            trainable_rbf=self.trainable_rbf,
+            max_z=self.max_z,
+            cutoff=self.cutoff,
+            max_num_neighbors=self.max_num_neighbors,
+            vertex=self.vertex,
+            reduce_op=self.reduce_op,
+            mean=self.mean,
+            std=self.std,
+            derivative=self.derivative,
+            atomref=self.atomref,
+        )
+
+        combination = mtenn_params.get("combination", None)
+        pred_readout = mtenn_params.get("pred_readout", None)
+        comb_readout = mtenn_params.get("comb_readout", None)
+
+        return ViSNet.get_model(
             model=model,
             grouped=self.grouped,
             fix_device=True,
