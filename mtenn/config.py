@@ -60,6 +60,7 @@ class ReadoutConfig(StringEnum):
     """
 
     pic50 = "pic50"
+    ki = "ki"
 
 
 class CombinationConfig(StringEnum):
@@ -203,6 +204,8 @@ class ModelConfigBase(BaseModel):
                 mtenn_pred_readout = mtenn.readout.PIC50Readout(
                     substrate=self.pred_substrate, Km=self.pred_km
                 )
+            case ReadoutConfig.ki:
+                mtenn_pred_readout = mtenn.readout.KiReadout()
             case None:
                 mtenn_pred_readout = None
 
@@ -211,6 +214,8 @@ class ModelConfigBase(BaseModel):
                 mtenn_comb_readout = mtenn.readout.PIC50Readout(
                     substrate=self.comb_substrate, Km=self.comb_km
                 )
+            case ReadoutConfig.ki:
+                mtenn_comb_readout = mtenn.readout.KiReadout()
             case None:
                 mtenn_comb_readout = None
 
