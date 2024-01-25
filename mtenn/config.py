@@ -39,7 +39,7 @@ class ModelType(StringEnum):
     schnet = "schnet"
     e3nn = "e3nn"
     INVALID = "INVALID"
-    ViSNet = "visnet"
+    visnet = "visnet"
 
 class StrategyConfig(StringEnum):
     """
@@ -784,7 +784,7 @@ class ViSNetModelConfig(ModelConfigBase):
         False, 
         description="Whether to use vertex geometric features."
     )
-    atomref: torch.Tensor | None = Field(
+    atomref: list[float] | None = Field(
         None,
         description=(
             "Reference values for single-atom properties. Should have length of 100 to "
