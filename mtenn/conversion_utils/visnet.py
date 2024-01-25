@@ -9,32 +9,25 @@ from torch_geometric.utils import scatter
 
 from mtenn.model import GroupedModel, Model
 from mtenn.strategy import ComplexOnlyStrategy, ConcatStrategy, DeltaStrategy
-
-class UpdateAtoms(torch.nn.Module):
-    def __init__(self, prior_model, std):
-        super(UpdateAtoms, self).__init__()
-        self.prior_model = prior_model
-        self.std = std 
-
-    def forward(self, x, z):
-        x = x * self.std
-
-        if self.prior_model is not None:
-            x = self.prior_model(x, z)
-
-        return x
     
 
-class EquivariantRepToScaler(torch.nn.module):
+class EquivariantVecToScaler(torch.nn.Module):
     # Wrapper for PygVisNet.EquivariantScalar to implement forward() method
-    def __init__(self, equv_layer):
-        super(EquivariantRepToScaler, self).__init__()
-        self.equv_layer = equv_layer
-    def forward(self, x, v):
-        return self.equv_layer.pre_reduce(x, v)
+    def __init__(self, mean, reduce_op):
+        super(EquivariantVecToScaler, self).__init__()
+        self.mean = mean
+        self.reduce_op = reduce_op
+    def forward(self, x):
+        # dummy variable. all atoms from the same molecule and the same batch
+        batch = torch.zeros(x.shape[0], dtype=torch.int64, device=x.device)
+
+        y = scatter(x, batch, dim=0, reduce=self.reduce_op)
+        return y + self.mean
+
 
 class ViSNet(torch.nn.Module):
     def __init__(self, *args, model=None, **kwargs):
+        super().__init__()
         ## If no model is passed, construct default SchNet model, otherwise copy
         ##  all parameters and weights over
         if model is None:
@@ -66,12 +59,9 @@ class ViSNet(torch.nn.Module):
             self.visnet = PygVisNet(*model_params)
             self.load_state_dict(model.state_dict())
 
-        # self.readout = UpdateAtoms(self.visnet.prior_model, self.visnet.std)
-        self.readout = EquivariantRepToScaler(self.visnet.output_model)
-
+        self.readout = EquivariantVecToScaler(self.visnet.mean, self.visnet.reduce_op)
 
     def forward(self, data):
-        # return super(ViSNet, self).forward(data["z"], data["pos"])
         """
         Computes the energies or properties (forces) for a batch of
         molecules.
@@ -84,7 +74,6 @@ class ViSNet(torch.nn.Module):
 
         Returns:
             x (torch.Tensor): Scalar output based on node features and vector features.
-            dx (torch.Tensor, optional): The negative derivative of x.
         """
         pos = data["pos"]
         z = data["z"]
@@ -93,10 +82,10 @@ class ViSNet(torch.nn.Module):
         # TODO: set separate batch for ligand and protein
         batch = torch.zeros(z.shape[0], device=z.device)
         x, v = self.visnet.representation_model(z, pos, batch)
-        x = self.readout(x, v)
+        x = self.visnet.output_model.pre_reduce(x, v)
+        x = x * self.visnet.std
 
-        # x = self.visnet.output_model.pre_reduce(x, v)
-        # return self.readout(x, z)
+        return x
 
     def _get_representation(self):
         """
@@ -120,7 +109,7 @@ class ViSNet(torch.nn.Module):
 
     def _get_energy_func(self):
         """
-        Return last layer of the model.
+        Return last layer of the model (outputs scalar value)
 
         Parameters
         ----------
