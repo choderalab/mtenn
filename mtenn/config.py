@@ -39,7 +39,7 @@ class ModelType(StringEnum):
     schnet = "schnet"
     e3nn = "e3nn"
     INVALID = "INVALID"
-    visnet = "visnet"
+    ViSNet = "visnet"
 
 class StrategyConfig(StringEnum):
     """
@@ -751,8 +751,6 @@ class E3NNModelConfig(ModelConfigBase):
         )
 
 
-
-#FIXME: Update to ViSNet API
 class ViSNetModelConfig(ModelConfigBase):
     """
     Class for constructing a SchNet ML model. Default values here are the default values
