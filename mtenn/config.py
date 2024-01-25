@@ -835,7 +835,7 @@ class ViSNetModelConfig(ModelConfigBase):
         model = ViSNet(
             lmax=self.lmax,
             vecnorm_type=self.vecnorm_type,
-            trainable_vector_norm=self.trainable_vecnorm,
+            trainable_vecnorm=self.trainable_vecnorm,
             num_heads=self.num_heads,
             num_layers=self.num_layers,
             hidden_channels=self.hidden_channels,
