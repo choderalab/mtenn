@@ -1,5 +1,6 @@
 name: test
 channels:
+  - pytorch-nightly
   - conda-forge
 dependencies:
   - pytorch
