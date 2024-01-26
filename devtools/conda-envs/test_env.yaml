@@ -1,10 +1,10 @@
 name: test
 channels:
-  - pytorch-nightly
   - conda-forge
 dependencies:
+  - pip
   - pytorch
-  - pytorch_geometric
+  # - pytorch_geometric
   - pytorch_cluster
   - pytorch_scatter
   - pytorch_sparse
@@ -20,3 +20,6 @@ dependencies:
   - pytest-cov
   - codecov
   - pydantic >=1.10.8,<2.0.0a0
+
+  - pip:
+    - pyg-nightly
