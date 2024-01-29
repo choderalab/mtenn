@@ -5,7 +5,6 @@ from enum import Enum
 from pydantic import BaseModel, Field, root_validator
 import random
 from typing import Callable, ClassVar
-
 import mtenn
 import numpy as np
 import torch
@@ -753,7 +752,7 @@ class E3NNModelConfig(ModelConfigBase):
 
 class ViSNetModelConfig(ModelConfigBase):
     """
-    Class for constructing a SchNet ML model. Default values here are the default values
+    Class for constructing a VisNet ML model. Default values here are the default values
     given in PyG.
     """
 
@@ -813,6 +812,8 @@ class ViSNetModelConfig(ModelConfigBase):
             raise ValueError(f"atomref must be length 100 (got {len(atomref)})")
 
         return values
+    
+    
 
     def _build(self, mtenn_params={}):
         """
@@ -829,39 +830,45 @@ class ViSNetModelConfig(ModelConfigBase):
         mtenn.model.Model
             MTENN ViSNet Model/GroupedModel
         """
-        from mtenn.conversion_utils import ViSNet
-
         # Create an MTENN ViSNet model from PyG ViSNet model
-        model = ViSNet(
-            lmax=self.lmax,
-            vecnorm_type=self.vecnorm_type,
-            trainable_vecnorm=self.trainable_vecnorm,
-            num_heads=self.num_heads,
-            num_layers=self.num_layers,
-            hidden_channels=self.hidden_channels,
-            num_rbf=self.num_rbf,
-            trainable_rbf=self.trainable_rbf,
-            max_z=self.max_z,
-            cutoff=self.cutoff,
-            max_num_neighbors=self.max_num_neighbors,
-            vertex=self.vertex,
-            reduce_op=self.reduce_op,
-            mean=self.mean,
-            std=self.std,
-            derivative=self.derivative,
-            atomref=self.atomref,
-        )
 
-        combination = mtenn_params.get("combination", None)
-        pred_readout = mtenn_params.get("pred_readout", None)
-        comb_readout = mtenn_params.get("comb_readout", None)
+        from mtenn.conversion_utils.visnet import HAS_VISNET_FLAG
+        if HAS_VISNET_FLAG:
+            from mtenn.conversion_utils import ViSNet
 
-        return ViSNet.get_model(
-            model=model,
-            grouped=self.grouped,
-            fix_device=True,
-            strategy=self.strategy,
-            combination=combination,
-            pred_readout=pred_readout,
-            comb_readout=comb_readout,
-        )
+            model = ViSNet(
+                lmax=self.lmax,
+                vecnorm_type=self.vecnorm_type,
+                trainable_vecnorm=self.trainable_vecnorm,
+                num_heads=self.num_heads,
+                num_layers=self.num_layers,
+                hidden_channels=self.hidden_channels,
+                num_rbf=self.num_rbf,
+                trainable_rbf=self.trainable_rbf,
+                max_z=self.max_z,
+                cutoff=self.cutoff,
+                max_num_neighbors=self.max_num_neighbors,
+                vertex=self.vertex,
+                reduce_op=self.reduce_op,
+                mean=self.mean,
+                std=self.std,
+                derivative=self.derivative,
+                atomref=self.atomref,
+            )
+            combination = mtenn_params.get("combination", None)
+            pred_readout = mtenn_params.get("pred_readout", None)
+            comb_readout = mtenn_params.get("comb_readout", None)
+
+            return ViSNet.get_model(
+                model=model,
+                grouped=self.grouped,
+                fix_device=True,
+                strategy=self.strategy,
+                combination=combination,
+                pred_readout=pred_readout,
+                comb_readout=comb_readout,
+            )
+
+        else:
+            raise ImportError("ViSNet not found. Is your PyG >=2.5.0?")
+    
