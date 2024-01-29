@@ -9,7 +9,7 @@ from torch_geometric.utils import scatter
 from mtenn.model import GroupedModel, Model
 from mtenn.strategy import ComplexOnlyStrategy, ConcatStrategy, DeltaStrategy
 
-# guard required: currently require PyG nightly 2.5.0 (SEE ISSUE #123456)
+# guard required: currently require PyG nightly 2.5.0 (SEE ISSUE #42)
 HAS_VISNET = False
 
 try:

@@ -870,5 +870,5 @@ class ViSNetModelConfig(ModelConfigBase):
             )
 
         else:
-            raise ImportError("ViSNet not found. Is your PyG >=2.5.0?")
+            raise ImportError("ViSNet not found. Is your PyG >=2.5.0? Refer to issue #42.")
     
