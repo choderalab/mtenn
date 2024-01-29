@@ -1,5 +1,5 @@
 from mtenn.config import GATModelConfig, E3NNModelConfig, SchNetModelConfig, ViSNetModelConfig
-
+from mtenn.conversion_utils.visnet import HAS_VISNET
 
 def test_random_seed_gat():
     rand_config = GATModelConfig()
@@ -66,6 +66,7 @@ def test_random_seed_schnet():
     ]
     assert sum(set_equal) == len(set_equal)
 
+@pytest.mark.skipif(not HAS_VISNET, reason="requires VisNet from nightly PyG")
 def test_random_seed_visnet():
     rand_config = ViSNetModelConfig()
     set_config = ViSNetModelConfig(rand_seed=10)
