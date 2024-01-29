@@ -22,14 +22,14 @@ defaults:
 
 jobs:
   test:
-    name: Test on ${{ matrix.os }}, Python ${{ matrix.python-version }}
+    name: Test on ${{ matrix.os }}, Python ${{ matrix.python-version }}, Env ${{ matrix.deps }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [macOS-latest, ubuntu-latest]
         python-version: ["3.10", "3.11"]
-        deps: ["test_env.yaml", "test_env-nightly.yaml"]
+        deps: ["devtools/conda-envs/test_env.yaml", "devtools/conda-envs/test_env-nightly.yaml"]
 
     steps:
     - name: Checkout Repository
@@ -69,5 +69,5 @@ jobs:
       with:
         file: ./coverage.xml
         flags: unittests
-        name: codecov-${{ matrix.os }}-py${{ matrix.python-version }}
+        name: codecov-${{ matrix.os }}-py${{ matrix.python-version }}-enc${{ matrix.deps }}
         fail_ci_if_error: false
