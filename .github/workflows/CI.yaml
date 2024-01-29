@@ -69,5 +69,5 @@ jobs:
       with:
         file: ./coverage.xml
         flags: unittests
-        name: codecov-${{ matrix.os }}-py${{ matrix.python-version }}-enc${{ matrix.deps }}
+        name: codecov-${{ matrix.os }}-py${{ matrix.python-version }}-env${{ matrix.deps }}
         fail_ci_if_error: false

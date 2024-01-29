@@ -9,27 +9,31 @@ from torch_geometric.utils import scatter
 from mtenn.model import GroupedModel, Model
 from mtenn.strategy import ComplexOnlyStrategy, ConcatStrategy, DeltaStrategy
 
+# guard required: currently require PyG nightly 2.5.0 (SEE ISSUE #123456)
 HAS_VISNET = False
+
 try:
     from torch_geometric.nn.models import ViSNet as PygVisNet
     HAS_VISNET = True
 except ImportError:
-    pass    
+    pass
+
+
+class EquivariantVecToScaler(torch.nn.Module):
+    # Wrapper for PygVisNet.EquivariantScalar to implement forward() method
+    def __init__(self, mean, reduce_op):
+        super(EquivariantVecToScaler, self).__init__()
+        self.mean = mean
+        self.reduce_op = reduce_op
+    def forward(self, x):
+        # dummy variable. all atoms from the same molecule and the same batch
+        batch = torch.zeros(x.shape[0], dtype=torch.int64, device=x.device)
+
+        y = scatter(x, batch, dim=0, reduce=self.reduce_op)
+        return y + self.mean
+
+
 if HAS_VISNET:
-    class EquivariantVecToScaler(torch.nn.Module):
-        # Wrapper for PygVisNet.EquivariantScalar to implement forward() method
-        def __init__(self, mean, reduce_op):
-            super(EquivariantVecToScaler, self).__init__()
-            self.mean = mean
-            self.reduce_op = reduce_op
-        def forward(self, x):
-            # dummy variable. all atoms from the same molecule and the same batch
-            batch = torch.zeros(x.shape[0], dtype=torch.int64, device=x.device)
-
-            y = scatter(x, batch, dim=0, reduce=self.reduce_op)
-            return y + self.mean
-
-
     class ViSNet(torch.nn.Module):
         def __init__(self, *args, model=None, **kwargs):
             super().__init__()
