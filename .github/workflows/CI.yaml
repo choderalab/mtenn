@@ -29,6 +29,7 @@ jobs:
       matrix:
         os: [macOS-latest, ubuntu-latest]
         python-version: ["3.10", "3.11"]
+        deps: ["test_env.yaml", "test_env-nightly.yaml"]
 
     steps:
     - name: Checkout Repository
@@ -45,7 +46,7 @@ jobs:
     - name: Setup Micromamba
       uses: mamba-org/setup-micromamba@v1
       with:
-        environment-file: devtools/conda-envs/test_env.yaml
+        environment-file: ${{ matrix.deps }}
         environment-name: test
         create-args: >-
           python==${{ matrix.python-version }}
