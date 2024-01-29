@@ -832,8 +832,8 @@ class ViSNetModelConfig(ModelConfigBase):
         """
         # Create an MTENN ViSNet model from PyG ViSNet model
 
-        from mtenn.conversion_utils.visnet import HAS_VISNET_FLAG
-        if HAS_VISNET_FLAG:
+        from mtenn.conversion_utils.visnet import HAS_VISNET
+        if HAS_VISNET:
             from mtenn.conversion_utils import ViSNet
 
             model = ViSNet(

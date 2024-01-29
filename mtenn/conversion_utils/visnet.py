@@ -9,13 +9,13 @@ from torch_geometric.utils import scatter
 from mtenn.model import GroupedModel, Model
 from mtenn.strategy import ComplexOnlyStrategy, ConcatStrategy, DeltaStrategy
 
-HAS_VISNET_FLAG = False
+HAS_VISNET = False
 try:
     from torch_geometric.nn.models import ViSNet as PygVisNet
-    HAS_VISNET_FLAG = True
+    HAS_VISNET = True
 except ImportError:
     pass    
-if HAS_VISNET_FLAG:
+if HAS_VISNET:
     class EquivariantVecToScaler(torch.nn.Module):
         # Wrapper for PygVisNet.EquivariantScalar to implement forward() method
         def __init__(self, mean, reduce_op):
