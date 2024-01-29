@@ -19,10 +19,10 @@ except ImportError:
     pass
 
 
-class EquivariantVecToScaler(torch.nn.Module):
+class EquivariantVecToScalar(torch.nn.Module):
     # Wrapper for PygVisNet.EquivariantScalar to implement forward() method
     def __init__(self, mean, reduce_op):
-        super(EquivariantVecToScaler, self).__init__()
+        super(EquivariantVecToScalar, self).__init__()
         self.mean = mean
         self.reduce_op = reduce_op
     def forward(self, x):
@@ -68,7 +68,7 @@ if HAS_VISNET:
                 self.visnet = PygVisNet(*model_params)
                 self.load_state_dict(model.state_dict())
 
-            self.readout = EquivariantVecToScaler(self.visnet.mean, self.visnet.reduce_op)
+            self.readout = EquivariantVecToScalar(self.visnet.mean, self.visnet.reduce_op)
 
         def forward(self, data):
             """
