@@ -794,8 +794,8 @@ class ViSNetModelConfig(ModelConfigBase):
         "sum", 
         description="The type of reduction operation to apply. ['sum', 'mean']"
     )
-    mean: float | None = Field(0.0, description="The mean of the output distribution.")
-    std: float | None = Field(1.0, description="The standard deviation of the output distribution.")
+    mean: float = Field(0.0, description="The mean of the output distribution.")
+    std: float = Field(1.0, description="The standard deviation of the output distribution.")
     derivative: bool = Field(
         False, 
         description="Whether to compute the derivative of the output with respect to the positions."
