@@ -786,8 +786,7 @@ class ViSNetModelConfig(ModelConfigBase):
     atomref: list[float] | None = Field(
         None,
         description=(
-            "Reference values for single-atom properties. Should have length of 100 to "
-            "match with PyG."
+            "Reference values for single-atom properties. Should have length max_z"
             )    
     )
     reduce_op: str = Field(
@@ -808,8 +807,8 @@ class ViSNetModelConfig(ModelConfigBase):
 
         # Make sure atomref length is correct (this is required by PyG)
         atomref = values["atomref"]
-        if (atomref is not None) and (len(atomref) != 100):
-            raise ValueError(f"atomref must be length 100 (got {len(atomref)})")
+        if (atomref is not None) and (len(atomref) != values["max_z"]):
+            raise ValueError(f"atomref length must match max_z. (Expected {values['max_z']}, got {len(atomref)})")
 
         return values
     
