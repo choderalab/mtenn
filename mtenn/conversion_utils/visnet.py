@@ -90,6 +90,9 @@ if HAS_VISNET:
             x = self.visnet.output_model.pre_reduce(x, v)
             x = x * self.visnet.std
 
+        if self.visnet.prior_model is not None:
+            x = self.visnet.prior_model(x, z)
+
             return x
 
         def _get_representation(self):
