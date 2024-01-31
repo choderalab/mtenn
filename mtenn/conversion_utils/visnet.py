@@ -85,7 +85,6 @@ if HAS_VISNET:
             z = data["z"]
 
             # all atom in one pass from the same molecule
-            # TODO: set separate batch for ligand and protein
             batch = torch.zeros(z.shape[0], device=z.device)
             x, v = self.visnet.representation_model(z, pos, batch)
             x = self.visnet.output_model.pre_reduce(x, v)
