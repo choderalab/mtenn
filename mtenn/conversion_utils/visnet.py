@@ -89,9 +89,8 @@ if HAS_VISNET:
             x, v = self.visnet.representation_model(z, pos, batch)
             x = self.visnet.output_model.pre_reduce(x, v)
             x = x * self.visnet.std
-
-        if self.visnet.prior_model is not None:
-            x = self.visnet.prior_model(x, z)
+            if self.visnet.prior_model is not None:
+                x = self.visnet.prior_model(x, z)
 
             return x
 
