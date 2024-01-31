@@ -37,15 +37,12 @@ if HAS_VISNET:
     class ViSNet(torch.nn.Module):
         def __init__(self, *args, model=None, **kwargs):
             super().__init__()
-            ## If no model is passed, construct default SchNet model, otherwise copy
+            ## If no model is passed, construct default ViSNet model, otherwise copy
             ##  all parameters and weights over
             if model is None:
                 self.visnet = PygVisNet(*args, **kwargs)
             else:
-                try:
-                    atomref = model.atomref.weight.detach().clone()
-                except AttributeError:
-                    atomref = None
+                atomref = model.prior_model.atomref.weight.detach().clone()
                 model_params = (
                     model.lmax,
                     model.vecnorm_type,
