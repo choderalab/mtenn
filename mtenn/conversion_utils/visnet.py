@@ -42,10 +42,7 @@ if HAS_VISNET:
             if model is None:
                 self.visnet = PygVisNet(*args, **kwargs)
             else:
-                try:
-                    atomref = model.atomref.weight.detach().clone()
-                except AttributeError:
-                    atomref = None
+                atomref = model.prior_model.atomref.weight.detach().clone()
                 model_params = (
                     model.lmax,
                     model.vecnorm_type,
