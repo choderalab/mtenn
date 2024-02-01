@@ -82,14 +82,15 @@ class PIC50Readout(Readout):
 
 
 
-class KiReadout(Readout):
+class PKiReadout(Readout):
     """
-    Readout implementation to convert delta G values to Ki values. This new
+    Readout implementation to convert delta G values to PKi values. This new
     implementation assumes implicit energy units, WHICH WILL INVALIDATE MODELS TRAINED
     PRIOR TO v0.3.0.
     Assuming implicit energy units:
         deltaG = ln(Ki)
         Ki = exp(deltaG)
+        pKi = -log(Ki)
     """
 
     def __init__(self):
@@ -100,14 +101,14 @@ class KiReadout(Readout):
         ----------
         None
         """
-        super(KiReadout, self).__init__()
+        super(PKiReadout, self).__init__()
 
     def __repr__(self):
-        return f"KiReadout()"
+        return f"PKiReadout()"
 
     def forward(self, delta_g):
         """
-        Method to convert a predicted delta G value into a Ki value.
+        Method to convert a predicted delta G value into a PKi value.
 
         Parameters
         ----------
@@ -117,8 +118,8 @@ class KiReadout(Readout):
         Returns
         -------
         torch.Tensor
-            Calculated Ki value.
+            Calculated PKi value.
         """
-        ki = torch.exp(delta_g)
+        pki = -torch.log10(torch.exp(delta_g))
 
-        return ki
+        return pki
