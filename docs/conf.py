@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Configuration file for the Sphinx documentation builder.
 #
@@ -23,12 +22,9 @@ import mtenn
 
 # -- Project information -----------------------------------------------------
 
-project = "MTENN"
-copyright = (
-    "2022, Benjamin Kaminow. Project structure based on the "
-    "Computational Molecular Science Python Cookiecutter version 1.6"
-)
-author = "Benjamin Kaminow"
+project = "mtenn"
+copyright = "2024, Chodera Lab"
+author = "Chodera Lab"
 
 # The short X.Y version
 version = ""
@@ -77,7 +73,7 @@ master_doc = "index"
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = "en"
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -144,7 +140,13 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, "mtenn.tex", "MTENN Documentation", "mtenn", "manual"),
+    (
+        master_doc,
+        "mtenn.tex",
+        "MTENN Documentation",
+        "mtenn",
+        "manual",
+    ),
 ]
 
 
@@ -152,7 +154,15 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "mtenn", "MTENN Documentation", [author], 1)]
+man_pages = [
+    (
+        master_doc,
+        "mtenn",
+        "MTENN Documentation",
+        [author],
+        1,
+    )
+]
 
 
 # -- Options for Texinfo output ----------------------------------------------
@@ -167,7 +177,7 @@ texinfo_documents = [
         "MTENN Documentation",
         author,
         "mtenn",
-        "Modular Training and Evaluation of Neural Networks",
+        "Modular Training and Evaluation of Neural Networks.",
         "Miscellaneous",
     ),
 ]
