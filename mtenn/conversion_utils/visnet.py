@@ -1,7 +1,7 @@
 """
 Representation and strategy for ViSNet model.
 """
-import warning
+import warnings
 from copy import deepcopy
 import torch
 from torch.autograd import grad
@@ -17,7 +17,7 @@ try:
     from torch_geometric.nn.models import ViSNet as PygVisNet
     HAS_VISNET = True
 except ImportError:
-    warning.warn("VisNet import error. Is your PyG >=2.5.0? Refer to issue #42", ImportWarning)
+    warnings.warn("VisNet import error. Is your PyG >=2.5.0? Refer to issue #42", ImportWarning)
 
 class EquivariantVecToScalar(torch.nn.Module):
     # Wrapper for PygVisNet.EquivariantScalar to implement forward() method
