@@ -170,13 +170,13 @@ if HAS_VISNET:
             comb_readout=None,
         ):
             """
-            Exposed function to build a Model object from a SchNet object. If none
+            Exposed function to build a Model object from a VisNet object. If none
             is provided, a default model is initialized.
 
             Parameters
             ----------
-            model: SchNet, optional
-                SchNet model to use to build the Model object. If left as none, a
+            model: VisNet, optional
+                VisNet model to use to build the Model object. If left as none, a
                 default model will be initialized and used
             grouped: bool, default=False
                 Whether this model should accept groups of inputs or one input at a
