@@ -90,34 +90,34 @@ def test_random_seed_visnet():
     assert sum(set_equal) == len(set_equal)
 
 @pytest.mark.skipif(not HAS_VISNET, reason="requires VisNet from nightly PyG")
-def test_random_seed_visnet_from_pyg():
+def test_visnet_from_pyg():
     from torch_geometric.nn.models import ViSNet as PyVisNet
-    model = PyVisNet(
-        lmax=1,
-        vecnorm_type=None,
-        trainable_vecnorm=False,
-        num_heads=8,
-        num_layers=6,
-        hidden_channels=128,
-        num_rbf=32,
-        trainable_rbf=False,
-        max_z=100,
-        cutoff=5.0,
-        max_num_neighbors=32,
-        vertex=False,
-        reduce_op="sum",
-        mean=0.0,
-        std=1.0,
-        derivative=False,
-        atomref=None,
-    )
+    from mtenn.conversion_utils.visnet import ViSNet
+    kwargs={
+        'lmax': 1,
+        'vecnorm_type': None,
+        'trainable_vecnorm': False,
+        'num_heads': 8,
+        'num_layers': 6,
+        'hidden_channels': 128,
+        'num_rbf': 32,
+        'trainable_rbf': False,
+        'max_z': 100,
+        'cutoff': 5.0,
+        'max_num_neighbors': 32,
+        'vertex': False,
+        'reduce_op': "sum",
+        'mean': 0.0,
+        'std': 1.0,
+        'derivative': False,
+        'atomref': None,
+    }
 
-    rand_config = ViSNetModelConfig(model=model)
-
-    rand_model1 = rand_config.build()
+    pyg_model = PyVisNet(**kwargs)
+    visnet_model = ViSNet(pyg_model)
 
     rand_equal = [
         (p1 == p2).all()
-        for p1, p2 in zip(rand_model1.parameters(), model.parameters())
+        for p1, p2 in zip(pyg_model.parameters(), visnet_model.parameters())
     ]
-    assert sum(rand_equal) < len(rand_equal)
+    assert sum(rand_equal) == len(rand_equal)
