@@ -93,7 +93,7 @@ def test_random_seed_visnet():
 def test_visnet_from_pyg():
     from torch_geometric.nn.models import ViSNet as PyVisNet
     from mtenn.conversion_utils import ViSNet
-    args={
+    model_params={
         'lmax': 1,
         'vecnorm_type': None,
         'trainable_vecnorm': False,
@@ -113,8 +113,8 @@ def test_visnet_from_pyg():
         'atomref': None,
     }
 
-    pyg_model = PyVisNet(*args)    
-    visnet_model = ViSNet(model=pyg_model, **kwargs)
+    pyg_model = PyVisNet(**model_params)    
+    visnet_model = ViSNet(model=pyg_model)
 
     params_equal = [
         (p1 == p2).all()

@@ -6,6 +6,7 @@ from copy import deepcopy
 import torch
 from torch.autograd import grad
 from torch_geometric.utils import scatter
+from torch_geometric.nn.models.visnet import ViS_MP_Vertex
 
 from mtenn.model import GroupedModel, Model
 from mtenn.strategy import ComplexOnlyStrategy, ConcatStrategy, DeltaStrategy
@@ -28,7 +29,6 @@ class EquivariantVecToScalar(torch.nn.Module):
     def forward(self, x):
         # dummy variable. all atoms from the same molecule and the same batch
         batch = torch.zeros(x.shape[0], dtype=torch.int64, device=x.device)
-
         y = scatter(x, batch, dim=0, reduce=self.reduce_op)
         return y + self.mean
 
@@ -55,15 +55,15 @@ if HAS_VISNET:
                     'max_z': model.representation_model.max_z,
                     'cutoff': model.representation_model.cutoff,
                     'reduce_op': model.representation_model.max_num_neighbors,
-                    'vertex': True if model.representation_model.vis_mp_layers[0].__class__.__name__ == 'ViS_MP_Vertex' else False,
+                    'vertex': isinstance(model.representation_model.vis_mp_layers[0], ViS_MP_Vertex),
                     'reduce_op': model.reduce_op,
                     'mean': model.mean,
                     'std': model.std,
                     'derivative': model.derivative, # not used. originally calculates "force" from energy
                     'atomref': atomref,
                 }
-                self.visnet = PygVisNet(*model_params,**kwargs)
-                self.load_state_dict(model.state_dict())
+                self.visnet = PygVisNet(**model_params)
+                self.visnet.load_state_dict(model.state_dict())
 
             self.readout = EquivariantVecToScalar(self.visnet.mean, self.visnet.reduce_op)
 
