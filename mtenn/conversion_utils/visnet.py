@@ -6,7 +6,6 @@ from copy import deepcopy
 import torch
 from torch.autograd import grad
 from torch_geometric.utils import scatter
-from torch_geometric.nn.models.visnet import ViS_MP_Vertex
 
 from mtenn.model import GroupedModel, Model
 from mtenn.strategy import ComplexOnlyStrategy, ConcatStrategy, DeltaStrategy
@@ -16,6 +15,7 @@ HAS_VISNET = False
 
 try:
     from torch_geometric.nn.models import ViSNet as PygVisNet
+    from torch_geometric.nn.models.visnet import ViS_MP_Vertex
     HAS_VISNET = True
 except ImportError:
     warnings.warn("VisNet import error. Is your PyG >=2.5.0? Refer to issue #42", ImportWarning)
