@@ -114,7 +114,7 @@ def test_visnet_from_pyg():
     }
 
     pyg_model = PyVisNet(**kwargs)
-    visnet_model = ViSNet(pyg_model)
+    visnet_model = ViSNet(model=pyg_model)
 
     rand_equal = [
         (p1 == p2).all()
