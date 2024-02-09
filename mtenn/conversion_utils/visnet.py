@@ -43,26 +43,26 @@ if HAS_VISNET:
                 self.visnet = PygVisNet(*args, **kwargs)
             else:
                 atomref = model.prior_model.atomref.weight.detach().clone()
-                model_params = (
-                    model.lmax,
-                    model.vecnorm_type,
-                    model.trainable_vecnorm,
-                    model.num_heads,
-                    model.num_layers,
-                    model.hidden_channels,
-                    model.num_rbf,
-                    model.trainable_rbf,
-                    model.max_z,
-                    model.cutoff,
-                    model.max_num_neighbors,
-                    model.vertex,
-                    model.reduce_op,
-                    model.mean,
-                    model.std,
-                    model.derivative, # not used. originally calculates "force" from energy
-                    atomref,
-                )
-                self.visnet = PygVisNet(*model_params)
+                model_params = {
+                    'lmax': model.representation_model.lmax,
+                    'vecnorm_type': model.representation_model.vecnorm_type,
+                    'trainable_vecnorm': model.representation_model.trainable_vecnorm,
+                    'num_heads': model.representation_model.num_heads,
+                    'num_layers': model.representation_model.num_layers,
+                    'hidden_channels': model.representation_model.hidden_channels,
+                    'num_rbf': model.representation_model.num_rbf,
+                    'trainable_rbf': model.representation_model.trainable_rbf,
+                    'max_z': model.representation_model.max_z,
+                    'cutoff': model.representation_model.cutoff,
+                    'reduce_op': model.representation_model.max_num_neighbors,
+                    'vertex': True if model.representation_model.vis_mp_layers[0].__class__.__name__ == 'ViS_MP_Vertex' else False,
+                    'reduce_op': model.reduce_op,
+                    'mean': model.mean,
+                    'std': model.std,
+                    'derivative': model.derivative, # not used. originally calculates "force" from energy
+                    'atomref': atomref,
+                }
+                self.visnet = PygVisNet(*model_params,**kwargs)
                 self.load_state_dict(model.state_dict())
 
             self.readout = EquivariantVecToScalar(self.visnet.mean, self.visnet.reduce_op)
