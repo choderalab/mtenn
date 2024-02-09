@@ -116,8 +116,8 @@ def test_visnet_from_pyg():
     pyg_model = PyVisNet(**kwargs)
     visnet_model = ViSNet(model=pyg_model)
 
-    rand_equal = [
+    params_equal = [
         (p1 == p2).all()
         for p1, p2 in zip(pyg_model.parameters(), visnet_model.parameters())
     ]
-    assert sum(rand_equal) == len(rand_equal)
+    assert sum(params_equal) == len(params_equal)
