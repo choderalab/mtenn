@@ -57,3 +57,29 @@ def test_concat_strat_no_extract_key(reduce_nn, inputs):
     # Test
     pred = strat(comp, prot, lig)
     assert pred == ref_sum
+
+
+def test_concat_strat_extract_key(reduce_nn, inputs):
+    strat = ConcatStrategy(extract_key="x")
+    strat.reduce_nn = reduce_nn
+
+    comp, prot, lig = inputs
+
+    # What should be going on inside the concat strat
+    full_rep = torch.cat([prot, lig]) + torch.cat([lig, prot])
+    full_rep = torch.cat([comp, full_rep])
+    ref_sum = full_rep.sum(axis=None)
+
+    # Test
+    pred = strat({"x": comp}, {"x": prot}, {"x": lig})
+    assert pred == ref_sum
+
+
+def test_concat_strat_auto_init(inputs):
+    strat = ConcatStrategy()
+    comp, prot, lig = inputs
+
+    pred1 = strat(comp, prot, lig)
+    pred2 = strat(comp, prot, lig)
+
+    assert pred1 == pred2
