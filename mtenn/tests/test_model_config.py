@@ -54,6 +54,14 @@ def test_readout_gat(pred_r, pred_r_class, pred_r_args):
         assert model.readout.Km == pred_r_args[1]
 
 
+def test_model_weights_gat():
+    model1 = GATModelConfig().build()
+    model2 = GATModelConfig(model_weights=model1.state_dict()).build()
+
+    test_model_params = dict(model2.named_parameters())
+    for n, ref_param in model1.named_parameters():
+        assert (ref_param == test_model_params[n]).all()
+
 def test_random_seed_e3nn():
     rand_config = E3NNModelConfig()
     set_config = E3NNModelConfig(rand_seed=10)
@@ -121,6 +129,15 @@ def test_strategy_e3nn(strat, strat_class, err):
     assert isinstance(model.strategy, strat_class)
 
 
+def test_model_weights_e3nn():
+    model1 = E3NNModelConfig().build()
+    model2 = E3NNModelConfig(model_weights=model1.state_dict()).build()
+
+    test_model_params = dict(model2.named_parameters())
+    for n, ref_param in model1.named_parameters():
+        assert (ref_param == test_model_params[n]).all()
+
+
 def test_random_seed_schnet():
     rand_config = SchNetModelConfig()
     set_config = SchNetModelConfig(rand_seed=10)
@@ -186,3 +203,12 @@ def test_strategy_schnet(strat, strat_class, err):
 
     model = SchNetModelConfig(strategy=strat).build()
     assert isinstance(model.strategy, strat_class)
+
+
+def test_model_weights_schnet():
+    model1 = SchNetModelConfig().build()
+    model2 = SchNetModelConfig(model_weights=model1.state_dict()).build()
+
+    test_model_params = dict(model2.named_parameters())
+    for n, ref_param in model1.named_parameters():
+        assert (ref_param == test_model_params[n]).all()
