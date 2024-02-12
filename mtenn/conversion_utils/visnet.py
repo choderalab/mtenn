@@ -69,18 +69,23 @@ if HAS_VISNET:
 
         def forward(self, data):
             """
-            Computes the energies or properties (forces) for a batch of
-            molecules.
+            Computes the vector representation of a molecule from its atomic numbers and positional coordinates, to produce a vector representation. The output vector can be used for further molecular analysis or prediction tasks.
 
-            Args
-            -------
-                Data. A dictionary of atomic point clouds. Contains the following fields:
-                    z (torch.Tensor): The atomic numbers.
-                    pos (torch.Tensor): The coordinates of the atoms.
+            Parameters
+            ----------
+            data : dict[str, torch.Tensor]
+                A dictionary containing the atomic point clouds of a molecule. It should have the following keys:
+                - z (torch.Tensor): The atomic numbers of the atoms in the molecule.
+                - pos (torch.Tensor): The 3D coordinates (x, y, z) of each atom in the molecule.
 
             Returns
             -------
-                x (torch.Tensor): vector output based on node features and vector features.
+            torch.Tensor
+                A tensor representing the vector output of the molecule
+
+            Notes
+            -----
+            Assumes all atoms passed in `data` belong to the same molecule and are processed in a single batch. 
             """
             pos = data["pos"]
             z = data["z"]
