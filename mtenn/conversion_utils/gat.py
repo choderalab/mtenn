@@ -13,6 +13,10 @@ class GAT(torch.nn.Module):
     def __init__(self, *args, model=None, **kwargs):
         super().__init__()
 
+        # First check for predictor_hidden_feats so it doesn't get passed to DGL GAT
+        #  constructor
+        predictor_hidden_feats = kwargs.pop("predictor_hidden_feats", None)
+
         ## If no model is passed, construct model based on passed args, otherwise copy
         ##  all parameters and weights over
         if model is None:
@@ -70,9 +74,7 @@ class GAT(torch.nn.Module):
         self.readout = WeightedSumAndMax(gnn_out_feats)
 
         # Use given hidden feats if supplied, otherwise use 1/2 gnn_out_feats
-        if "predictor_hidden_feats" in kwargs:
-            predictor_hidden_feats = kwargs["predictor_hidden_feats"]
-        else:
+        if predictor_hidden_feats is None:
             predictor_hidden_feats = gnn_out_feats // 2
 
         # 2 layer MLP with ReLU activation (borrowed from GATPredictor)
