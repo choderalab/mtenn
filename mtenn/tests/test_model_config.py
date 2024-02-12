@@ -62,6 +62,7 @@ def test_model_weights_gat():
     for n, ref_param in model1.named_parameters():
         assert (ref_param == test_model_params[n]).all()
 
+
 def test_random_seed_e3nn():
     rand_config = E3NNModelConfig()
     set_config = E3NNModelConfig(rand_seed=10)
@@ -136,6 +137,36 @@ def test_model_weights_e3nn():
     test_model_params = dict(model2.named_parameters())
     for n, ref_param in model1.named_parameters():
         assert (ref_param == test_model_params[n]).all()
+
+
+def test_str_irreps_dict_e3nn():
+    irreps_str = "0:10,1:5"
+    model_config = E3NNModelConfig(irreps_hidden=irreps_str)
+    assert model_config.irreps_hidden == "10x0o+10x0e+5x1o+5x1e"
+
+
+def test_bad_str_irreps_dict_e3nn():
+    irreps_str = "0,1:5"
+    with pytest.raises(ValueError):
+        _ = E3NNModelConfig(irreps_hidden=irreps_str)
+
+
+def test_str_irreps_bad_dict_e3nn():
+    irreps_str = "0k:10,1:5"
+    with pytest.raises(ValueError):
+        _ = E3NNModelConfig(irreps_hidden=irreps_str)
+
+
+def test_str_irreps_str_e3nn():
+    irreps_str = "10x0o+10x0e+5x1o+5x1e"
+    model_config = E3NNModelConfig(irreps_hidden=irreps_str)
+    assert model_config.irreps_hidden == "10x0o+10x0e+5x1o+5x1e"
+
+
+def test_bad_str_irreps_str_e3nn():
+    irreps_str = "10x0k+10x0e+5x1o+5x1e"
+    with pytest.raises(ValueError):
+        _ = E3NNModelConfig(irreps_hidden=irreps_str)
 
 
 def test_random_seed_schnet():
