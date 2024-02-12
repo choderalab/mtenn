@@ -34,7 +34,7 @@ def test_pic50_readout_no_cheng_prusoff(values):
     r = PIC50Readout()
     _, dG, raw_pic50, _ = values
 
-    assert r(dG) == raw_pic50
+    assert torch.isclose(r(dG), raw_pic50)
 
 
 def test_pic50_readout_cheng_prusoff(values):
