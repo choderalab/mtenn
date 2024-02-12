@@ -1,7 +1,9 @@
+import pydantic
 import pytest
 
 from mtenn.config import GATModelConfig, E3NNModelConfig, SchNetModelConfig
 from mtenn.readout import PIC50Readout, PKiReadout
+from mtenn.strategy import ComplexOnlyStrategy, ConcatStrategy, DeltaStrategy
 
 
 def test_random_seed_gat():
@@ -100,6 +102,25 @@ def test_readout_e3nn(pred_r, pred_r_class, pred_r_args):
         assert model.readout.Km == pred_r_args[1]
 
 
+@pytest.mark.parametrize(
+    "strat,strat_class,err",
+    [
+        (None, None, True),
+        ("complex", ComplexOnlyStrategy, False),
+        ("concat", ConcatStrategy, False),
+        ("delta", DeltaStrategy, False),
+    ],
+)
+def test_strategy_e3nn(strat, strat_class, err):
+    if err:
+        with pytest.raises(pydantic.ValidationError):
+            _ = E3NNModelConfig(strategy=strat)
+        return
+
+    model = E3NNModelConfig(strategy=strat).build()
+    assert isinstance(model.strategy, strat_class)
+
+
 def test_random_seed_schnet():
     rand_config = SchNetModelConfig()
     set_config = SchNetModelConfig(rand_seed=10)
@@ -146,3 +167,22 @@ def test_readout_schnet(pred_r, pred_r_class, pred_r_args):
     if pred_r == "pic50":
         assert model.readout.substrate == pred_r_args[0]
         assert model.readout.Km == pred_r_args[1]
+
+
+@pytest.mark.parametrize(
+    "strat,strat_class,err",
+    [
+        (None, None, True),
+        ("complex", ComplexOnlyStrategy, False),
+        ("concat", ConcatStrategy, False),
+        ("delta", DeltaStrategy, False),
+    ],
+)
+def test_strategy_schnet(strat, strat_class, err):
+    if err:
+        with pytest.raises(pydantic.ValidationError):
+            _ = SchNetModelConfig(strategy=strat)
+        return
+
+    model = SchNetModelConfig(strategy=strat).build()
+    assert isinstance(model.strategy, strat_class)
