@@ -83,3 +83,13 @@ def test_concat_strat_auto_init(inputs):
     pred2 = strat(comp, prot, lig)
 
     assert pred1 == pred2
+
+
+def test_delta_strat(energy_func, inputs):
+    strat = DeltaStrategy(energy_func=energy_func)
+    comp, prot, lig = inputs
+
+    ref_value = comp.sum(axis=None) - (prot.sum(axis=None) + lig.sum(axis=None))
+    pred = strat(*inputs)
+
+    assert pred == ref_value
