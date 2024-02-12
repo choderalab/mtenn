@@ -42,3 +42,20 @@ def test_pic50_readout_cheng_prusoff(values):
     r = PIC50Readout(*cp_values)
 
     assert torch.isclose(r(dG), cp_pic50)
+
+
+def test_pki_readout_repr():
+    r = PKiReadout()
+    assert repr(r) == "PKiReadout()"
+
+
+def test_pki_readout_str():
+    r = PKiReadout()
+    assert str(r) == "PKiReadout()"
+
+
+def test_pki_readout(values):
+    r = PKiReadout()
+    dG = values[1]
+
+    assert torch.isclose(r(dG), -torch.log10(torch.exp(dG)))
