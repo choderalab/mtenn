@@ -72,14 +72,15 @@ if HAS_VISNET:
             Computes the energies or properties (forces) for a batch of
             molecules.
 
-            Args:
-                z (torch.Tensor): The atomic numbers.
-                pos (torch.Tensor): The coordinates of the atoms.
-                batch (torch.Tensor): A batch vector,
-                    which assigns each node to a specific example.
+            Args
+            -------
+                Data. A dictionary of atomic point clouds. Contains the following fields:
+                    z (torch.Tensor): The atomic numbers.
+                    pos (torch.Tensor): The coordinates of the atoms.
 
-            Returns:
-                x (torch.Tensor): Scalar output based on node features and vector features.
+            Returns
+            -------
+                x (torch.Tensor): vector output based on node features and vector features.
             """
             pos = data["pos"]
             z = data["z"]
@@ -98,15 +99,10 @@ if HAS_VISNET:
             """
             Input model, remove last layer.
 
-            Parameters
-            ----------
-            model: SchNet
-                SchNet model
-
             Returns
             -------
-            SchNet
-                Copied SchNet model with the last layer replaced by an Identity module
+            ViSNet
+                Copied ViSNet model, removing the last MLP layer that takes vector representation to scalar output.
             """
 
             ## Copy model so initial model isn't affected
@@ -118,26 +114,16 @@ if HAS_VISNET:
             """
             Return last layer of the model (outputs scalar value)
 
-            Parameters
-            ----------
-            model: SchNet
-                SchNet model
-
             Returns
             -------
-            torch.nn.modules.linear.Linear
-                Copy of `model`'s last layer
+            torch.nn.Module
+                Copy of `model`'s last layer, which is an instance of EquivariantVecToScalar() class
             """
             return deepcopy(self.readout)
 
         def _get_delta_strategy(self):
             """
             Build a DeltaStrategy object based on the passed model.
-
-            Parameters
-            ----------
-            model: SchNet
-                SchNet model
 
             Returns
             -------
@@ -176,11 +162,9 @@ if HAS_VISNET:
             Parameters
             ----------
             model: VisNet, optional
-                VisNet model to use to build the Model object. If left as none, a
-                default model will be initialized and used
+                VisNet model to use to build the Model object. If left as none, a default model will be initialized and used
             grouped: bool, default=False
-                Whether this model should accept groups of inputs or one input at a
-                time.
+                Whether this model should accept groups of inputs or one input at a time.
             fix_device: bool, default=False
                 If True, make sure the input is on the same device as the model,
                 copying over as necessary.
@@ -188,12 +172,9 @@ if HAS_VISNET:
                 Strategy to use to combine representation of the different parts.
                 Options are ['delta', 'concat', 'complex']
             combination: Combination, optional
-                Combination object to use to combine predictions in a group. A value
-                must be passed if `grouped` is `True`.
+                Combination object to use to combine predictions in a group. A value must be passed if `grouped` is `True`.
             pred_readout : Readout
-                Readout object for the energy predictions. If `grouped` is `False`,
-                this option will still be used in the construction of the `Model`
-                object.
+                Readout object for the energy predictions. If `grouped` is `False`, this option will still be used in the construction of the `Model` object.
             comb_readout : Readout
                 Readout object for the combination output.
 
