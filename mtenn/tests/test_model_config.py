@@ -63,6 +63,26 @@ def test_model_weights_gat():
         assert (ref_param == test_model_params[n]).all()
 
 
+def test_no_diff_list_lengths_gat():
+    with pytest.raises(ValueError):
+        # Different length lists should raise error
+        _ = GATModelConfig(hidden_feats=[1, 2, 3], num_heads=[4, 5])
+
+
+def test_bad_param_mapping_gat():
+    with pytest.raises(ValueError):
+        # Can't convert string to int
+        _ = GATModelConfig(hidden_feats="sdf")
+
+
+def test_can_pass_lists_gat():
+    model_config = GATModelConfig(hidden_feats=[1, 2, 3])
+    model = model_config.build()
+
+    assert len(model.representation.gnn.gnn_layers) == 3
+    assert not model_config._from_num_layers
+
+
 def test_random_seed_e3nn():
     rand_config = E3NNModelConfig()
     set_config = E3NNModelConfig(rand_seed=10)
