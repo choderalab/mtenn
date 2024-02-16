@@ -2,6 +2,8 @@ import pytest
 import torch
 
 from mtenn.model import Model
+from mtenn.representation import Representation
+from mtenn.strategy import Strategy
 from mtenn.readout import Readout
 
 
@@ -12,22 +14,42 @@ def toy_model_setup():
     happening internally.
     """
 
-    class LinWrapper(torch.nn.Linear):
+    ## TODO: Figure out how to make this work with different input sizes
+    class ToyRepresentation(Representation):
         """
         Wrapper for torch.nn.Linear so we can handle dict unpacking.
         """
 
         def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
+            super().__init__()
+            self.lin = torch.nn.Linear(*args, **kwargs)
 
-            wts_dict = {"weight": torch.ones_like(self.weight)}
-            if self.bias is not None:
-                wts_dict["bias"] = torch.ones_like(self.bias)
+            wts_dict = {"weight": torch.ones_like(self.lin.weight)}
+            if self.lin.bias is not None:
+                wts_dict["bias"] = torch.ones_like(self.lin.bias)
 
-            self.load_state_dict(wts_dict)
+            self.lin.load_state_dict(wts_dict)
 
         def forward(self, data):
-            return super().forward(data["x"])
+            return self.lin(data["x"])
+
+    class ToyStrategy(Strategy):
+        """
+        Wrapper for torch.nn.Linear so we can handle dict unpacking.
+        """
+
+        def __init__(self, *args, **kwargs):
+            super().__init__()
+            self.lin = torch.nn.Linear(*args, **kwargs)
+
+            wts_dict = {"weight": torch.ones_like(self.lin.weight)}
+            if self.lin.bias is not None:
+                wts_dict["bias"] = torch.ones_like(self.lin.bias)
+
+            self.lin.load_state_dict(wts_dict)
+
+        def forward(self, comp, *parts):
+            return self.lin(comp) - sum([self.lin(p) for p in parts])
 
     class ToyReadout(Readout):
         """
@@ -41,8 +63,8 @@ def toy_model_setup():
             return val * 5
 
     return {
-        "representation": LinWrapper(10, 10, bias=False),
-        "strategy": LinWrapper(10, 1, bias=False),
+        "representation": ToyRepresentation(10, 10, bias=False),
+        "strategy": ToyStrategy(10, 1, bias=False),
         "readout": ToyReadout(),
     }
 
