@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from mtenn.model import Model
+from mtenn.model import GroupedModel, Model
 from mtenn.representation import Representation
 from mtenn.strategy import Strategy
 from mtenn.readout import Readout
@@ -10,61 +10,46 @@ from mtenn.readout import Readout
 @pytest.fixture
 def toy_model_setup():
     """
-    Simple linear models with weights all 1 so we can check that the right stuff is
+    Simple modules that don't do much so we can check that the right stuff is
     happening internally.
     """
 
-    ## TODO: Figure out how to make this work with different input sizes
     class ToyRepresentation(Representation):
         """
-        Wrapper for torch.nn.Linear so we can handle dict unpacking.
+        Wrapper for torch.nn.Identity so we can handle dict unpacking.
         """
 
-        def __init__(self, *args, **kwargs):
+        def __init__(self):
             super().__init__()
-            self.lin = torch.nn.Linear(*args, **kwargs)
-
-            wts_dict = {"weight": torch.ones_like(self.lin.weight)}
-            if self.lin.bias is not None:
-                wts_dict["bias"] = torch.ones_like(self.lin.bias)
-
-            self.lin.load_state_dict(wts_dict)
 
         def forward(self, data):
-            return self.lin(data["x"])
+            return torch.nn.Identity()(data["x"])
 
     class ToyStrategy(Strategy):
         """
-        Wrapper for torch.nn.Linear so we can handle dict unpacking.
+        Just take the sum of each representation.
         """
 
-        def __init__(self, *args, **kwargs):
+        def __init__(self):
             super().__init__()
-            self.lin = torch.nn.Linear(*args, **kwargs)
-
-            wts_dict = {"weight": torch.ones_like(self.lin.weight)}
-            if self.lin.bias is not None:
-                wts_dict["bias"] = torch.ones_like(self.lin.bias)
-
-            self.lin.load_state_dict(wts_dict)
 
         def forward(self, comp, *parts):
-            return self.lin(comp) - sum([self.lin(p) for p in parts])
+            return comp.sum() - sum([p.sum() for p in parts])
 
     class ToyReadout(Readout):
         """
-        Toy Readout for testing. Just multiply by 5.
+        Toy Readout for testing. Just add 5 since results before this should be 0.
         """
 
         def __init__(self):
             super().__init__()
 
         def forward(self, val):
-            return val * 5
+            return val + 5
 
     return {
-        "representation": ToyRepresentation(10, 10, bias=False),
-        "strategy": ToyStrategy(10, 1, bias=False),
+        "representation": ToyRepresentation(),
+        "strategy": ToyStrategy(),
         "readout": ToyReadout(),
     }
 
@@ -81,14 +66,17 @@ def toy_inputs():
     complex_pose = {
         "x": torch.arange(10, dtype=torch.float32),
         "lig": torch.tensor([False] * 7 + [True] * 3),
+        "target": 0.0,
     }
     prot_pose = {
         "x": torch.arange(7, dtype=torch.float32),
         "lig": torch.tensor([False] * 7),
+        "target": 0.0,
     }
     lig_pose = {
         "x": torch.arange(7, 10, dtype=torch.float32),
         "lig": torch.tensor([True] * 3),
+        "target": 0.0,
     }
 
     return complex_pose, prot_pose, lig_pose
@@ -100,3 +88,57 @@ def test_model_split_part(toy_inputs):
     prot_split, lig_split = Model._split_parts(complex_pose)
     assert (prot_pose["x"] == prot_split["x"]).all()
     assert (lig_pose["x"] == lig_split["x"]).all()
+
+
+def test_cant_split_without_lig():
+    with pytest.raises(RuntimeError):
+        Model._split_parts({})
+
+
+def test_model_building(toy_model_setup):
+    _ = Model(**toy_model_setup)
+
+
+def test_model_get_representation(toy_model_setup, toy_inputs):
+    model = Model(**toy_model_setup)
+    for inp in toy_inputs:
+        assert (model.get_representation(inp) == inp["x"]).all()
+
+
+def test_model_forward_explicit_parts(toy_model_setup, toy_inputs):
+    model = Model(**toy_model_setup)
+
+    pred = model(*toy_inputs)  # complex, protein, lig
+    target = toy_inputs[0]["x"].sum() - (
+        toy_inputs[1]["x"].sum() + toy_inputs[2]["x"].sum()
+    )
+
+    assert pred[0] == target + 5
+    assert pred[1] == [target]
+
+
+def test_model_forward_auto_splitting(toy_model_setup, toy_inputs):
+    model = Model(**toy_model_setup)
+
+    pred = model(toy_inputs[0])  # just complex
+    target = toy_inputs[0]["x"].sum() - (
+        toy_inputs[1]["x"].sum() + toy_inputs[2]["x"].sum()
+    )
+
+    assert pred[0] == target + 5
+    assert pred[1] == [target]  # this is pre-Readout
+
+
+def test_model_forward_no_readout(toy_model_setup, toy_inputs):
+    model = Model(
+        representation=toy_model_setup["representation"],
+        strategy=toy_model_setup["strategy"],
+    )
+
+    pred = model(toy_inputs[0])  # just complex
+    target = toy_inputs[0]["x"].sum() - (
+        toy_inputs[1]["x"].sum() + toy_inputs[2]["x"].sum()
+    )
+
+    assert pred[0] == target
+    assert pred[1] == [target]
