@@ -197,3 +197,57 @@ def test_grouped_model_forward(toy_grouped_model_setup, toy_inputs):
 
     assert pred[0] == target + 5
     assert pred[1] == [target] * 3
+
+
+def test_lig_only_model_building(toy_model_setup):
+    _ = LigandOnlyModel(
+        model=torch.nn.Sequential(
+            toy_model_setup["representation"], toy_model_setup["strategy"]
+        ),
+    )
+
+    _ = LigandOnlyModel(
+        model=torch.nn.Sequential(
+            toy_model_setup["representation"], toy_model_setup["strategy"]
+        ),
+        readout=toy_model_setup["readout"],
+    )
+
+    _ = LigandOnlyModel(
+        model=torch.nn.Sequential(
+            toy_model_setup["representation"], toy_model_setup["strategy"]
+        ),
+        readout=toy_model_setup["readout"],
+        fix_device=True,
+    )
+
+
+def test_lig_only_model_forward(toy_model_setup, toy_inputs):
+    model = LigandOnlyModel(
+        model=torch.nn.Sequential(
+            toy_model_setup["representation"], toy_model_setup["strategy"]
+        ),
+        readout=toy_model_setup["readout"],
+    )
+
+    pred = model(toy_inputs[0])
+
+    target = toy_inputs[0]["x"].sum()
+
+    assert pred[0] == target + 5
+    assert pred[1] == [target]  # this is pre-Readout
+
+
+def test_lig_only_model_forward_no_readout(toy_model_setup, toy_inputs):
+    model = LigandOnlyModel(
+        model=torch.nn.Sequential(
+            toy_model_setup["representation"], toy_model_setup["strategy"]
+        ),
+    )
+
+    pred = model(toy_inputs[0])
+
+    target = toy_inputs[0]["x"].sum()
+
+    assert pred[0] == target
+    assert pred[1] == [target]  # this is pre-Readout
