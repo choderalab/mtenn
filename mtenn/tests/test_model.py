@@ -55,6 +55,35 @@ def toy_model_setup():
 
 
 @pytest.fixture
+def toy_grouped_model_setup(toy_model_setup):
+    """
+    Simple modules that don't do much so we can check that the right stuff is
+    happening internally.
+    """
+
+    # Not actually subclassing Combination here bc the real thing is a bit more complex
+    #  than what we need for testing the GroupedModel class
+    class ToyCombination(torch.nn.Module):
+        """
+        Just take the mean of all inputs.
+        """
+
+        def __init__(self):
+            super().__init__()
+
+        def forward(self, preds):
+            return torch.stack(preds).mean(axis=None)
+
+    toy_model_setup["combination"] = ToyCombination()
+
+    toy_model_setup["pred_readout"] = toy_model_setup["readout"]
+    toy_model_setup["comb_readout"] = toy_model_setup["readout"]
+    del toy_model_setup["readout"]
+
+    return toy_model_setup
+
+
+@pytest.fixture
 def toy_inputs():
     """
     Small toy inputs so we can test the different functionalities of the Model classes.
@@ -142,3 +171,9 @@ def test_model_forward_no_readout(toy_model_setup, toy_inputs):
 
     assert pred[0] == target
     assert pred[1] == [target]
+
+
+def test_grouped_model_building(toy_grouped_model_setup):
+    model = GroupedModel(**toy_grouped_model_setup)
+
+    assert model.readout == toy_grouped_model_setup["pred_readout"]
