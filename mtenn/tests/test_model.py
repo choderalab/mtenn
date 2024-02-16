@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from mtenn.model import GroupedModel, Model
+from mtenn.model import GroupedModel, LigandOnlyModel, Model
 from mtenn.representation import Representation
 from mtenn.strategy import Strategy
 from mtenn.readout import Readout
@@ -177,3 +177,23 @@ def test_grouped_model_building(toy_grouped_model_setup):
     model = GroupedModel(**toy_grouped_model_setup)
 
     assert model.readout == toy_grouped_model_setup["pred_readout"]
+
+
+# This will take some reworking bc the GroupedModel calls `backward` internally, so the
+#  parts all need to be differentiable
+@pytest.mark.xfail
+def test_grouped_model_forward(toy_grouped_model_setup, toy_inputs):
+    model = GroupedModel(**toy_grouped_model_setup)
+
+    # Pass list of the same thing 3 times
+    pred = model([toy_inputs[0]] * 3)
+
+    # Each individual pose should return this, which should also then be the mean
+    target = (
+        toy_inputs[0]["x"].sum()
+        - (toy_inputs[1]["x"].sum() + toy_inputs[2]["x"].sum())
+        + 5
+    )
+
+    assert pred[0] == target + 5
+    assert pred[1] == [target] * 3
