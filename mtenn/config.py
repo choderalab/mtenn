@@ -5,6 +5,7 @@ from enum import Enum
 from pydantic import BaseModel, Field, root_validator
 import random
 from typing import Callable, ClassVar
+from pathlib import Path
 import mtenn
 import numpy as np
 import torch
@@ -82,6 +83,9 @@ class ModelConfigBase(BaseModel):
 
     # Model weights
     model_weights: dict | None = Field(None, type=dict, description="Model weights.")
+
+    # Path to pretrained model weights (.th) file
+    weights_path: Path | None = Field(None, type=Path, description="Path to model weights file.")
 
     # Shared parameters for MTENN
     grouped: bool = Field(False, description="Model is a grouped (multi-pose) model.")
@@ -226,6 +230,10 @@ class ModelConfigBase(BaseModel):
 
         # Build the actual Model
         model = self._build(mtenn_params)
+
+        # Load weights file
+        if self.weights_path and self.weights_path.exists():
+            self.model_weights = torch.load(self.weights_path)
 
         # Set model weights
         if self.model_weights:
