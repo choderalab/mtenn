@@ -61,7 +61,7 @@ class Model(torch.nn.Module):
             return energy_val, [energy_val]
 
     def _fix_device(self, data):
-        ## We'll call this on everything for uniformity, but if we fix_deivec is
+        ## We'll call this on everything for uniformity, but if we fix_device is
         ##  False we can just return
         if not self.fix_device:
             return data
