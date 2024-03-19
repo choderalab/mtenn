@@ -63,10 +63,21 @@ In text form this is:
 #. Internally, the ``Model`` breaks the structure into 3 sub-structures: the full complex, just the protein, and just the ligand
 #. Each of these sub-strucuures is individually passed to the ``Representation`` block to generate a total of 3 vector representations
 #. All 3 representations are passed to the ``Strategy`` block, where they are combined into a :math:`\Delta g_{\mathrm{bind}}` prediction in implicit kT units
-#. (optional) The :math:`\Delta g_{\mathrm{bind}}` prediction is passed to the ``Readout`` block, where it is converted  into whatever the final units are
+#. (optional) The :math:`\Delta g_{\mathrm{bind}}` prediction is passed to the ``Readout`` block, where it is converted into whatever the final units are
 
 Multi-Pose Models
 -----------------
+
+This section is a description of the ``mtenn.model.GroupedModel`` class (``GroupedModel`` from here), which makes a prediction on multiple input conformations.
+The general data flow through a ``GroupedModel`` object is as depicted in the below diagram:
+
+.. image:: /static/mtenn_grouped_model_diagram.png
+
+In text form this is:
+
+#. Each input conformation is passed through the same ``Model`` object to get a prediction for each individual conformation
+#. All predictions are passed through a ``Combination`` block to get an overall :math:`\Delta g_{\mathrm{bind}}` prediction for the group of input poses
+#. (optional) The overall :math:`\Delta g_{\mathrm{bind}}` prediction is passed to the ``Readout`` block, where it is converted into whatever the final units are
 
 Ligand-Only Models
 ------------------
