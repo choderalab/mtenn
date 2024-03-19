@@ -43,6 +43,12 @@ Currently, the following ``Strategy`` blocks are implemented in ``mtenn``:
 Readout
 ^^^^^^^
 
+The ``Readout`` block (``mtenn.readout``) is responsible for converting the :math:`\Delta g_{\mathrm{bind}}` prediction output from a ``Strategy`` block from kT units into any arbitrary other unit.
+Importantly, in contrast to the two previous blocks, this block doesn't have any learned parameters.
+This increases model portability, as it allows the same model to be trained on multiple different data types by only swapping out this last layer.
+
+We currently have implementations for :py:class:`pIC50 <mtenn.readout.PIC50Readout>` and :py:class:`pKi <mtenn.readout.PKiReadout>`.
+
 Single-Pose Models
 ------------------
 
