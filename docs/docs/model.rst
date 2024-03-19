@@ -30,6 +30,14 @@ For information on adding new models into the ``mtenn`` framework, see the guide
 Strategy
 ^^^^^^^^
 
+The ``Strategy`` block (``mtenn.strategy``) is responsible for taking any number of vectors, each output from a ``Representation`` block, and combining them into a :math:`\Delta g_{\mathrm{bind}}` prediction in kT units.
+
+Currently, the following ``Strategy`` blocks are implemented in ``mtenn``:
+
+* :py:class:`mtenn.strategy.DeltaStrategy`
+* :py:class:`mtenn.strategy.ConcatStrategy`
+* :py:class:`mtenn.strategy.ComplexOnlyStrategy`
+
 .. _readout-block:
 
 Readout
@@ -48,8 +56,8 @@ In text form this is:
 #. The protein-ligand complex structure is passed to the ``Model``
 #. Internally, the ``Model`` breaks the structure into 3 sub-structures: the full complex, just the protein, and just the ligand
 #. Each of these sub-strucuures is individually passed to the ``Representation`` block to generate a total of 3 vector representations
-#. All 3 representations are passed to the ``Strategy`` block, where they are combined into a :math:`\Delta g` prediction in implicit kT units
-#. (optional) The :math:`\Delta g` prediction is passed to the ``Readout`` block, where it is converted  into whatever the final units are
+#. All 3 representations are passed to the ``Strategy`` block, where they are combined into a :math:`\Delta g_{\mathrm{bind}}` prediction in implicit kT units
+#. (optional) The :math:`\Delta g_{\mathrm{bind}}` prediction is passed to the ``Readout`` block, where it is converted  into whatever the final units are
 
 Multi-Pose Models
 -----------------
