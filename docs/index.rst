@@ -6,11 +6,15 @@
 Welcome to mtenn's documentation!
 =================================
 
+``mtenn`` is a framework designed to abstract and modularize the task of structure-based machine learning.
+
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
-   getting_started
+   docs
+   guides
+   api
 
 
 .. autosummary::
