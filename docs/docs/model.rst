@@ -1,7 +1,7 @@
 Model
 =====
 
-This document describes the classes in ``mtenn.model``, and their substituent parts.
+This document describes the classes in ``mtenn.model`` and their substituent parts, and the format of their inputs and outputs.
 
 Model Blocks
 ------------
@@ -95,3 +95,21 @@ Currently Implemented Models
 * :py:mod:`SchNet <mtenn.conversion_utils.schnet>`
 * :py:mod:`e3nn <mtenn.conversion_utils.e3nn>`
 * :py:mod:`VisNet <mtenn.conversion_utils.visnet>`
+
+Data Model
+----------
+
+Input Data
+^^^^^^^^^^
+
+Currently, all of the single-pose models in ``mtenn`` (``Model`` and ``LigandOnlyModel``) expect a ``dict`` object to be passed as their input.
+The ``GroupedModel`` expects a list of these ``dicts``, each one corresponding to a different input pose.
+What keys each model expects in the ``dict`` is left to the implementation of that model in the ``conversion_utils`` module.
+For more details on the data expected by each model, check that model's docs page.
+
+Output Data
+^^^^^^^^^^^
+
+To unify the outputs of all model types, all 3 models (``Model``, ``GroupedModel``, and ``LigandOnlyModel``) return two values: a scalar value that represents the model's final prediction, and a list of values that represent the pre-``Readout`` predictions of each input pose.
+In the case of the single-pose models, this list will have exactly one element.
+In the case of a multi-pose model, this list will have one element for each element in the list of input poses.
