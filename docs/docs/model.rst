@@ -61,7 +61,7 @@ In text form this is:
 
 #. The protein-ligand complex structure is passed to the ``Model``
 #. Internally, the ``Model`` breaks the structure into 3 sub-structures: the full complex, just the protein, and just the ligand
-#. Each of these sub-strucuures is individually passed to the ``Representation`` block to generate a total of 3 vector representations
+#. Each of these sub-structures is individually passed to the ``Representation`` block to generate a total of 3 vector representations
 #. All 3 representations are passed to the ``Strategy`` block, where they are combined into a :math:`\Delta g_{\mathrm{bind}}` prediction in implicit kT units
 #. (optional) The :math:`\Delta g_{\mathrm{bind}}` prediction is passed to the ``Readout`` block, where it is converted into whatever the final units are
 
@@ -81,6 +81,10 @@ In text form this is:
 
 Ligand-Only Models
 ------------------
+
+This section is a description of the ``mtenn.model.LigandOnlyModel`` class (``LigandOnlyModel`` from here), which makes a prediction based only on a ligand representation.
+This class is mainly useful for 2D baseline models to compare the structure-based models against (eg ligand-only GNNs, fingerprint-based models, etc).
+The general data flow through a ``LigandOnlyModel`` object is the same as for a ``Model``, but the ``Representation`` block is responsible for generating the energy prediction from the input, and the ``Strategy`` block is simply the identity function.
 
 .. _current-models:
 
