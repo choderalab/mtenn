@@ -24,7 +24,7 @@ and the final prediction for this compound is found by applying the combination 
 
 .. math::
 
-    \hat{y}(\theta) = h ( \hat{y}_1(\theta), ..., \hat{y}_i(\theta) )
+    \hat{y}(\theta) = h ( \hat{y}_1(\theta), ..., \hat{y}_n(\theta) )
 
 We then calculate the loss of our prediction compared to a target value
 
@@ -45,6 +45,6 @@ Arbitrarily, this will be some function (:math:`g`) that depends on the individu
 .. math::
 
     \frac{\partial \hat{y}}{\partial \theta} = \frac{\partial h}{\partial \theta} =
-    g( \hat{y}_1, ..., \hat{y}_i, \frac{\partial \hat{y}_1}{\partial \theta}, ..., \frac{\partial \hat{y}_i}{\partial \theta} )
+    g( \hat{y}_1, ..., \hat{y}_n, \frac{\partial \hat{y}_1}{\partial \theta}, ..., \frac{\partial \hat{y}_n}{\partial \theta} )
 
 In practice, this function :math:`g` will need to be analytically determined and manually implemented within the ``Combination`` block (see :ref:`the guide <new-combination-guide>` for more practical information).
