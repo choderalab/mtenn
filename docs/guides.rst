@@ -8,3 +8,4 @@ How-to guides for various tasks within the ``mtenn`` framework.
 
     guides/new_installable_model
     guides/new_non_installable_model
+    guides/new_combination
