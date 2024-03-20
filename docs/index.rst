@@ -17,15 +17,6 @@ Welcome to mtenn's documentation!
    api
 
 
-.. autosummary::
-   :toctree: _autosummary
-   :template: custom-module-template.rst
-   :recursive:
-
-   mtenn
-
-
-
 Indices and tables
 ==================
 
