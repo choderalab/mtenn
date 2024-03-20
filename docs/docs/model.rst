@@ -90,3 +90,8 @@ The general data flow through a ``LigandOnlyModel`` object is the same as for a 
 
 Currently Implemented Models
 ----------------------------
+
+* :py:mod:`Graph Attention <mtenn.conversion_utils.gat>`
+* :py:mod:`SchNet <mtenn.conversion_utils.schnet>`
+* :py:mod:`e3nn <mtenn.conversion_utils.e3nn>`
+* :py:mod:`VisNet <mtenn.conversion_utils.visnet>`
