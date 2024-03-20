@@ -10,4 +10,3 @@ More in-depth explanations of various aspects of the package.
     docs/basic_usage
     docs/model
     docs/combination
-    docs/config
