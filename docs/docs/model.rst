@@ -11,6 +11,7 @@ Each class in ``mtenn.model`` is comprised of at least one of the following bloc
 * :ref:`representation-block`
 * :ref:`strategy-block`
 * :ref:`readout-block`
+* :ref:`combination-block`
 
 .. _representation-block:
 
@@ -48,6 +49,19 @@ Importantly, in contrast to the two previous blocks, this block doesn't have any
 This increases model portability, as it allows the same model to be trained on multiple different data types by only swapping out this last layer.
 
 We currently have implementations for :py:class:`pIC50 <mtenn.readout.PIC50Readout>` and :py:class:`pKi <mtenn.readout.PKiReadout>`.
+
+.. _combination-block:
+
+Combination
+^^^^^^^^^^^
+
+The ``Combination`` block (``mtenn.combination``) is responsible for combining multiple model predictions for the same compound into a single prediction.
+The internal workings of these blocks are a bit complex, and a more in-depth explanation is given in the :doc:`combination` page.
+
+Currently, the following ``Combination`` blocks are implemented in ``mtenn``:
+
+* :py:class:`mtenn.combination.MeanCombination`
+* :py:class:`mtenn.combination.MaxCombination`
 
 Single-Pose Models
 ------------------
