@@ -14,8 +14,3 @@ dependencies:
   - dgl
   - rdkit
   - ase
-  - pydantic >=1.10.8,<2.0.0a0
-
-  # docs
-  - sphinx
-  - sphinx_rtd_theme

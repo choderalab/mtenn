@@ -1,3 +1,11 @@
+"""
+Implementations for the ``Combination`` block in a :py:class:`GroupedModel
+<mtenn.model.GroupedModel>`. The ``Combination`` block is responsible for combining
+multiple single-pose model predictions into a single multi-pose prediction. For more
+details on the implementation of these classes, see the :ref:`comb-docs-page` docs page
+and the guide on :ref:`new-combination-guide`.
+"""
+
 import abc
 import torch
 
