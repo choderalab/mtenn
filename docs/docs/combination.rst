@@ -1,3 +1,5 @@
+.. _comb-docs-page:
+
 Combination
 ===========
 
