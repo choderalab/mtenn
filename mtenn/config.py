@@ -40,6 +40,7 @@ class ModelType(StringEnum):
     INVALID = "INVALID"
     visnet = "visnet"
 
+
 class StrategyConfig(StringEnum):
     """
     Enum for possible MTENN Strategy classes.
@@ -708,7 +709,11 @@ class E3NNModelConfig(ModelConfigBase):
 
         # Combine Irreps into str
         irreps = "+".join(
-            [f"{num_irreps}x{irrep}" for irrep, num_irreps in irreps.items()]
+            [
+                f"{num_irreps}x{irrep}"
+                for irrep, num_irreps in irreps.items()
+                if num_irreps > 0
+            ]
         )
 
         # Make sure this Irreps string is valid
@@ -781,28 +786,25 @@ class ViSNetModelConfig(ModelConfigBase):
     max_z: int = Field(100, description="The maximum atomic numbers.")
     cutoff: float = Field(5.0, description="The cutoff distance.")
     max_num_neighbors: int = Field(
-        32, 
-        description="The maximum number of neighbors considered for each atom."
+        32, description="The maximum number of neighbors considered for each atom."
     )
-    vertex: bool = Field(
-        False, 
-        description="Whether to use vertex geometric features."
-    )
+    vertex: bool = Field(False, description="Whether to use vertex geometric features.")
     atomref: list[float] | None = Field(
         None,
         description=(
             "Reference values for single-atom properties. Should have length max_z"
-            )    
+        ),
     )
     reduce_op: str = Field(
-        "sum", 
-        description="The type of reduction operation to apply. ['sum', 'mean']"
+        "sum", description="The type of reduction operation to apply. ['sum', 'mean']"
     )
     mean: float = Field(0.0, description="The mean of the output distribution.")
-    std: float = Field(1.0, description="The standard deviation of the output distribution.")
+    std: float = Field(
+        1.0, description="The standard deviation of the output distribution."
+    )
     derivative: bool = Field(
-        False, 
-        description="Whether to compute the derivative of the output with respect to the positions."
+        False,
+        description="Whether to compute the derivative of the output with respect to the positions.",
     )
 
     @root_validator(pre=False)
@@ -813,11 +815,11 @@ class ViSNetModelConfig(ModelConfigBase):
         # Make sure atomref length is correct (this is required by PyG)
         atomref = values["atomref"]
         if (atomref is not None) and (len(atomref) != values["max_z"]):
-            raise ValueError(f"atomref length must match max_z. (Expected {values['max_z']}, got {len(atomref)})")
+            raise ValueError(
+                f"atomref length must match max_z. (Expected {values['max_z']}, got {len(atomref)})"
+            )
 
         return values
-    
-    
 
     def _build(self, mtenn_params={}):
         """
@@ -837,6 +839,7 @@ class ViSNetModelConfig(ModelConfigBase):
         # Create an MTENN ViSNet model from PyG ViSNet model
 
         from mtenn.conversion_utils.visnet import HAS_VISNET
+
         if HAS_VISNET:
             from mtenn.conversion_utils import ViSNet
 
@@ -874,5 +877,6 @@ class ViSNetModelConfig(ModelConfigBase):
             )
 
         else:
-            raise ImportError("ViSNet not found. Is your PyG >=2.5.0? Refer to issue #42.")
-    
+            raise ImportError(
+                "ViSNet not found. Is your PyG >=2.5.0? Refer to issue #42."
+            )
