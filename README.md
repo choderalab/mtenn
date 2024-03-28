@@ -1,7 +1,7 @@
 MTENN
 ==============================
 [//]: # (Badges)
-[![GitHub Actions Build Status](https://github.com/choderalab/mtenn/workflows/CI/badge.svg)](https://github.com/REPLACE_WITH_OWNER_ACCOUNT/mtenn/actions?query=workflow%3ACI)
+[![GitHub Actions Build Status](https://github.com/choderalab/mtenn/workflows/CI/badge.svg)](https://github.com/choderalab/mtenn/actions?query=workflow%3ACI)
 [![codecov](https://codecov.io/gh/choderalab/mtenn/branch/main/graph/badge.svg)](https://codecov.io/gh/choderalab/mtenn/tree/main)
 [![Documentation Status](https://readthedocs.org/projects/mtenn/badge/?version=latest)](https://mtenn.readthedocs.io/en/latest/?badge=latest)
 
