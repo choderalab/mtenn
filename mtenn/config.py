@@ -720,7 +720,11 @@ class E3NNModelConfig(ModelConfigBase):
 
         # Combine Irreps into str
         irreps = "+".join(
-            [f"{num_irreps}x{irrep}" for irrep, num_irreps in irreps.items()]
+            [
+                f"{num_irreps}x{irrep}"
+                for irrep, num_irreps in irreps.items()
+                if num_irreps > 0
+            ]
         )
 
         # Make sure this Irreps string is valid
