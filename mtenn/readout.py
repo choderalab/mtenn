@@ -1,50 +1,99 @@
+"""
+Implementations for the ``Readout`` block in a :py:class:`Model
+<mtenn.model.Model>` or :py:class:`GroupedModel <mtenn.model.GroupedModel>`.
+
+This class is intended to contain only simple arithmetic, converting a
+model-predicted :math:`\mathrm{\Delta G}` value (in implicit kT units) into some
+readout value that can be experimentally measured, eg :math:`\mathrm{pIC_{50}}`.
+"""
+
 import abc
 import torch
 from typing import Optional
 
 
 class Readout(torch.nn.Module, abc.ABC):
+    """
+    Abstract base class for the ``Readout`` block. Any subclass needs to implement
+    the ``forward`` method in order to be used.
+    """
+
+    @abc.abstractmethod
+    def forward(self, delta_g):
+        """
+        For any readout class, this function should take the predicted
+        :math:`\mathrm{\Delta G}` value as input, and return whatever transformed value
+        the class is implementing.
+        """
+        raise NotImplementedError("Must implement the `forward` method.")
+
     def __str__(self):
         return repr(self)
 
 
 class PIC50Readout(Readout):
     """
-    Readout implementation to convert delta G values to pIC50 values. This new
-    implementation assumes implicit energy units, WHICH WILL INVALIDATE MODELS TRAINED
-    PRIOR TO v0.3.0.
+    Readout implementation to convert :math:`\Delta \mathrm{G}` values to
+    :math:`\mathrm{pIC_{50}}` values. This new implementation assumes implicit energy
+    units, **WHICH WILL INVALIDATE MODELS TRAINED PRIOR TO v0.3.0**.
+
     Assuming implicit energy units:
-        deltaG = ln(Ki)
-        Ki = exp(deltaG)
+
+    .. math::
+
+        \Delta \mathrm{G} &= \mathrm{ln}(\mathrm{K_i})
+
+        \mathrm{K_i} &= \mathrm{exp}(\Delta \mathrm{G})
+
     Using the Cheng-Prusoff equation:
-        Ki = IC50 / (1 + [S]/Km)
-        exp(deltaG) = IC50 / (1 + [S]/Km)
-        IC50 = exp(deltaG) * (1 + [S]/Km)
-        pIC50 = -log10(exp(deltaG) * (1 + [S]/Km))
-        pIC50 = -log10(exp(deltaG)) - log10(1 + [S]/Km)
-        pIC50 = -ln(exp(deltaG))/ln(10) - log10(1 + [S]/Km)
-        pIC50 = -deltaG/ln(10) - log10(1 + [S]/Km)
-    Estimating Ki as the IC50 value:
-        Ki = IC50
-        IC50 = exp(deltaG)
-        pIC50 = -log10(exp(deltaG))
-        pIC50 = -ln(exp(deltaG))/ln(10)
-        pIC50 = -deltaG/ln(10)
+
+    .. math::
+
+        \mathrm{K_i} &= \mathrm{\\frac{IC_{50}}{1 + [S]/K_m}}
+
+        \mathrm{exp(\Delta G)} &= \\frac{\mathrm{IC_{50}}}{\mathrm{1 + [S]/K_m}}
+
+        \mathrm{IC_{50}} &= \mathrm{exp(\Delta G) (1 + [S]/K_m)}
+
+        \mathrm{pIC_{50}} &= \mathrm{-log10(exp(\Delta G) * (1 + [S]/K_m))}
+
+        \mathrm{pIC_{50}} &= \mathrm{-log10(exp(\Delta G)) - log10(1 + [S]/K_m)}
+
+        \mathrm{pIC_{50}} &= \mathrm{-\\frac{ln(exp(\Delta G))}{ln(10)} -
+        log10(1 + [S]/K_m)}
+
+        \mathrm{pIC_{50}} &= \mathrm{-\\frac{\Delta G}{ln(10)} - log10(1 + [S]/K_m)}
+
+    Alternatively, estimating :math:`\mathrm{K_i}` as the :math:`\mathrm{IC_{50}}`
+    value:
+
+    .. math::
+
+        \mathrm{K_i} &= \mathrm{IC_{50}}
+
+        \mathrm{IC_{50}} &= \mathrm{exp(\Delta G)}
+
+        \mathrm{pIC_{50}} &= \mathrm{-log10(exp(\Delta G))}
+
+        \mathrm{pIC_{50}} &= \mathrm{-\\frac{ln(exp(\Delta G))}{ln(10)}}
+
+        \mathrm{pIC_{50}} &= \mathrm{-\\frac{\Delta G}{ln(10)}}
     """
 
     def __init__(self, substrate: Optional[float] = None, Km: Optional[float] = None):
         """
-        Initialize conversion with specified substrate concentration and Km. If either
-        is left blank, the IC50 approximation will be used.
+        Initialize conversion with specified substrate concentration and
+        :math:`\mathrm{K_m}`. If either is left blank, the :math:`\mathrm{IC_{50}}`
+        approximation will be used.
 
         Parameters
         ----------
         substrate : float, optional
             Substrate concentration for use in the Cheng-Prusoff equation. Assumed to be
-            in the same units as Km
+            in the same units as :math:`\mathrm{K_m}`
         Km : float, optional
-            Km value for use in the Cheng-Prusoff equation. Assumed to be in the same
-            units as substrate
+            :math:`\mathrm{K_m}` value for use in the Cheng-Prusoff equation. Assumed to
+            be in the same units as substrate
         """
         super(PIC50Readout, self).__init__()
 
@@ -61,17 +110,18 @@ class PIC50Readout(Readout):
 
     def forward(self, delta_g):
         """
-        Method to convert a predicted delta G value into a pIC50 value.
+        Method to convert a predicted :math:`\Delta \mathrm{G}` value into a
+        :math:`\mathrm{pIC_{50}}` value.
 
         Parameters
         ----------
         delta_g : torch.Tensor
-            Input delta G value.
+            Input :math:`\Delta \mathrm{G}` value.
 
         Returns
         -------
         torch.Tensor
-            Calculated pIC50 value.
+            Calculated :math:`\mathrm{pIC_{50}}` value.
         """
         pic50 = -delta_g / torch.log(torch.tensor(10, dtype=delta_g.dtype))
         # Using Cheng-Prusoff
@@ -83,41 +133,40 @@ class PIC50Readout(Readout):
 
 class PKiReadout(Readout):
     """
-    Readout implementation to convert delta G values to PKi values. This new
-    implementation assumes implicit energy units, WHICH WILL INVALIDATE MODELS TRAINED
-    PRIOR TO v0.3.0.
+    Readout implementation to convert :math:`\Delta \mathrm{G}` values to
+    :math:`\mathrm{pK_i}` values. This new implementation assumes implicit energy units,
+    **WHICH WILL INVALIDATE MODELS TRAINED PRIOR TO v0.3.0**.
+
     Assuming implicit energy units:
-        deltaG = ln(Ki)
-        Ki = exp(deltaG)
-        pKi = -log(Ki)
+
+    .. math::
+
+        \mathrm{\Delta G} &= \mathrm{ln(K_i)}
+
+        \mathrm{K_i} &= \mathrm{exp(\Delta G)}
+
+        \mathrm{pK_i} &= \mathrm{-log10(K_i)}
+
+        \mathrm{pK_i} &= \mathrm{-log10(exp(\Delta G))}
     """
-
-    def __init__(self):
-        """
-        Initialization.
-
-        Parameters
-        ----------
-        None
-        """
-        super(PKiReadout, self).__init__()
 
     def __repr__(self):
         return "PKiReadout()"
 
     def forward(self, delta_g):
         """
-        Method to convert a predicted delta G value into a PKi value.
+        Method to convert a predicted :math:`\Delta \mathrm{G}` value into a
+        :math:`\mathrm{pK_i}` value.
 
         Parameters
         ----------
         delta_g : torch.Tensor
-            Input delta G value.
+            Input :math:`\Delta \mathrm{G}` value.
 
         Returns
         -------
         torch.Tensor
-            Calculated PKi value.
+            Calculated :math:`\mathrm{pK_i}` value.
         """
         pki = -torch.log10(torch.exp(delta_g))
 
