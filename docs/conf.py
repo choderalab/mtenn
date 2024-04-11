@@ -185,24 +185,4 @@ texinfo_documents = [
 
 # -- Extension configuration -------------------------------------------------
 
-
-def skip_member(app, what, name, obj, skip, options):
-    # Exclude torch functions
-    if name.split(".") == "torch":
-        return True
-    else:
-        return None
-
-
-def skip_torch_bases(app, name, obj, options, bases):
-    for i, b in enumerate(bases):
-        if "torch" in str(b):
-            bases.pop(i)
-
-
-def setup(app):
-    # app.connect("autodoc-skip-member", skip_member)
-    app.connect("autodoc-process-bases", skip_torch_bases)
-
-
 autodoc_member_order = "bysource"
