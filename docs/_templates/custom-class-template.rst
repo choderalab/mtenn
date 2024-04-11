@@ -16,6 +16,6 @@
       {% if item not in inherited_members %}
          ~{{ name }}.{{ item }}
       {% endif %}
-   {% endfor %}
+   {%- endfor %}
    {% endif %}
    {% endblock %}
