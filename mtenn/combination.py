@@ -1,9 +1,11 @@
 """
 Implementations for the ``Combination`` block in a :py:class:`GroupedModel
-<mtenn.model.GroupedModel>`. The ``Combination`` block is responsible for combining
-multiple single-pose model predictions into a single multi-pose prediction. For more
-details on the implementation of these classes, see the :ref:`comb-docs-page` docs page
-and the guide on :ref:`new-combination-guide`.
+<mtenn.model.GroupedModel>`.
+
+The ``Combination`` block is responsible for combining multiple single-pose model
+predictions into a single multi-pose prediction. For more details on the implementation
+of these classes, see the :ref:`comb-docs-page` docs page and the guide on
+:ref:`new-combination-guide`.
 """
 
 import abc
@@ -11,6 +13,14 @@ import torch
 
 
 class Combination(torch.nn.Module, abc.ABC):
+    """
+    Abstract base class for the ``Combination`` block. Any subclass needs to implement
+    the ``forward`` method in order to be used.
+
+    This class is designed to just be a wrapper around a ``torch.autograd.Function``
+    subclass, as described in :ref:`the guide <new-combination-guide>`.
+    """
+
     @abc.abstractmethod
     def forward(self, pred_list, grad_dict, param_names, *model_params):
         """

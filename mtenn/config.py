@@ -1,4 +1,6 @@
 """
+Classes for describing the models in :py:mod:`mtenn.model`.
+
 ``mtenn`` makes heavy use of ``pydantic`` schema to ensure reproducibility and
 self-documentation. Each model implemented in :py:mod:`mtenn.conversion_utils` must also
 have a corresponding config class here.
