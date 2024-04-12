@@ -102,6 +102,10 @@ class Combination(torch.nn.Module, abc.ABC):
 class MeanCombination(Combination):
     """
     Combine a list of predictions by taking the mean.
+
+    .. math::
+
+        \Delta G = \\frac{1}{N} \sum_{n=1}^{N} \Delta G_n
     """
 
     def forward(self, pred_list, grad_dict, param_names, *model_params):
@@ -167,6 +171,19 @@ class _MeanCombinationFunc(torch.autograd.Function):
 
     @staticmethod
     def setup_context(ctx, inputs, output):
+        """
+        Store data for backward pass.
+
+        Parameters
+        ----------
+        ctx
+            Pytorch context manager
+        inputs : List
+            List containing all the parameters that will get passed to ``forward``
+        output : torch.Tensor
+            Value returned from ``forward``
+        """
+
         pred_list, grad_dict, param_names, *model_params = inputs
 
         grad_dict_keys, grad_dict_tensors = Combination.split_grad_dict(grad_dict)
@@ -188,6 +205,16 @@ class _MeanCombinationFunc(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output):
+        """
+        Compute and return gradients for each parameter.
+
+        Parameters
+        ----------
+        ctx
+            Pytorch context manager
+        grad_output : torch.Tensor
+            Gradient of the loss wrt the prediction (from ``forward``)
+        """
         # Unpack saved tensors
         preds, *other_tensors = ctx.saved_tensors
 
@@ -213,6 +240,10 @@ class _MeanCombinationFunc(torch.autograd.Function):
 class MaxCombination(Combination):
     """
     Approximate max/min of the predictions using the LogSumExp function for smoothness.
+
+    .. math::
+
+        \Delta G = \\frac{-1}{t} \mathrm{ln} \sum_{n=1}^N \mathrm{exp} (-t \Delta G_n)
     """
 
     def __init__(self, neg=True, scale=1000.0):
@@ -238,6 +269,23 @@ class MaxCombination(Combination):
         return repr(self)
 
     def forward(self, pred_list, grad_dict, param_names, *model_params):
+        """
+        Wrapper around the :py:class:`_MaxCombinationFunc
+        <mtenn.combination._MaxCombinationFunc>` class's ``apply`` method.
+
+        Parameters
+        ----------
+        pred_list: List[torch.Tensor]
+            List of :math:`\mathrm{\Delta G}` predictions to find the max/min of
+        grad_dict: dict[str, List[torch.Tensor]]
+            Dict mapping from parameter name to list of gradients
+        param_names: List[str]
+            List of parameter names
+        model_params: torch.Tensor
+            Actual parameters that we'll return the gradients for. Each param
+            should be passed individually (ie not as a list) for the backward pass to
+            work right.
+        """
         return _MaxCombinationFunc.apply(
             self.neg, self.scale, pred_list, grad_dict, param_names, *model_params
         )
@@ -245,7 +293,8 @@ class MaxCombination(Combination):
 
 class _MaxCombinationFunc(torch.autograd.Function):
     """
-    Custom autograd function that will handle the gradient math for us.
+    Custom autograd function that will handle the gradient math for us for taking the
+    max/min of the :math:`\mathrm{\Delta G}` predictions.
 
     :meta public:
     """
@@ -253,6 +302,10 @@ class _MaxCombinationFunc(torch.autograd.Function):
     @staticmethod
     def forward(neg, scale, pred_list, grad_dict, param_names, *model_params):
         """
+        Find the max/min of all input :math:`\mathrm{\Delta G}` predictions.
+
+        Parameters
+        ----------
         neg: bool
             Negate the predictions before calculating the LSE, effectively finding
             the min. Preds are negated again before being returned
@@ -281,6 +334,18 @@ class _MaxCombinationFunc(torch.autograd.Function):
 
     @staticmethod
     def setup_context(ctx, inputs, output):
+        """
+        Store data for backward pass.
+
+        Parameters
+        ----------
+        ctx
+            Pytorch context manager
+        inputs : List
+            List containing all the parameters that will get passed to ``forward``
+        output : torch.Tensor
+            Value returned from ``forward``
+        """
         neg, scale, pred_list, grad_dict, param_names, *model_params = inputs
 
         grad_dict_keys, grad_dict_tensors = Combination.split_grad_dict(grad_dict)
@@ -304,6 +369,16 @@ class _MaxCombinationFunc(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output):
+        """
+        Compute and return gradients for each parameter.
+
+        Parameters
+        ----------
+        ctx
+            Pytorch context manager
+        grad_output : torch.Tensor
+            Gradient of the loss wrt the prediction (from ``forward``)
+        """
         # Unpack saved tensors
         preds, *other_tensors = ctx.saved_tensors
 
@@ -345,14 +420,35 @@ class _MaxCombinationFunc(torch.autograd.Function):
 
 class BoltzmannCombination(Combination):
     """
-    Combine a list of deltaG predictions according to their Boltzmann weight.
-    Treat energy in implicit kT units.
+    Combine a list of :math:`\mathrm{\Delta G}` predictions according to their
+    Boltzmann weight. Treat energy in implicit kT units.
+
+    .. math::
+
+        \Delta G &= \sum_{n=1}^{N} w_n \Delta G_n
+
+        w_n &= \mathrm{exp} \\left[
+        -\Delta G_n  - \mathrm{ln} \\sum_{i=1}^N \\mathrm{exp} (-\Delta G_i ) \\right]
     """
 
-    def __init__(self):
-        super(BoltzmannCombination, self).__init__()
-
     def forward(self, pred_list, grad_dict, param_names, *model_params):
+        """
+        Wrapper around the :py:class:`_BoltzmannCombinationFunc
+        <mtenn.combination._BoltzmannCombinationFunc>` class's ``apply`` method.
+
+        Parameters
+        ----------
+        pred_list: List[torch.Tensor]
+            List of :math:`\mathrm{\Delta G}` predictions to combine
+        grad_dict: dict[str, List[torch.Tensor]]
+            Dict mapping from parameter name to list of gradients
+        param_names: List[str]
+            List of parameter names
+        model_params: torch.Tensor
+            Actual parameters that we'll return the gradients for. Each param
+            should be passed individually (ie not as a list) for the backward pass to
+            work right.
+        """
         return _BoltzmannCombinationFunc.apply(
             pred_list, grad_dict, param_names, *model_params
         )
@@ -360,7 +456,8 @@ class BoltzmannCombination(Combination):
 
 class _BoltzmannCombinationFunc(torch.autograd.Function):
     """
-    Custom autograd function that will handle the gradient math for us.
+    Custom autograd function that will handle the gradient math for us for combining
+    :math:`\mathrm{\Delta G}` predictions by Boltzmann weighting.
 
     :meta public:
     """
@@ -368,6 +465,10 @@ class _BoltzmannCombinationFunc(torch.autograd.Function):
     @staticmethod
     def forward(pred_list, grad_dict, param_names, *model_params):
         """
+        Combine input :math:`\mathrm{\Delta G}` predictions.
+
+        Parameters
+        ----------
         pred_list: List[torch.Tensor]
             List of :math:`\mathrm{\Delta G}` predictions to be combined using LSE
         grad_dict: dict[str, List[torch.Tensor]]
@@ -394,6 +495,18 @@ class _BoltzmannCombinationFunc(torch.autograd.Function):
 
     @staticmethod
     def setup_context(ctx, inputs, output):
+        """
+        Store data for backward pass.
+
+        Parameters
+        ----------
+        ctx
+            Pytorch context manager
+        inputs : List
+            List containing all the parameters that will get passed to ``forward``
+        output : torch.Tensor
+            Value returned from ``forward``
+        """
         pred_list, grad_dict, param_names, *model_params = inputs
 
         grad_dict_keys, grad_dict_tensors = Combination.split_grad_dict(grad_dict)
@@ -415,6 +528,16 @@ class _BoltzmannCombinationFunc(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output):
+        """
+        Compute and return gradients for each parameter.
+
+        Parameters
+        ----------
+        ctx
+            Pytorch context manager
+        grad_output : torch.Tensor
+            Gradient of the loss wrt the prediction (from ``forward``)
+        """
         # Unpack saved tensors
         preds, *other_tensors = ctx.saved_tensors
 
