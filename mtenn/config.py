@@ -24,16 +24,39 @@ import torch
 
 
 class StringEnum(str, Enum):
+    """
+    Helper class with some convenience functions for our ``Type`` classes below.
+    """
+
     @classmethod
     def get_values(cls) -> list[str]:
+        """
+        Get a list of all ``Enum`` values.
+        """
         return [member.value for member in cls]
 
     @classmethod
     def reverse_lookup(cls, value):
+        """
+        Get the ``Enum`` entry corresponding to ``value``.
+
+        Parameters
+        ----------
+        value : str
+            String value of the ``Enum`` entry
+
+        Returns
+        -------
+        cls
+            ``Enum`` entry corresponding to ``value``
+        """
         return cls(value)
 
     @classmethod
     def get_names(cls) -> list[str]:
+        """
+        Get a list of all ``Enum`` names.
+        """
         return [member.name for member in cls]
 
 
@@ -44,14 +67,15 @@ class ModelType(StringEnum):
     GAT: Graph Attention Network
     schnet: SchNet
     e3nn: E(3)-equivariant neural network
+    visnet: ViSNet
     INVALID: Invalid model type to catch instantiation errors
     """
 
     GAT = "GAT"
     schnet = "schnet"
     e3nn = "e3nn"
-    INVALID = "INVALID"
     visnet = "visnet"
+    INVALID = "INVALID"
 
 
 class StrategyConfig(StringEnum):
