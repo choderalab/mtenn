@@ -19,3 +19,5 @@ dependencies:
   # docs
   - sphinx
   - sphinx_rtd_theme
+  - pip:
+    - autodoc_pydantic <2.0.0
