@@ -111,6 +111,10 @@ class CombinationConfig(StringEnum):
 
 
 class ModelConfigBase(BaseModel):
+    """
+    Abstract base class that our model config classes will subclass.
+    """
+
     model_type: ModelType = Field(ModelType.INVALID, const=True, allow_mutation=False)
 
     # Random seed optional for reproducibility
@@ -302,12 +306,14 @@ class GATModelConfig(ModelConfigBase):
     """
     Class for constructing a GAT ML model. Note that there are two methods for defining
     the size of the model:
+
     * If single values are passed for all parameters, the value of `num_layers` will be
-    used as the size of the model, and each layer will have the parameters given
+      used as the size of the model, and each layer will have the parameters given
+
     * If a list of values is passed for any parameters, all parameters must be lists of
-    the same size, or single values. For parameters that are single values, that same
-    value will be used for each layer. For parameters that are lists, those lists will
-    be used
+      the same size, or single values. For parameters that are single values, that same
+      value will be used for each layer. For parameters that are lists, those lists will
+      be used
 
     Parameters passed as strings are assumed to be comma-separated lists, and will first
     be cast to lists of the appropriate type, and then processed as described above.
@@ -317,8 +323,11 @@ class GATModelConfig(ModelConfigBase):
     Default values here are the default values given in DGL-LifeSci.
     """
 
-    from dgllife.utils import CanonicalAtomFeaturizer
+    # Import as private, mainly so Sphinx doesn't autodoc it
+    from dgllife.utils import CanonicalAtomFeaturizer as _CanonicalAtomFeaturizer
 
+    # Dict of model params that can be passed as a list, and the type that each will be
+    #  cast to
     LIST_PARAMS: ClassVar[dict] = {
         "hidden_feats": int,
         "num_heads": int,
@@ -334,7 +343,7 @@ class GATModelConfig(ModelConfigBase):
     model_type: ModelType = Field(ModelType.GAT, const=True)
 
     in_feats: int = Field(
-        CanonicalAtomFeaturizer().feat_size(),
+        _CanonicalAtomFeaturizer().feat_size(),
         description=(
             "Input node feature size. Defaults to size of the CanonicalAtomFeaturizer."
         ),
