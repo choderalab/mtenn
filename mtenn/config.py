@@ -138,7 +138,8 @@ class CombinationConfig(StringEnum):
 
 class ModelConfigBase(BaseModel):
     """
-    Abstract base class that our model config classes will subclass.
+    Abstract base class that model config classes will subclass. Any subclass needs
+    to implement the ``_build`` method in order to be used.
     """
 
     model_type: ModelType = Field(ModelType.INVALID, const=True, allow_mutation=False)
@@ -156,31 +157,32 @@ class ModelConfigBase(BaseModel):
     strategy: StrategyConfig = Field(
         StrategyConfig.delta,
         description=(
-            "Which Strategy to use for combining complex, protein, and ligand "
-            "representations in the MTENN Model. "
+            "Which ``Strategy`` to use for combining complex, protein, and ligand "
+            "representations in the ``mtenn.Model``. "
             f"Options are [{', '.join(StrategyConfig.get_values())}]."
         ),
     )
     pred_readout: ReadoutConfig | None = Field(
         None,
         description=(
-            "Which Readout to use for the model predictions. This corresponds "
-            "to the individual pose predictions in the case of a GroupedModel. "
+            "Which ``Readout`` to use for the model predictions. This corresponds "
+            "to the individual pose predictions in the case of a ``GroupedModel``. "
             f"Options are [{', '.join(ReadoutConfig.get_values())}]."
         ),
     )
     combination: CombinationConfig | None = Field(
         None,
         description=(
-            "Which Combination to use for combining predictions in a GroupedModel. "
+            "Which ``Combination`` to use for combining predictions in a "
+            "``GroupedModel``. "
             f"Options are [{', '.join(CombinationConfig.get_values())}]."
         ),
     )
     comb_readout: ReadoutConfig | None = Field(
         None,
         description=(
-            "Which Readout to use for the combined model predictions. This is only "
-            "relevant in the case of a GroupedModel. "
+            "Which ``Readout`` to use for the combined model predictions. This is only "
+            "relevant in the case of a ``GroupedModel``. "
             f"Options are [{', '.join(ReadoutConfig.get_values())}]."
         ),
     )
@@ -190,14 +192,14 @@ class ModelConfigBase(BaseModel):
         True,
         description=(
             "Whether to take the min instead of max when combining pose predictions "
-            "with MaxCombination."
+            "with ``MaxCombination``."
         ),
     )
     max_comb_scale: float = Field(
         1000,
         description=(
             "Scaling factor for values when taking the max/min when combining pose "
-            "predictions with MaxCombination. A value of 1 will approximate the "
+            "predictions with ``MaxCombination``. A value of 1 will approximate the "
             "Boltzmann mean, while a larger value will more accurately approximate the "
             "max/min operation."
         ),
@@ -208,16 +210,17 @@ class ModelConfigBase(BaseModel):
         None,
         description=(
             "Substrate concentration to use when using the Cheng-Prusoff equation to "
-            "convert deltaG -> IC50 in PIC50Readout for pred_readout. Assumed to be in "
-            "the same units as pred_km."
+            "convert :math:`\Delta G` -> :math:`\mathrm{IC_{50}}` in ``PIC50Readout`` "
+            "for ``pred_readout``. Assumed to be in the same units as ``pred_km``."
         ),
     )
     pred_km: float | None = Field(
         None,
         description=(
-            "Km value to use when using the Cheng-Prusoff equation to convert "
-            "deltaG -> IC50 in PIC50Readout for pred_readout. Assumed to be in "
-            "the same units as pred_substrate."
+            ":math:`\mathrm{K_m}` value to use when using the Cheng-Prusoff equation "
+            "to convert :math:`\Delta G` -> :math:`\mathrm{IC_{50}}` in "
+            "``PIC50Readout`` for ``pred_readout``. Assumed to be in the same units as "
+            "``pred_substrate``."
         ),
     )
 
@@ -226,16 +229,17 @@ class ModelConfigBase(BaseModel):
         None,
         description=(
             "Substrate concentration to use when using the Cheng-Prusoff equation to "
-            "convert deltaG -> IC50 in PIC50Readout for comb_readout. Assumed to be in "
-            "the same units as comb_km."
+            "convert :math:`\Delta G` -> :math:`\mathrm{IC_{50}}` in ``PIC50Readout`` "
+            "for ``comb_readout``. Assumed to be in the same units as ``comb_km``."
         ),
     )
     comb_km: float | None = Field(
         None,
         description=(
-            "Km value to use when using the Cheng-Prusoff equation to convert "
-            "deltaG -> IC50 in PIC50Readout for comb_readout. Assumed to be in "
-            "the same units as comb_substrate."
+            ":math:`\mathrm{K_m}` value to use when using the Cheng-Prusoff equation "
+            "to convert :math:`\Delta G` -> :math:`\mathrm{IC_{50}}` in "
+            "``PIC50Readout`` for ``comb_readout``. Assumed to be in the same units as "
+            "``comb_substrate``."
         ),
     )
 
@@ -247,6 +251,16 @@ class ModelConfigBase(BaseModel):
         ...
 
     def build(self) -> mtenn.model.Model:
+        """
+        Exposed function that first parses all the ``mtenn``-related args, and then
+        calls the ``_build`` method to construct the
+        :py:class:`Model <mtenn.model.Model>` object.
+
+        Returns
+        -------
+        mtenn.model.Model
+            Model constructed from the config
+        """
         # First set random seeds if applicable
         if self.rand_seed is not None:
             random.seed(self.rand_seed)
