@@ -2,6 +2,12 @@
 
 .. currentmodule:: {{ module }}
 
+{% if objtype == "pydantic_model" %}
+
+.. autopydantic_model:: {{ name }}
+
+{% else %}
+
 .. autoclass:: {{ objname }}
    :members:
    :show-inheritance:
@@ -19,3 +25,5 @@
    {%- endfor %}
    {% endif %}
    {% endblock %}
+
+{% endif %}
