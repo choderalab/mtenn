@@ -62,13 +62,19 @@ class StringEnum(str, Enum):
 
 class ModelType(StringEnum):
     """
-    Enum for model types
+    Enum for model types. See :py:mod:`mtenn.conversion_utils` for more details on
+    the models.
 
-    GAT: Graph Attention Network
-    schnet: SchNet
-    e3nn: E(3)-equivariant neural network
-    visnet: ViSNet
-    INVALID: Invalid model type to catch instantiation errors
+    * GAT: Graph Attention Network (:py:class:`GAT <mtenn.conversion_utils.gat.GAT>`)
+
+    * schnet: (:py:class:`SchNet <mtenn.conversion_utils.schnet.SchNet>`)
+
+    * e3nn: E(3)-equivariant neural network
+      (:py:class:`E3NN <mtenn.conversion_utils.e3nn.E3NN>`)
+
+    * visnet: (:py:class:`ViSNet <mtenn.conversion_utils.visnet.ViSNet>`)
+
+    * INVALID: Invalid model type to catch instantiation errors
     """
 
     GAT = "GAT"
@@ -80,7 +86,14 @@ class ModelType(StringEnum):
 
 class StrategyConfig(StringEnum):
     """
-    Enum for possible MTENN Strategy classes.
+    Enum for possible ``mtenn`` Strategy classes. See :py:mod:`mtenn.strategy` for
+    more details on each strategy.
+
+    * delta: :py:class:`DeltaStrategy <mtenn.strategy.DeltaStrategy>`
+
+    * concat: :py:class:`ConcatStrategy <mtenn.strategy.ConcatStrategy>`
+
+    * complex: :py:class:`ComplexOnlyStrategy <mtenn.strategy.ComplexOnlyStrategy>`
     """
 
     # delta G strategy
@@ -93,7 +106,12 @@ class StrategyConfig(StringEnum):
 
 class ReadoutConfig(StringEnum):
     """
-    Enum for possible MTENN Readout classes.
+    Enum for possible ``mtenn`` Readout classes. See :py:mod:`mtenn.readout` for
+    more details on each readout option.
+
+    * pic50: :py:class:`PIC50Readout <mtenn.readout.PIC50Readout>`
+
+    * pki: :py:class:`PKiReadout <mtenn.readout.PKiReadout>`
     """
 
     pic50 = "pic50"
@@ -102,7 +120,15 @@ class ReadoutConfig(StringEnum):
 
 class CombinationConfig(StringEnum):
     """
-    Enum for possible MTENN Readout classes.
+    Enum for possible ``mtenn`` Combination classes. See :py:mod:`mtenn.combination` for
+    more details on each combination option.
+
+    * mean: :py:class:`MeanCombination <mtenn.combination.MeanCombination>`
+
+    * max: :py:class:`MaxCombination <mtenn.combination.MaxCombination>`
+
+    * boltzmann:
+      :py:class:`BoltzmannCombination <mtenn.combination.BoltzmannCombination>`
     """
 
     mean = "mean"
