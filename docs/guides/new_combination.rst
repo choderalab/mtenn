@@ -68,19 +68,19 @@ Now that we have our numerically stable expressions for :math:`\hat{y}` and :mat
 Code
 ----
 
-To implement this in the code, we'll need to write two classes: ``_MaxCombinationFunc``, which subclasses the ``torch.autograd.Function`` class and handles all the logic for computing and returning gradients, and ``MaxCombination``, which subclasses the abstract :py:class:`mtenn.combination.Combination` class and wraps the ``_MaxCombinationFunc`` class into a ``torch.Module``.
+To implement this in the code, we'll need to write two classes: ``MaxCombinationFunc``, which subclasses the ``torch.autograd.Function`` class and handles all the logic for computing and returning gradients, and ``MaxCombination``, which subclasses the abstract :py:class:`mtenn.combination.Combination` class and wraps the ``MaxCombinationFunc`` class into a ``torch.Module``.
 
-``_MaxCombinationFunc``
+``MaxCombinationFunc``
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-To subclass ``torch.autograd.Function``, ``_MaxCombinationFunc`` needs to implement three ``@staticmethod`` functions: ``forward``, ``setup_context``, and ``backward``.
+To subclass ``torch.autograd.Function``, ``MaxCombinationFunc`` needs to implement three ``@staticmethod`` functions: ``forward``, ``setup_context``, and ``backward``.
 
 .. code-block:: python
 
     from mtenn.combination import Combination
     import torch
 
-    class _MaxCombinationFunc(torch.autograd.Function):
+    class MaxCombinationFunc(torch.autograd.Function):
 
         @staticmethod
         def forward(pred_list, grad_dict, param_names, *model_params):
@@ -254,8 +254,8 @@ In our case, this should just be a scalar value as the loss should be calculated
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 The implementation for the ``MaxCombination`` class is fairly simple.
-In order to subclass the :py:class:`mtenn.combination.Combination` abstract class, it only needs to implement the ``forward`` method, which should take as inputs all of the inputs that we discussed above in the ``_MaxCombinationFunc.setup_context`` function.
-The only thing we need to do in this ``forward`` method is call the ``_MaxCombinationFunc.apply`` function, which is implemented in ``torch.autograd.Function``, and handles the calling of the ``_MaxCombinationFunc.forward``, ``_MaxCombinationFunc.setup_context``, and ``_MaxCombinationFunc.backward`` functions.
+In order to subclass the :py:class:`mtenn.combination.Combination` abstract class, it only needs to implement the ``forward`` method, which should take as inputs all of the inputs that we discussed above in the ``MaxCombinationFunc.setup_context`` function.
+The only thing we need to do in this ``forward`` method is call the ``MaxCombinationFunc.apply`` function, which is implemented in ``torch.autograd.Function``, and handles the calling of the ``MaxCombinationFunc.forward``, ``MaxCombinationFunc.setup_context``, and ``MaxCombinationFunc.backward`` functions.
 
 .. code-block:: python
 
@@ -268,6 +268,6 @@ The only thing we need to do in this ``forward`` method is call the ``_MaxCombin
             super(MaxCombination, self).__init__()
 
         def forward(self, pred_list, grad_dict, param_names, *model_params):
-            return _MaxCombinationFunc.apply(
+            return MaxCombinationFunc.apply(
                 pred_list, grad_dict, param_names, *model_params
             )

@@ -110,8 +110,8 @@ class MeanCombination(Combination):
 
     def forward(self, pred_list, grad_dict, param_names, *model_params):
         """
-        Wrapper around the :py:class:`_MeanCombinationFunc
-        <mtenn.combination._MeanCombinationFunc>` class's ``apply`` method.
+        Wrapper around the :py:class:`MeanCombinationFunc
+        <mtenn.combination.MeanCombinationFunc>` class's ``apply`` method.
 
         Parameters
         ----------
@@ -127,12 +127,12 @@ class MeanCombination(Combination):
             work right.
         """
 
-        return _MeanCombinationFunc.apply(
+        return MeanCombinationFunc.apply(
             pred_list, grad_dict, param_names, *model_params
         )
 
 
-class _MeanCombinationFunc(torch.autograd.Function):
+class MeanCombinationFunc(torch.autograd.Function):
     """
     Custom autograd function that will handle the gradient math for us for combining
     :math:`\mathrm{\Delta G}` predictions to their mean.
@@ -270,8 +270,8 @@ class MaxCombination(Combination):
 
     def forward(self, pred_list, grad_dict, param_names, *model_params):
         """
-        Wrapper around the :py:class:`_MaxCombinationFunc
-        <mtenn.combination._MaxCombinationFunc>` class's ``apply`` method.
+        Wrapper around the :py:class:`MaxCombinationFunc
+        <mtenn.combination.MaxCombinationFunc>` class's ``apply`` method.
 
         Parameters
         ----------
@@ -286,12 +286,12 @@ class MaxCombination(Combination):
             should be passed individually (ie not as a list) for the backward pass to
             work right.
         """
-        return _MaxCombinationFunc.apply(
+        return MaxCombinationFunc.apply(
             self.neg, self.scale, pred_list, grad_dict, param_names, *model_params
         )
 
 
-class _MaxCombinationFunc(torch.autograd.Function):
+class MaxCombinationFunc(torch.autograd.Function):
     """
     Custom autograd function that will handle the gradient math for us for taking the
     max/min of the :math:`\mathrm{\Delta G}` predictions.
@@ -433,8 +433,8 @@ class BoltzmannCombination(Combination):
 
     def forward(self, pred_list, grad_dict, param_names, *model_params):
         """
-        Wrapper around the :py:class:`_BoltzmannCombinationFunc
-        <mtenn.combination._BoltzmannCombinationFunc>` class's ``apply`` method.
+        Wrapper around the :py:class:`BoltzmannCombinationFunc
+        <mtenn.combination.BoltzmannCombinationFunc>` class's ``apply`` method.
 
         Parameters
         ----------
@@ -449,12 +449,12 @@ class BoltzmannCombination(Combination):
             should be passed individually (ie not as a list) for the backward pass to
             work right.
         """
-        return _BoltzmannCombinationFunc.apply(
+        return BoltzmannCombinationFunc.apply(
             pred_list, grad_dict, param_names, *model_params
         )
 
 
-class _BoltzmannCombinationFunc(torch.autograd.Function):
+class BoltzmannCombinationFunc(torch.autograd.Function):
     """
     Custom autograd function that will handle the gradient math for us for combining
     :math:`\mathrm{\Delta G}` predictions by Boltzmann weighting.
