@@ -43,6 +43,7 @@ release = ""
 # ones.
 extensions = [
     "sphinx.ext.autosummary",
+    "sphinxcontrib.autodoc_pydantic",
     "sphinx.ext.autodoc",
     "sphinx.ext.mathjax",
     "sphinx.ext.viewcode",
@@ -185,4 +186,13 @@ texinfo_documents = [
 
 # -- Extension configuration -------------------------------------------------
 
-autodoc_member_order = "bysource"
+autodoc_default_options = {
+    "member-order": "bysource",
+    "imported-members": False,
+    "private-members": False,
+}
+
+autodoc_pydantic_model_members = True
+autodoc_pydantic_model_undoc_members = True
+autodoc_pydantic_model_show_config_summary = False
+autodoc_pydantic_model_show_json = False
