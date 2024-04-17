@@ -613,6 +613,9 @@ class GATModelConfig(ModelConfigBase):
             * "comb_readout": :py:mod:`Readout <mtenn.readout>` for combined
               prediction (in the case of a multi-pose model)
 
+            although the combination-related entries will be ignore because this is a
+            ligand-only model.
+
         Returns
         -------
         mtenn.model.Model
@@ -753,18 +756,31 @@ class SchNetModelConfig(ModelConfigBase):
 
     def _build(self, mtenn_params={}):
         """
-        Build an MTENN SchNet Model from this config.
+        Build an ``mtenn`` SchNet ``Model`` from this config.
+
+        :meta public:
 
         Parameters
         ----------
-        mtenn_params: dict
-            Dict giving the MTENN Readout. This will be passed by the `build` method in
-            the abstract base class
+        mtenn_params : dict, optional
+            Dictionary that stores the ``Readout`` objects for the individual
+            predictions and for the combined prediction, and the ``Combination`` object
+            in the case of a multi-pose model. These are all constructed the same for all
+            ``Model`` types, so we can just handle them in the base class. Keys in the
+            dict will be:
+
+            * "combination": :py:mod:`Combination <mtenn.combination>`
+
+            * "pred_readout": :py:mod:`Readout <mtenn.readout>` for individual
+              pose predictions
+
+            * "comb_readout": :py:mod:`Readout <mtenn.readout>` for combined
+              prediction (in the case of a multi-pose model)
 
         Returns
         -------
         mtenn.model.Model
-            MTENN SchNet Model/GroupedModel
+            Model constructed from the config
         """
         from mtenn.conversion_utils import SchNet
 
@@ -816,13 +832,14 @@ class E3NNModelConfig(ModelConfigBase):
     irreps_hidden: dict[str, int] | str = Field(
         {"0": 10, "1": 3, "2": 2, "3": 1},
         description=(
-            "Irreps for the hidden layers of the network. "
-            "This can either take the form of an Irreps string, or a dict mapping "
-            "L levels (parity optional) to the number of Irreps of that level. "
+            "``Irreps`` for the hidden layers of the network. "
+            "This can either take the form of an ``Irreps`` string, or a dict mapping "
+            ":math:`\\mathcal{l}` levels (parity optional) to the number of ``Irreps`` "
+            "of that level. "
             "If parity is not passed for a given level, both parities will be used. If "
             "you only want one parity for a given level, make sure you specify it. "
             "A dict can also be specified as a string, in the format of a comma "
-            "separated list of <irreps_l>:<num_irreps>."
+            "separated list of ``<irreps_l>:<num_irreps>``."
         ),
     )
     lig: bool = Field(
@@ -851,6 +868,10 @@ class E3NNModelConfig(ModelConfigBase):
 
     @root_validator(pre=False)
     def massage_irreps(cls, values):
+        """
+        Check that the value given for ``irreps_hidden`` can be converted into an Irreps
+        representation, and do so.
+        """
         from e3nn import o3
 
         # First just check that the grouped stuff is properly assigned
@@ -910,6 +931,33 @@ class E3NNModelConfig(ModelConfigBase):
         return values
 
     def _build(self, mtenn_params={}):
+        """
+        Build an ``mtenn`` e3nn ``Model`` from this config.
+
+        :meta public:
+
+        Parameters
+        ----------
+        mtenn_params : dict, optional
+            Dictionary that stores the ``Readout`` objects for the individual
+            predictions and for the combined prediction, and the ``Combination`` object
+            in the case of a multi-pose model. These are all constructed the same for all
+            ``Model`` types, so we can just handle them in the base class. Keys in the
+            dict will be:
+
+            * "combination": :py:mod:`Combination <mtenn.combination>`
+
+            * "pred_readout": :py:mod:`Readout <mtenn.readout>` for individual
+              pose predictions
+
+            * "comb_readout": :py:mod:`Readout <mtenn.readout>` for combined
+              prediction (in the case of a multi-pose model)
+
+        Returns
+        -------
+        mtenn.model.Model
+            Model constructed from the config
+        """
         from e3nn.o3 import Irreps
         from mtenn.conversion_utils import E3NN
 
@@ -976,11 +1024,14 @@ class ViSNetModelConfig(ModelConfigBase):
     atomref: list[float] | None = Field(
         None,
         description=(
-            "Reference values for single-atom properties. Should have length max_z"
+            "Reference values for single-atom properties. Should have length ``max_z``."
         ),
     )
     reduce_op: str = Field(
-        "sum", description="The type of reduction operation to apply. ['sum', 'mean']"
+        "sum",
+        description=(
+            "The type of reduction operation to apply. Options are [sum, mean]."
+        ),
     )
     mean: float = Field(0.0, description="The mean of the output distribution.")
     std: float = Field(
@@ -988,11 +1039,17 @@ class ViSNetModelConfig(ModelConfigBase):
     )
     derivative: bool = Field(
         False,
-        description="Whether to compute the derivative of the output with respect to the positions.",
+        description=(
+            "Whether to compute the derivative of the output with respect to the "
+            "positions."
+        ),
     )
 
     @root_validator(pre=False)
     def validate(cls, values):
+        """
+        Check that ``atomref`` and ``max_z`` agree.
+        """
         # Make sure the grouped stuff is properly assigned
         ModelConfigBase._check_grouped(values)
 
@@ -1007,18 +1064,31 @@ class ViSNetModelConfig(ModelConfigBase):
 
     def _build(self, mtenn_params={}):
         """
-        Build an MTENN ViSNet Model from this config.
+        Build an ``mtenn`` ViSNet ``Model`` from this config.
+
+        :meta public:
 
         Parameters
         ----------
-        mtenn_params: dict
-            Dict giving the MTENN Readout. This will be passed by the `build` method in
-            the abstract base class
+        mtenn_params : dict, optional
+            Dictionary that stores the ``Readout`` objects for the individual
+            predictions and for the combined prediction, and the ``Combination`` object
+            in the case of a multi-pose model. These are all constructed the same for all
+            ``Model`` types, so we can just handle them in the base class. Keys in the
+            dict will be:
+
+            * "combination": :py:mod:`Combination <mtenn.combination>`
+
+            * "pred_readout": :py:mod:`Readout <mtenn.readout>` for individual
+              pose predictions
+
+            * "comb_readout": :py:mod:`Readout <mtenn.readout>` for combined
+              prediction (in the case of a multi-pose model)
 
         Returns
         -------
         mtenn.model.Model
-            MTENN ViSNet Model/GroupedModel
+            Model constructed from the config
         """
         # Create an MTENN ViSNet model from PyG ViSNet model
 
