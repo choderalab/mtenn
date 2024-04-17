@@ -99,6 +99,8 @@ In text form this is:
 #. All predictions are passed through a ``Combination`` block to get an overall :math:`\Delta g_{\mathrm{bind}}` prediction for the group of input poses
 #. (optional) The overall :math:`\Delta g_{\mathrm{bind}}` prediction is passed to the ``Readout`` block, where it is converted into whatever the final units are
 
+.. _ligand-only-model-docs:
+
 Ligand-Only Models
 ------------------
 

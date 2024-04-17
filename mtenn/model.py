@@ -22,6 +22,8 @@ class Model(torch.nn.Module):
 
     def __init__(self, representation, strategy, readout=None, fix_device=False):
         """
+        Build a ``Model``.
+
         Parameters
         ----------
         representation : Representation
@@ -268,15 +270,21 @@ class GroupedModel(Model):
 
 class LigandOnlyModel(Model):
     """
-    A ligand-only version of the Model. In this case, the `representation` block will
-    hold the entire model, while the `strategy` block will simply be set as an Identity
-    module.
+    A ligand-only version of the ``Model``. In this case, the ``representation`` block
+    will hold the entire model, while the ``strategy`` block will simply be set as an
+    Identity module.
     """
 
     def __init__(self, model, readout=None, fix_device=False):
         """
+        Build a ``LigandOnlyModel``.
+
         Parameters
         ----------
+        model
+            This can be any kind of model that will go from a single input
+            representation to a prediction (eg a
+            :py:class:`GAT <mtenn.conversion_utils.gat.GAT` instance)
         fix_device: bool, default=False
             If True, make sure the input is on the same device as the model,
             copying over as necessary.
@@ -289,8 +297,26 @@ class LigandOnlyModel(Model):
         )
 
     def forward(self, rep):
-        ## This implementation of the forward function assumes the
-        ##  get_representation function takes a single data object
+        """
+        Handles all the logic detailed in the :ref:`docs page <ligand-only-model-docs>`.
+
+        Parameters
+        ----------
+        rep
+            Whatever input representation the unerlying model takes
+
+        Returns
+        -------
+        torch.Tensor
+            Final model prediction. If the model has a ``readout``, this value will have
+            the ``readout`` applied
+        list[torch.Tensor]
+            A list containing only the pre-``readout`` model prediction. This value is
+            returned mainly to align the signatures for the single- and multi-pose
+            models
+        """
+        # This implementation of the forward function assumes the
+        #  get_representation function takes a single data object
         tmp_rep = self._fix_device(rep)
         pred = self.get_representation(tmp_rep)
 
