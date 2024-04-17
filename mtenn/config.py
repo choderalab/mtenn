@@ -592,18 +592,31 @@ class GATModelConfig(ModelConfigBase):
 
     def _build(self, mtenn_params={}):
         """
-        Build an MTENN GAT Model from this config.
+        Build an ``mtenn`` GAT ``Model`` from this config.
+
+        :meta public:
 
         Parameters
         ----------
-        mtenn_params: dict
-            Dict giving the MTENN Readout. This will be passed by the `build` method in
-            the abstract base class
+        mtenn_params : dict, optional
+            Dictionary that stores the ``Readout`` objects for the individual
+            predictions and for the combined prediction, and the ``Combination`` object
+            in the case of a multi-pose model. These are all constructed the same for all
+            ``Model`` types, so we can just handle them in the base class. Keys in the
+            dict will be:
+
+            * "combination": :py:mod:`Combination <mtenn.combination>`
+
+            * "pred_readout": :py:mod:`Readout <mtenn.readout>` for individual
+              pose predictions
+
+            * "comb_readout": :py:mod:`Readout <mtenn.readout>` for combined
+              prediction (in the case of a multi-pose model)
 
         Returns
         -------
         mtenn.model.Model
-            MTENN GAT LigandOnlyModel
+            Model constructed from the config
         """
         from mtenn.conversion_utils import GAT
 
@@ -641,7 +654,7 @@ class GATModelConfig(ModelConfigBase):
         Returns
         -------
         GATModelConfig
-            New GATModelConfig object
+            New ``GATModelConfig`` object
         """
         orig_config = self.dict()
         if self._from_num_layers:
