@@ -246,10 +246,6 @@ class ModelConfigBase(BaseModel):
     class Config:
         validate_assignment = True
 
-    @abc.abstractmethod
-    def _build(self, mtenn_params={}) -> mtenn.model.Model:
-        ...
-
     def build(self) -> mtenn.model.Model:
         """
         Exposed function that first parses all the ``mtenn``-related args, and then
@@ -315,14 +311,78 @@ class ModelConfigBase(BaseModel):
 
         return model
 
+    @abc.abstractmethod
+    def _build(self, mtenn_params={}) -> mtenn.model.Model:
+        """
+        Method that actually builds the :py:class:`Model <mtenn.model.Model>` object.
+        Must be implemented for any subclass.
+
+        :meta public:
+
+        Parameters
+        ----------
+        mtenn_params : dict, optional
+            Dictionary that stores the ``Readout`` objects for the individual
+            predictions and for the combined prediction, and the ``Combination`` object
+            in the case of a multi-pose model. These are all constructed the same for all
+            ``Model`` types, so we can just handle them in the base class. Keys in the
+            dict will be:
+
+            * "combination": :py:mod:`Combination <mtenn.combination>`
+
+            * "pred_readout": :py:mod:`Readout <mtenn.readout>` for individual
+              pose predictions
+
+            * "comb_readout": :py:mod:`Readout <mtenn.readout>` for combined
+              prediction (in the case of a multi-pose model)
+
+        Returns
+        -------
+        mtenn.model.Model
+            Model constructed from the config
+        """
+        ...
+
     def update(self, config_updates={}) -> ModelConfigBase:
+        """
+        Create a new config object with field values replaced by any given in
+        ``config_updates``. Note that this is NOT an in-place operation, and will return
+        a new config object, leaving the original un-modified.
+
+        This function just wraps around the ``_update`` function, which can be overloaded
+        in any subclasses. A default ``_update`` implementation that should work for
+        most cases is provided.
+
+        Parameters
+        ----------
+        config_updates : dict
+            Dictionary mapping from field names to new values
+
+        Returns
+        -------
+        cls
+            Returns an object that is the same type as the calling object
+        """
         return self._update(config_updates)
 
     def _update(self, config_updates={}) -> ModelConfigBase:
         """
         Default version of this function. Just update original config with new options,
         and generate new object. Designed to be overloaded if there are specific things
-        that a class needs to handle (see GATModelConfig as an example).
+        that a class needs to handle (see
+        :py:class:`GATModelConfig <mtenn.config.GATModelConfig>` as an example).
+
+        :meta public:
+
+        Parameters
+        ----------
+        config_updates : dict
+            Dictionary mapping from field names to new values
+
+        Returns
+        -------
+        cls
+            Returns an object that is the same type as the calling object
         """
 
         orig_config = self.dict()
