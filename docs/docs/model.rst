@@ -83,6 +83,8 @@ In text form this is:
 #. All 3 representations are passed to the ``Strategy`` block, where they are combined into a :math:`\Delta g_{\mathrm{bind}}` prediction in implicit kT units
 #. (optional) The :math:`\Delta g_{\mathrm{bind}}` prediction is passed to the ``Readout`` block, where it is converted into whatever the final units are
 
+.. _multi-pose-model-docs:
+
 Multi-Pose Models
 -----------------
 

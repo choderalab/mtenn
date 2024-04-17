@@ -160,11 +160,11 @@ class Model(torch.nn.Module):
 
 class GroupedModel(Model):
     """
-    Subclass of the above `Model` for use with grouped data, eg multiple docked
-    poses of the same molecule with the same protein. In addition to the
-    `Representation` and `Strategy` modules in the `Model` class, `GroupedModel`
-    also has a `Comination` module, that dictates how the `Model` predictions
-    for each item in the group of data are combined.
+    Subclass of :py:class:`Model <mtenn.model.Model>` for use with multi-pose data, eg
+    multiple docked poses of the same molecule with the same protein. In addition to the
+    ``Representation`` and ``Strategy`` blocks in the ``Model`` class, ``GroupedModel``
+    also has a ``Combination`` block that dictates how the individual ``Model``
+    predictions for each item in the group of data are combined.
     """
 
     def __init__(
@@ -177,22 +177,23 @@ class GroupedModel(Model):
         fix_device=False,
     ):
         """
-        The `representation`, `strategy`, and `pred_readout` options will be used
-        to initialize the underlying `Model` object, while the `combination` and
-        `comb_readout` modules will be applied to the output of the `Model` preds.
+        The ``representation``, ``strategy``, and ``pred_readout`` args will be used
+        to initialize the underlying :py:class:`Model <mtenn.model.Model>`, while the
+        ``combination`` and ``comb_readout`` args will be applied to the output of the
+        individual pose predictions.
 
         Parameters
         ----------
         representation : Representation
-            Representation object to get the representation of the input data.
+            ``Representation`` block for this model
         strategy : Strategy
-            Strategy object to get convert the representations into energy preds.
+            ``Strategy`` block for this model
         combination : Combination
-            Combination object for combining the energy predictions.
+            ``Combination`` block for this model
         pred_readout : Readout, optional
-            Readout object for the energy predictions.
+            ``Readout`` block for the individual pose predictions
         comb_readout : Readout, optional
-            Readout object for the combination output.
+            ``Readout`` block for the combined pose
         fix_device: bool, default=False
             If True, make sure the input is on the same device as the model,
             copying over as necessary.
@@ -205,18 +206,20 @@ class GroupedModel(Model):
 
     def forward(self, input_list):
         """
-        Forward method for `GroupedModel` class. Will call the `forward` method
-        of `Model` for each entry in `input_list`.
+        Handles all the logic detailed in the :ref:`docs page <multi-pose-model-docs>`.
 
         Parameters
         ----------
-        input_list : List[Tuple[Dict]]
+        input_list : list[tuple[dict]]
             List of tuples of (complex representation, part representations)
 
         Returns
         -------
         torch.Tensor
-            Combination of all predictions
+            Final multi-pose model prediction
+        list[torch.Tensor]
+            A list containing the pre-``pred_readout`` prediction for each entry in
+            ``input_list``
         """
         # Get predictions for all inputs in the list, and combine them in a
         #  tensor (while keeping track of gradients)
