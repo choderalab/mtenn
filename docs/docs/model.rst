@@ -1,3 +1,5 @@
+.. _model-docs-page:
+
 Model
 =====
 
@@ -62,6 +64,8 @@ Currently, the following ``Combination`` blocks are implemented in ``mtenn``:
 
 * :py:class:`mtenn.combination.MeanCombination`
 * :py:class:`mtenn.combination.MaxCombination`
+
+.. _single-pose-model-docs:
 
 Single-Pose Models
 ------------------
