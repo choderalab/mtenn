@@ -1,31 +1,84 @@
+"""
+Implementations for the ``Strategy`` block in a :py:class:`Model
+<mtenn.model.Model>` or :py:class:`GroupedModel <mtenn.model.GroupedModel>`.
+"""
+
 import abc
 from itertools import permutations
 import torch
 
 
 class Strategy(torch.nn.Module, abc.ABC):
-    pass
+    """
+    Abstract base class for the ``Strategy`` block. Any subclass needs to implement
+    the ``forward`` method in order to be used.
+    """
+
+    @abc.abstractmethod
+    def forward(self, comp, *parts):
+        """
+        For any strategy class, this function should take a complex representation and
+        (optionally) any number of "part" representations, and return a single
+        :math:`\mathrm{\Delta G}` prediction.
+        """
+        raise NotImplementedError("Must implement the `forward` method.")
 
 
 class DeltaStrategy(Strategy):
     """
     Simple strategy for subtracting the sum of the individual component energies
-    from the complex energy.
+    from the complex energy. This ``Strategy`` requires an ``energy_func``
+    :math:`\phi: \mathbb{R}^n \\rightarrow \mathbb{R}` that maps from an n-dimensional
+    vector representation (output from a ``Representation`` block) to a scalar-value
+    energy prediction.
+
+    .. math::
+
+        \mathrm{G} &= \phi (\mathrm{\\boldsymbol{x}})
+
+        \Delta \mathrm{G_{pred}} &= \mathrm{G_{complex}} - \\sum_n \mathrm{G}_n
     """
 
-    def __init__(self, energy_func, pic50=True):
+    def __init__(self, energy_func):
+        """
+        Store module for predicting an energy from representation.
+
+        Parameters
+        ----------
+        energy_func : torch.nn.Module
+            Some torch module that will predict an energy from an n-dimension vector
+            representation of a structure
+        """
         super(DeltaStrategy, self).__init__()
         self.energy_func: torch.nn.Module = energy_func
-        self.pic50 = pic50
 
     def forward(self, comp, *parts):
-        ## Calculat delta G
+        """
+        Make energy predictions for each representation, and then perform the delta
+        calculation.
+
+        Parameters
+        ----------
+        comp : torch.Tensor
+            Complex representation that will be passed to ``self.energy_func``
+        part : list[torch.Tensor], optional
+            Representations for all individual parts of the complex (eg ligand and
+            protein separately) that will be passed to ``self.energy_func``
+
+        Returns
+        -------
+        torch.Tensor
+            Predicted :math:`\Delta G` value
+        """
+        # Get energy predictions for each representation
         complex_pred = self.energy_func(comp)
         parts_preds = [self.energy_func(p) for p in parts]
+        # Replace invalid predictions with 0
         parts_preds = [
             p if len(p.flatten()) > 0 else torch.zeros_like(complex_pred)
             for p in parts_preds
         ]
+        # Calculate delta  G
         dG_pred = complex_pred - sum(parts_preds)
         return dG_pred
 
