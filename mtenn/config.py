@@ -404,11 +404,11 @@ class ModelConfigBase(BaseModel):
 
 class GATModelConfig(ModelConfigBase):
     """
-    Class for constructing a GAT ML model. Note that there are two methods for defining
-    the size of the model:
+    Class for constructing a graph attention ML model. Note that there are two methods
+    for defining the size of the model:
 
-    * If single values are passed for all parameters, the value of `num_layers` will be
-      used as the size of the model, and each layer will have the parameters given
+    * If single values are passed for all parameters, the value of ``num_layers`` will
+      be used as the size of the model, and each layer will have the parameters given
 
     * If a list of values is passed for any parameters, all parameters must be lists of
       the same size, or single values. For parameters that are single values, that same
@@ -438,14 +438,15 @@ class GATModelConfig(ModelConfigBase):
         "agg_modes": str,
         "activations": None,
         "biases": bool,
-    }
+    }  #: :meta private:
 
     model_type: ModelType = Field(ModelType.GAT, const=True)
 
     in_feats: int = Field(
         _CanonicalAtomFeaturizer().feat_size(),
         description=(
-            "Input node feature size. Defaults to size of the CanonicalAtomFeaturizer."
+            "Input node feature size. Defaults to size of the "
+            "``CanonicalAtomFeaturizer``."
         ),
     )
     num_layers: int = Field(
@@ -455,69 +456,71 @@ class GATModelConfig(ModelConfigBase):
             "other argument."
         ),
     )
-    hidden_feats: str | list[int] = Field(
+    hidden_feats: str | int | list[int] = Field(
         32,
         description=(
-            "Output size of each GAT layer. If an int is passed, the value for "
-            "num_layers will be used to determine the size of the model. If a list of "
-            "ints is passed, the size of the model will be inferred from the length of "
-            "the list."
+            "Output size of each GAT layer. If an ``int`` is passed, the value for "
+            "``num_layers`` will be used to determine the size of the model. If a list "
+            "of ``int`` s is passed, the size of the model will be inferred from the "
+            "length of the list."
         ),
     )
-    num_heads: str | list[int] = Field(
+    num_heads: str | int | list[int] = Field(
         4,
         description=(
-            "Number of attention heads for each GAT layer. Passing an int or list of "
-            "ints functions similarly as for hidden_feats."
+            "Number of attention heads for each GAT layer. Passing an ``int`` or list "
+            "of ``int`` s functions similarly as for ``hidden_feats``."
         ),
     )
-    feat_drops: str | list[float] = Field(
+    feat_drops: str | float | list[float] = Field(
         0,
         description=(
-            "Dropout of input features for each GAT layer. Passing an float or list of "
-            "floats functions similarly as for hidden_feats."
+            "Dropout of input features for each GAT layer. Passing a ``float`` or "
+            "list of ``float`` s functions similarly as for ``hidden_feats``."
         ),
     )
-    attn_drops: str | list[float] = Field(
+    attn_drops: str | float | list[float] = Field(
         0,
         description=(
-            "Dropout of attention values for each GAT layer. Passing an float or list "
-            "of floats functions similarly as for hidden_feats."
+            "Dropout of attention values for each GAT layer. Passing a ``float`` or "
+            "list of ``float`` s functions similarly as for ``hidden_feats``."
         ),
     )
-    alphas: str | list[float] = Field(
+    alphas: str | float | list[float] = Field(
         0.2,
         description=(
-            "Hyperparameter for LeakyReLU gate for each GAT layer. Passing an float or "
-            "list of floats functions similarly as for hidden_feats."
+            "Hyperparameter for ``LeakyReLU`` gate for each GAT layer. Passing a "
+            "``float`` or list of ``float`` s functions similarly as for "
+            "``hidden_feats``."
         ),
     )
-    residuals: str | list[bool] = Field(
+    residuals: str | bool | list[bool] = Field(
         True,
         description=(
-            "Whether to use residual connection for each GAT layer. Passing a bool or "
-            "list of bools functions similarly as for hidden_feats."
+            "Whether to use residual connection for each GAT layer. Passing a ``bool`` "
+            "or list of ``bool`` s functions similarly as for ``hidden_feats``."
         ),
     )
     agg_modes: str | list[str] = Field(
         "flatten",
         description=(
             "Which aggregation mode [flatten, mean] to use for each GAT layer. "
-            "Passing a str or list of strs functions similarly as for hidden_feats."
+            "Passing a ``str`` or list of ``str`` s functions similarly as for "
+            "``hidden_feats``."
         ),
     )
-    activations: list[Callable] | list[None] | None = Field(
+    activations: Callable | list[Callable] | list[None] | None = Field(
         None,
         description=(
             "Activation function for each GAT layer. Passing a function or "
-            "list of functions functions similarly as for hidden_feats."
+            "list of functions functions similarly as for ``hidden_feats``."
         ),
     )
-    biases: str | list[bool] = Field(
+    biases: str | bool | list[bool] = Field(
         True,
         description=(
-            "Whether to use bias for each GAT layer. Passing a bool or "
-            "list of bools functions similarly as for hidden_feats."
+            "Whether to use bias for each GAT layer. Passing a ``bool`` or "
+            "list of ``bool`` s functions similarly as for ``hidden_feats``."
         ),
     )
     allow_zero_in_degree: bool = Field(
@@ -530,6 +533,10 @@ class GATModelConfig(ModelConfigBase):
 
     @root_validator(pre=False)
     def massage_into_lists(cls, values) -> GATModelConfig:
+        """
+        Validator to handle unifying all the values into the proper list forms based on
+        the rules described in the class docstring.
+        """
         # First convert string lists to actual lists
         for param, param_type in cls.LIST_PARAMS.items():
             param_val = values[param]
@@ -618,6 +625,24 @@ class GATModelConfig(ModelConfigBase):
         return GAT.get_model(model=model, pred_readout=pred_readout, fix_device=True)
 
     def _update(self, config_updates={}) -> GATModelConfig:
+        """
+        GAT-specific implementation of updating logic. Need to handle stuff specially
+        to make sure that the original method of specifying parameters (either from a
+        passed value of ``num_layers`` or inferred from each parameter being a list) is
+        maintained.
+
+        :meta public:
+
+        Parameters
+        ----------
+        config_updates : dict
+            Dictionary mapping from field names to new values
+
+        Returns
+        -------
+        GATModelConfig
+            New GATModelConfig object
+        """
         orig_config = self.dict()
         if self._from_num_layers:
             # If originally generated from num_layers, want to pull out the first entry
