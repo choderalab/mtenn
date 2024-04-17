@@ -1,3 +1,8 @@
+"""
+This module contains the actual models that are used for making predictions. More
+information on how everything here works is in the :ref:`docs page <model-docs-page>`.
+"""
+
 import os
 import torch
 
@@ -9,8 +14,8 @@ from mtenn.readout import Readout
 
 class Model(torch.nn.Module):
     """
-    Model object containing a `representation` Module that will take an input
-    and convert it into some representation, and a `strategy` module that will
+    Model object containing a ``Representation`` block that will take an input
+    and convert it into some representation, and a ``Strategy`` block that will
     take a complex representation and any number of constituent "part"
     representations, and convert to a final scalar value.
     """
@@ -19,6 +24,12 @@ class Model(torch.nn.Module):
         """
         Parameters
         ----------
+        representation : Representation
+            ``Representation`` block for this model
+        strategy : Strategy
+            ``Strategy`` block for this model
+        readout : Readout, optional
+            ``Readout`` block for this model
         fix_device: bool, default=False
             If True, make sure the input is on the same device as the model,
             copying over as necessary.
@@ -32,21 +43,37 @@ class Model(torch.nn.Module):
 
     def get_representation(self, *args, **kwargs):
         """
-        Takes system topolgy and coordinates and returns Nxhidden dimension
-        representation.
-
-        Parameters
-        ----------
-
-        Returns
-        -------
+        Pass a structure through the model's ``Representation`` block. All arguments are
+        passed directly to ``self.representation``.
         """
 
         return self.representation(*args, **kwargs)
 
     def forward(self, comp, *parts):
-        ## This implementation of the forward function assumes the
-        ##  get_representation function takes a single data object
+        """
+        Handles all the logic detailed in the :ref:`docs page <single-pose-model-docs>`.
+
+        Parameters
+        ----------
+        comp : dict
+            Complex structure that will be passed to the ``Representation`` block
+        part : list[dict], optional
+            Structures for all individual parts of the complex (eg ligand and protein
+            separately). If this is not passed, the constituent parts will be
+            automatically parsed from ``comp``
+
+        Returns
+        -------
+        torch.Tensor
+            Final model prediction. If the model has a ``readout``, this value will have
+            the ``readout`` applied
+        list[torch.Tensor]
+            A list containing only the pre-``readout`` model prediction. This value is
+            returned mainly to align the signatures for the single- and multi-pose
+            models
+        """
+        # This implementation of the forward function assumes the
+        #  get_representation function takes a single data object
         tmp_comp = self._fix_device(comp)
         complex_rep = self.get_representation(tmp_comp)
 
@@ -61,8 +88,26 @@ class Model(torch.nn.Module):
             return energy_val, [energy_val]
 
     def _fix_device(self, data):
-        ## We'll call this on everything for uniformity, but if we fix_device is
-        ##  False we can just return
+        """
+        Make sure that the pose tensors are on the same device as the model before
+        attempting to call the model. Note that if ``self.fix_device`` is ``False``,
+        this function does nothing. Also note that this function uses the torch ``to``
+        function, which means that if a tensor is on the wrong device, a copy of the
+        tensor will be returned, whereas if the tensor is already on the correct device
+        the original tensor will be returned.
+
+        Parameters
+        ----------
+        data : dict
+            Structure pose
+
+        Returns
+        -------
+        dict
+            New dict with all tensors on the appropriate device
+        """
+        # We'll call this on everything for uniformity, but if we fix_device is
+        #  False we can just return
         if not self.fix_device:
             return data
 
@@ -84,15 +129,15 @@ class Model(torch.nn.Module):
 
         Parameters
         ----------
-        comp : Dict[str, object]
+        comp : dict[str, object]
             Dictionary representing the complex data object. Must have "lig" as
             a key that contains the index for splitting the data.
 
         Returns
         -------
-        Dict[str, object]
+        dict[str, object]
             Protein representation
-        Dict[str, object]
+        dict[str, object]
             Ligand representation
         """
         try:
