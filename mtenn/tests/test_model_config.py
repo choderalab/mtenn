@@ -7,7 +7,6 @@ from mtenn.config import (
     SchNetModelConfig,
     ViSNetModelConfig,
 )
-from mtenn.conversion_utils.visnet import HAS_VISNET
 from mtenn.readout import PIC50Readout, PKiReadout
 from mtenn.strategy import ComplexOnlyStrategy, ConcatStrategy, DeltaStrategy
 
@@ -271,7 +270,6 @@ def test_model_weights_schnet():
         assert (ref_param == test_model_params[n]).all()
 
 
-@pytest.mark.skipif(not HAS_VISNET, reason="requires VisNet from nightly PyG")
 def test_random_seed_visnet():
     rand_config = ViSNetModelConfig()
     set_config = ViSNetModelConfig(rand_seed=10)
@@ -294,7 +292,6 @@ def test_random_seed_visnet():
     assert sum(set_equal) == len(set_equal)
 
 
-@pytest.mark.skipif(not HAS_VISNET, reason="requires VisNet from nightly PyG")
 def test_visnet_from_pyg():
     from torch_geometric.nn.models import ViSNet as PyVisNet
     from mtenn.conversion_utils import ViSNet

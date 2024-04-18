@@ -1091,46 +1091,37 @@ class ViSNetModelConfig(ModelConfigBase):
             Model constructed from the config
         """
         # Create an MTENN ViSNet model from PyG ViSNet model
+        from mtenn.conversion_utils import ViSNet
 
-        from mtenn.conversion_utils.visnet import HAS_VISNET
+        model = ViSNet(
+            lmax=self.lmax,
+            vecnorm_type=self.vecnorm_type,
+            trainable_vecnorm=self.trainable_vecnorm,
+            num_heads=self.num_heads,
+            num_layers=self.num_layers,
+            hidden_channels=self.hidden_channels,
+            num_rbf=self.num_rbf,
+            trainable_rbf=self.trainable_rbf,
+            max_z=self.max_z,
+            cutoff=self.cutoff,
+            max_num_neighbors=self.max_num_neighbors,
+            vertex=self.vertex,
+            reduce_op=self.reduce_op,
+            mean=self.mean,
+            std=self.std,
+            derivative=self.derivative,
+            atomref=self.atomref,
+        )
+        combination = mtenn_params.get("combination", None)
+        pred_readout = mtenn_params.get("pred_readout", None)
+        comb_readout = mtenn_params.get("comb_readout", None)
 
-        if HAS_VISNET:
-            from mtenn.conversion_utils import ViSNet
-
-            model = ViSNet(
-                lmax=self.lmax,
-                vecnorm_type=self.vecnorm_type,
-                trainable_vecnorm=self.trainable_vecnorm,
-                num_heads=self.num_heads,
-                num_layers=self.num_layers,
-                hidden_channels=self.hidden_channels,
-                num_rbf=self.num_rbf,
-                trainable_rbf=self.trainable_rbf,
-                max_z=self.max_z,
-                cutoff=self.cutoff,
-                max_num_neighbors=self.max_num_neighbors,
-                vertex=self.vertex,
-                reduce_op=self.reduce_op,
-                mean=self.mean,
-                std=self.std,
-                derivative=self.derivative,
-                atomref=self.atomref,
-            )
-            combination = mtenn_params.get("combination", None)
-            pred_readout = mtenn_params.get("pred_readout", None)
-            comb_readout = mtenn_params.get("comb_readout", None)
-
-            return ViSNet.get_model(
-                model=model,
-                grouped=self.grouped,
-                fix_device=True,
-                strategy=self.strategy,
-                combination=combination,
-                pred_readout=pred_readout,
-                comb_readout=comb_readout,
-            )
-
-        else:
-            raise ImportError(
-                "ViSNet not found. Is your PyG >=2.5.0? Refer to issue #42."
-            )
+        return ViSNet.get_model(
+            model=model,
+            grouped=self.grouped,
+            fix_device=True,
+            strategy=self.strategy,
+            combination=combination,
+            pred_readout=pred_readout,
+            comb_readout=comb_readout,
+        )
