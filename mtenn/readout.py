@@ -81,7 +81,6 @@ class PIC50Readout(Readout):
         return pic50
 
 
-
 class PKiReadout(Readout):
     """
     Readout implementation to convert delta G values to PKi values. This new
@@ -104,7 +103,7 @@ class PKiReadout(Readout):
         super(PKiReadout, self).__init__()
 
     def __repr__(self):
-        return f"PKiReadout()"
+        return "PKiReadout()"
 
     def forward(self, delta_g):
         """
