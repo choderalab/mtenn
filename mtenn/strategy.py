@@ -61,7 +61,7 @@ class DeltaStrategy(Strategy):
         ----------
         comp : torch.Tensor
             Complex representation that will be passed to ``self.energy_func``
-        part : list[torch.Tensor], optional
+        parts : list[torch.Tensor], optional
             Representations for all individual parts of the complex (eg ligand and
             protein separately) that will be passed to ``self.energy_func``
 
@@ -78,7 +78,7 @@ class DeltaStrategy(Strategy):
             p if len(p.flatten()) > 0 else torch.zeros_like(complex_pred)
             for p in parts_preds
         ]
-        # Calculate delta  G
+        # Calculate delta G
         dG_pred = complex_pred - sum(parts_preds)
         return dG_pred
 
@@ -87,11 +87,39 @@ class ConcatStrategy(Strategy):
     """
     Strategy for combining the complex representation and parts representations
     in some learned manner, using sum-pooling to ensure permutation-invariance
-    of the parts.
+    of the parts. For 3 n-dimensional input representations (eg complex, protein-only,
+    and ligand-only), this ``Strategy`` acts as a function
+    :math:`\phi: \mathbb{R}^{3n} \\rightarrow \mathbb{R}` that predicts a scalar-value
+    :math:`\Delta G` prediction.
+
+    The input :math:`\mathrm{\\boldsymbol{x}}` to :math:`\phi` is computed in a
+    permutation-invariant manner. For a protein-ligand complex, this looks like:
+
+    .. math::
+
+        \mathrm{\\boldsymbol{x}_{parts}} &= [\mathrm{\\boldsymbol{x}_{protein}},
+        \mathrm{\\boldsymbol{x}_{ligand}}] + [\mathrm{\\boldsymbol{x}_{ligand}},
+        \mathrm{\\boldsymbol{x}_{protein}}]
+
+        \mathrm{\\boldsymbol{x}} &= [\mathrm{\\boldsymbol{x}_{complex}},
+        \mathrm{\\boldsymbol{x}_{parts}}]
+
+        \Delta \mathrm{G_{pred}} &= \phi (\mathrm{\\boldsymbol{x}})
+
+    In general, we will sum every permutation of the non-complex representations, and
+    then this sum will be concatenated to the complex representation.
+
+    In its current iteration, this ``Strategy`` does not require you to specify the
+    dimensionality (:math:`n`) of each representation. Instead, the first time an
+    instance of this ``Strategy`` is used, it will calculate the required input size and
+    initialize a one-layer linear network of the appropriate dimensionality.
     """
 
     def __init__(self, extract_key=None):
         """
+        Set the key to use to access vector representations if ``dict`` s are passed to
+        the ``forward`` call.
+
         Parameters
         ----------
         extract_key : str, optional
@@ -102,31 +130,50 @@ class ConcatStrategy(Strategy):
         self.extract_key = extract_key
 
     def forward(self, comp, *parts):
-        ## Extract representation from dict
-        if self.extract_key:
+        """
+        Calculate permutation-invariant concatenation of all representations, and pass
+        through a one-layer linear NN. This network will be initialized based on the
+        input sizes the first time this method is called for a given instance of this
+        class.
+
+        Parameters
+        ----------
+        comp : torch.Tensor
+            Complex representation
+        parts : list[torch.Tensor], optional
+            Representations for all individual parts of the complex (eg ligand and
+            protein separately)
+
+        Returns
+        -------
+        torch.Tensor
+            Predicted :math:`\Delta G` value
+        """
+        # Extract representation from dict
+        if self.extract_key and isinstance(comp, dict):
             comp = comp[self.extract_key]
             parts = [p[self.extract_key] for p in parts]
 
-        ## Flatten tensors
+        # Flatten tensors
         comp = comp.flatten()
         parts = [p.flatten() for p in parts]
 
         parts_size = sum([len(p) for p in parts])
         if self.reduce_nn is None:
-            ## These should already by representations, so initialize a Linear
-            ##  module with appropriate input size
+            # If we haven't already, initialize a Linear module with appropriate input
+            #  size
             input_size = len(comp) + parts_size
             self.reduce_nn = torch.nn.Linear(input_size, 1)
 
-        ## Move self.reduce_nn to appropriate torch device
+        # Move self.reduce_nn to appropriate torch device
         self.reduce_nn = self.reduce_nn.to(comp.device)
 
-        ## Enumerate all possible permutations of parts and add together
+        # Enumerate all possible permutations of parts and add together
         parts_cat = torch.zeros((parts_size), device=comp.device)
         for idxs in permutations(range(len(parts)), len(parts)):
             parts_cat += torch.cat([parts[i] for i in idxs])
 
-        ## Concat comp w/ permut-invariant parts representation
+        # Concat comp w/ permut-invariant parts representation
         full_embedded = torch.cat([comp, parts_cat])
 
         return self.reduce_nn(full_embedded)
