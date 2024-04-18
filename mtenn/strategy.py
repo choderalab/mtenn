@@ -181,15 +181,39 @@ class ConcatStrategy(Strategy):
 
 class ComplexOnlyStrategy(Strategy):
     """
-    Strategy to only return prediction for the complex. This is useful if you want to
-    make a prediction on just the ligand or just the protein, and essentially just
-    reduces to a standard version of whatever your underlying model is.
+    Strategy to only predict based on the complex representation. This is useful if you
+    want to make a prediction on just the ligand or just the protein, and essentially
+    just reduces to a standard version of whatever your underlying model is.
     """
 
     def __init__(self, energy_func):
+        """
+        Store module for predicting an energy from representation.
+
+        Parameters
+        ----------
+        energy_func : torch.nn.Module
+            Some torch module that will predict an energy from an n-dimension vector
+            representation of a structure
+        """
         super().__init__()
         self.energy_func: torch.nn.Module = energy_func
 
     def forward(self, comp, *parts):
+        """
+        Make energy prediction for the complex representation.
+
+        Parameters
+        ----------
+        comp : torch.Tensor
+            Complex representation that will be passed to ``self.energy_func``
+        parts : list[torch.Tensor], optional
+            Ignored, but present just to match the signatures
+
+        Returns
+        -------
+        torch.Tensor
+            Predicted value
+        """
         complex_pred = self.energy_func(comp)
         return complex_pred
