@@ -28,7 +28,7 @@ class GAT(torch.nn.Module):
 
         Parameters
         ----------
-        model : ``dgllife.model.GAT``
+        model : ``dgllife.model.GAT``, optional
             DGL-LifeSci model to use to construct the underlying model
         """
         super().__init__()
@@ -174,7 +174,7 @@ class GAT(torch.nn.Module):
         fix_device: bool, default=False
             If True, make sure the input is on the same device as the model,
             copying over as necessary
-        pred_readout : mtenn.readout.Readout
+        pred_readout : mtenn.readout.Readout, optional
             ``Readout`` object for the energy predictions
 
         Returns

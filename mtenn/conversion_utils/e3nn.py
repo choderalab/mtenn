@@ -29,7 +29,7 @@ class E3NN(Network):
 
         Parameters
         ----------
-        model : ``e3nn.nn.models.gate_points_2101.Network``
+        model : ``e3nn.nn.models.gate_points_2101.Network``, optional
             e3nn model to use to construct the underlying model
         """
         # If no model is passed, construct e3nn model with model_kwargs,
@@ -152,7 +152,7 @@ class E3NN(Network):
 
         Returns
         -------
-        ComplexOnlyStrategy
+        mtenn.strategy.ComplexOnlyStrategy
             ``ComplexOnlyStrategy`` built from the model
         """
 
@@ -186,7 +186,7 @@ class E3NN(Network):
         Exposed function to build a :py:class:`Model <mtenn.model.Model>` or
         :py:class:`GroupedModel <mtenn.model.GroupedModel>` from an :py:class:`E3NN
         <mtenn.conversion_utils.e3nn.E3NN>` (or args/kwargs). If no ``model`` is given,
-        use the ``*args`` and ``**kwargs``.
+        use the ``model_kwargs``.
 
         Parameters
         ----------
