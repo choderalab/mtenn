@@ -4,7 +4,7 @@ import pytest
 import torch
 
 from mtenn.combination import MeanCombination, MaxCombination, BoltzmannCombination
-from mtenn.conversion_utils import SchNet
+from mtenn.conversion_utils.schnet import SchNet
 
 
 @pytest.fixture()
