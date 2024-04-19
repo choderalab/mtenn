@@ -16,7 +16,7 @@ from mtenn.strategy import ComplexOnlyStrategy, ConcatStrategy, DeltaStrategy
 
 class EquivariantVecToScalar(torch.nn.Module):
     """
-    Wrapper around ``torch_geometric.utils.scatter`` to use it as a torch ``Module``.
+    Wrapper around ``torch_geometric.utils.scatter`` to use it as a ``Module``.
     """
 
     def __init__(self, mean, reduce_op):
