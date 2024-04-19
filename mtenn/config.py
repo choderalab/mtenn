@@ -621,7 +621,7 @@ class GATModelConfig(ModelConfigBase):
         mtenn.model.Model
             Model constructed from the config
         """
-        from mtenn.conversion_utils import GAT
+        from mtenn.conversion_utils.gat import GAT
 
         model = GAT(
             in_feats=self.in_feats,
@@ -782,7 +782,7 @@ class SchNetModelConfig(ModelConfigBase):
         mtenn.model.Model
             Model constructed from the config
         """
-        from mtenn.conversion_utils import SchNet
+        from mtenn.conversion_utils.schnet import SchNet
 
         # Create an MTENN SchNet model from PyG SchNet model
         model = SchNet(
@@ -959,7 +959,7 @@ class E3NNModelConfig(ModelConfigBase):
             Model constructed from the config
         """
         from e3nn.o3 import Irreps
-        from mtenn.conversion_utils import E3NN
+        from mtenn.conversion_utils.e3nn import E3NN
 
         model = E3NN(
             irreps_in=f"{self.num_atom_types}x0e",
@@ -1091,7 +1091,7 @@ class ViSNetModelConfig(ModelConfigBase):
             Model constructed from the config
         """
         # Create an MTENN ViSNet model from PyG ViSNet model
-        from mtenn.conversion_utils import ViSNet
+        from mtenn.conversion_utils.visnet import ViSNet
 
         model = ViSNet(
             lmax=self.lmax,
