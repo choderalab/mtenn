@@ -67,7 +67,7 @@ class E3NN(Network):
 
         Parameters
         ----------
-        data : dict
+        data : dict[str, torch.Tensor]
             This dictionary should at minimum contain entries for:
 
             * ``"pos"``: Atom coordinates
