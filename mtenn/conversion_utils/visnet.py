@@ -16,8 +16,7 @@ from mtenn.strategy import ComplexOnlyStrategy, ConcatStrategy, DeltaStrategy
 
 class EquivariantVecToScalar(torch.nn.Module):
     """
-    Wrapper of torch_geometric.nn.models.visnet.EquivariantScalar to implement
-    ``forward`` method.
+    Wrapper around ``torch_geometric.utils.scatter`` to use it as a torch ``Module``.
     """
 
     def __init__(self, mean, reduce_op):
@@ -29,14 +28,27 @@ class EquivariantVecToScalar(torch.nn.Module):
         mean : torch.Tensor
             Mean of predicted value
         reduce_op : str
-            Reduce operation to use in torch_geometric.utils._scatter.scatter
+            Reduce operation to use in ``torch_geometric.utils.scatter``
         """
         super(EquivariantVecToScalar, self).__init__()
         self.mean = mean
         self.reduce_op = reduce_op
 
     def forward(self, x):
-        # dummy variable. all atoms from the same molecule and the same batch
+        """
+        Perform the scatter operation.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor
+
+        Returns
+        -------
+        torch.Tensor
+            Output of ``scatter`` call
+        """
+        # All atoms from the same molecule and the same batch
         batch = torch.zeros(x.shape[0], dtype=torch.int64, device=x.device)
         y = scatter(x, batch, dim=0, reduce=self.reduce_op)
         return y + self.mean
@@ -50,9 +62,21 @@ class ViSNet(torch.nn.Module):
     """
 
     def __init__(self, *args, model=None, **kwargs):
+        """
+        Initialize the underlying ``torch_geometric.nn.models.ViSNet`` model. If a value
+        is passed for ``model``, builds a new ``torch_geometric.nn.models.ViSNet`` model
+        based on those hyperparameters, and copies over the weights. Otherwise, all
+        ``*args`` and ``**kwargs`` are passed directly to the
+        ``torch_geometric.nn.models.ViSNet`` constructor.
+
+        Parameters
+        ----------
+        model : ``torch_geometric.nn.models.ViSNet``, optional
+            PyTorch Geometric ViSNet model to use to construct the underlying model
+        """
         super().__init__()
-        ## If no model is passed, construct default ViSNet model, otherwise copy
-        ##  all parameters and weights over
+        # If no model is passed, construct default ViSNet model, otherwise copy
+        #  all parameters and weights over
         if model is None:
             self.visnet = PygViSNet(*args, **kwargs)
         else:
@@ -68,7 +92,7 @@ class ViSNet(torch.nn.Module):
                 "trainable_rbf": model.representation_model.trainable_rbf,
                 "max_z": model.representation_model.max_z,
                 "cutoff": model.representation_model.cutoff,
-                "reduce_op": model.representation_model.max_num_neighbors,
+                "max_num_neighbors": model.representation_model.max_num_neighbors,
                 "vertex": isinstance(
                     model.representation_model.vis_mp_layers[0], ViS_MP_Vertex
                 ),
@@ -85,23 +109,21 @@ class ViSNet(torch.nn.Module):
 
     def forward(self, data):
         """
-        Computes the vector representation of a molecule from its atomic numbers and positional coordinates, to produce a vector representation. The output vector can be used for further molecular analysis or prediction tasks.
+        Predict a vector representation of an input structure.
 
         Parameters
         ----------
         data : dict[str, torch.Tensor]
-            A dictionary containing the atomic point clouds of a molecule. It should have the following keys:
-            - z (torch.Tensor): The atomic numbers of the atoms in the molecule.
-            - pos (torch.Tensor): The 3D coordinates (x, y, z) of each atom in the molecule.
+            This dictionary should at minimum contain entries for:
+
+            * ``"pos"``: Atom coordinates
+
+            * ``"z"``: Atomic numbers
 
         Returns
         -------
         torch.Tensor
-            A tensor representing the vector output of the molecule
-
-        Notes
-        -----
-        Assumes all atoms passed in `data` belong to the same molecule and are processed in a single batch.
+            Predicted vector representation of input
         """
         pos = data["pos"]
         z = data["z"]
@@ -118,50 +140,49 @@ class ViSNet(torch.nn.Module):
 
     def _get_representation(self):
         """
-        Input model, remove last layer.
+        Copy model.
 
         Returns
         -------
-        ViSNet
-            Copied ViSNet model, removing the last MLP layer that takes vector representation to scalar output.
+        mtenn.conversion_utils.visnet.ViSNet
+            Copied ``ViSNet`` model
         """
-
-        ## Copy model so initial model isn't affected
-        model_copy = deepcopy(self)
-
-        return model_copy
+        # Copy model so initial model isn't affected
+        return deepcopy(self)
 
     def _get_energy_func(self):
         """
-        Return last layer of the model (outputs scalar value)
+        Return copy of ``readout`` portion of the model.
 
         Returns
         -------
-        torch.nn.Module
-            Copy of `model`'s last layer, which is an instance of EquivariantVecToScalar() class
+        mtenn.conversion_utils.visnet.EquivariantVecToScalar
+            Copy of ``self.readout``
         """
         return deepcopy(self.readout)
 
     def _get_delta_strategy(self):
         """
-        Build a DeltaStrategy object based on the passed model.
+        Build a :py:class:`DeltaStrategy <mtenn.strategy.DeltaStrategy>` object based on
+        the calling model.
 
         Returns
         -------
-        DeltaStrategy
-            DeltaStrategy built from `model`
+        mtenn.strategy.DeltaStrategy
+            ``DeltaStrategy`` built from the model
         """
 
         return DeltaStrategy(self._get_energy_func())
 
     def _get_complex_only_strategy(self):
         """
-        Build a ComplexOnlyStrategy object based on the passed model.
+        Build a :py:class:`ComplexOnlyStrategy <mtenn.strategy.ComplexOnlyStrategy>`
+        object based on the calling model.
 
         Returns
         -------
-        ComplexOnlyStrategy
-            ComplexOnlyStrategy built from `self`
+        mtenn.strategy.ComplexOnlyStrategy
+            ``ComplexOnlyStrategy`` built from the model
         """
 
         return ComplexOnlyStrategy(self._get_energy_func())
@@ -177,41 +198,51 @@ class ViSNet(torch.nn.Module):
         comb_readout=None,
     ):
         """
-        Exposed function to build a Model object from a VisNet object. If none
-        is provided, a default model is initialized.
+        Exposed function to build a :py:class:`Model <mtenn.model.Model>` or
+        :py:class:`GroupedModel <mtenn.model.GroupedModel>` from a :py:class:`ViSNet
+        <mtenn.conversion_utils.visnet.ViSNet>` (or args/kwargs). If no ``model`` is
+        given, build a default ``ViSNet`` model.
 
         Parameters
         ----------
-        model: VisNet, optional
-            VisNet model to use to build the Model object. If left as none, a default model will be initialized and used
+        model: mtenn.conversion_utils.visnet.ViSNet, optional
+            ``ViSNet`` model to use to build the ``Model`` object. If not given, build a
+            default model
         grouped: bool, default=False
-            Whether this model should accept groups of inputs or one input at a time.
+            Build a ``GroupedModel``
         fix_device: bool, default=False
             If True, make sure the input is on the same device as the model,
-            copying over as necessary.
+            copying over as necessary
         strategy: str, default='delta'
-            Strategy to use to combine representation of the different parts.
-            Options are ['delta', 'concat', 'complex']
-        combination: Combination, optional
-            Combination object to use to combine predictions in a group. A value must be passed if `grouped` is `True`.
-        pred_readout : Readout
-            Readout object for the energy predictions. If `grouped` is `False`, this option will still be used in the construction of the `Model` object.
-        comb_readout : Readout
-            Readout object for the combination output.
+            ``Strategy`` to use to combine representations of the different parts.
+            Options are [``delta``, ``concat``, ``complex``]
+        combination: mtenn.combination.Combination, optional
+            ``Combination`` object to use to combine multiple predictions. A value must
+            be passed if ``grouped`` is ``True``
+        pred_readout : mtenn.readout.Readout, optional
+            ``Readout`` object for the individual energy predictions. If a
+            ``GroupedModel`` is being built, this ``Readout`` will be applied to each
+            individual prediction before the values are passed to the ``Combination``.
+            If a ``Model`` is being built, this will be applied to the single prediction
+            before it is returned
+        comb_readout : mtenn.readout.Readout, optional
+            Readout object for the combined multi-pose prediction, in the case that a
+            ``GroupedModel`` is being built. Otherwise, this is ignored
 
         Returns
         -------
-        Model
-            Model object containing the desired Representation and Strategy
+        mtenn.model.Model
+            ``Model`` or ``GroupedModel`` containing the desired ``Representation``,
+            ``Strategy``, and ``Combination`` and ``Readout`` s as desired
         """
         if model is None:
             model = ViSNet()
 
-        ## First get representation module
+        # First get representation module
         representation = model._get_representation()
 
-        ## Construct strategy module based on model and
-        ##  representation (if necessary)
+        # Construct strategy module based on model and
+        #  representation (if necessary)
         strategy = strategy.lower()
         if strategy == "delta":
             strategy = model._get_delta_strategy()
@@ -222,7 +253,7 @@ class ViSNet(torch.nn.Module):
         else:
             raise ValueError(f"Unknown strategy: {strategy}")
 
-        ## Check on `combination`
+        # Check on `combination`
         if grouped and (combination is None):
             raise ValueError(
                 "Must pass a value for `combination` if `grouped` is `True`."
