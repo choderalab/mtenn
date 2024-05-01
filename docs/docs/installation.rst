@@ -11,6 +11,6 @@ If you want to use a version on GitHub that hasn't made it to ``conda-forge`` ye
 
     mamba install --only-deps -c conda-forge mtenn
     git clone git@github.com:choderalab/mtenn.git
-    pip install -e ./mtenn/
+    pip install -e --no-deps ./mtenn/
 
 Note that the ``-e`` flag can be omitted if you don't intend to do any development on the package.
