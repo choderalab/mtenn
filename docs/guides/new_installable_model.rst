@@ -338,4 +338,178 @@ This function will need to be updated as well for any new ``Strategy`` types tha
 .. _new-inst-model-config:
 
 Adding the new model to :py:mod:`mtenn.config`
-------------------------------------------------------------
+----------------------------------------------
+
+After implementing the model in :py:mod:`mtenn.conversion_utils`, you must then add an entry for it in :py:mod:`mtenn.config`.
+This is generally a simple process, and mainly just consists of creating a Pydantic schema that defines all the available hyperparameters.
+
+Before beginning with our class, we need to add the model as a possible type in :py:class:`mtenn.config.ModelType`.
+This is as simple as ading the line ``schnet = "schnet"`` in our case (or ``my_model = "my_model"`` generally) in the :py:class:`mtenn.config.ModelType` enum.
+
+Our new model config class will subclass the :py:class:`mtenn.config.ModelConfigBase` class.
+Because we are using Pydantic, we don't need to define an ``__init__`` function.
+Instead, we simply list the hyperparameters and their defaults as Pydantic ``Field``s.
+In ``mtenn/config.py``:
+
+.. code-block:: python
+
+    class SchNetModelConfig(ModelConfigBase):
+        """
+        Class for constructing a SchNet ML model. Default values here are the default values
+        given in PyG.
+        """
+
+        model_type: ModelType = Field(ModelType.schnet, const=True)
+
+        hidden_channels: int = Field(128, description="Hidden embedding size.")
+        num_filters: int = Field(
+            128, description="Number of filters to use in the cfconv layers."
+        )
+        num_interactions: int = Field(6, description="Number of interaction blocks.")
+        num_gaussians: int = Field(
+            50, description="Number of gaussians to use in the interaction blocks."
+        )
+        interaction_graph: Callable | None = Field(
+            None,
+            description=(
+                "Function to compute the pairwise interaction graph and "
+                "interatomic distances."
+            ),
+        )
+        cutoff: float = Field(
+            10, description="Cutoff distance for interatomic interactions."
+        )
+        max_num_neighbors: int = Field(
+            32, description="Maximum number of neighbors to collect for each node."
+        )
+        readout: str = Field(
+            "add", description="Which global aggregation to use [add, mean]."
+        )
+        dipole: bool = Field(
+            False,
+            description=(
+                "Whether to use the magnitude of the dipole moment to make the "
+                "final prediction."
+            ),
+        )
+        mean: float | None = Field(
+            None,
+            description=(
+                "Mean of property to predict, to be added to the model prediction before "
+                "returning. This value is only used if dipole is False and a value is also "
+                "passed for std."
+            ),
+        )
+        std: float | None = Field(
+            None,
+            description=(
+                "Standard deviation of property to predict, used to scale the model "
+                "prediction before returning. This value is only used if dipole is False "
+                "and a value is also passed for mean."
+            ),
+        )
+        atomref: list[float] | None = Field(
+            None,
+            description=(
+                "Reference values for single-atom properties. Should have length of 100 to "
+                "match with PyG."
+            ),
+        )
+
+In addition to the hyperparameters, we also have a ``model_type`` constant, which lets us identify which model this config defines in the future.
+
+Inside this class, we also need to define any validators on the hyperparameters.
+The base :py:class:`mtenn.config.ModelConfigBase` class implements a ``_check_grouped`` validator that ensure that if we are building a :py:class:`GroupedModel <mtenn.model.GroupedModel>`, all the appropriate options are set.
+In our validator, we'll also make sure the provided ``atomref`` is the right size.
+Note that the below code is indented as if it were in the top level of the file, but it should be a method of the above class.
+
+.. code-block:: python
+
+    @root_validator(pre=False)
+    def validate(cls, values):
+        """
+        values is a dict of the parsed pydantic Fields, that gets passed in
+        automatically
+        """
+        # Make sure the grouped stuff is properly assigned
+        ModelConfigBase._check_grouped(values)
+
+        # Make sure atomref length is correct (this is required by PyG)
+        atomref = values["atomref"]
+        if (atomref is not None) and (len(atomref) != 100):
+            raise ValueError(f"atomref must be length 100 (got {len(atomref)})")
+
+        return values
+
+Other than the validators, the only thing that we need to implement is the ``_build`` function, which will get called automatically by the ``ModelConfigBase.build`` function.
+In this function we will first build an :py:class:`mtenn.conversion_utils.schnet.SchNet` model, and then use that model, along with the ``mtenn_params`` passed by the ``ModelConfigBase.build`` function, to build an :py:class:`mtenn.model` model.
+As above, this function should be a method of the ``SchNetModelConfig`` class.
+
+.. code-block:: python
+
+    def _build(self, mtenn_params={}):
+        """
+        Build an mtenn SchNet Model from this config.
+
+        :meta public:
+
+        Parameters
+        ----------
+        mtenn_params : dict, optional
+            Dictionary that stores the Readout objects for the individual
+            predictions and for the combined prediction, and the Combination object
+            in the case of a multi-pose model. These are all constructed the same for all
+            Model types, so we can just handle them in the base class. Keys in the
+            dict will be:
+
+            * "combination": mtenn.combination.Combination
+
+            * "pred_readout": mtenn.readout.Readout for individual pose predictions
+
+            * "comb_readout": mtenn.readout.Readout for combined prediction (in the case
+            of a multi-pose model)
+
+        Returns
+        -------
+        mtenn.model.Model
+            Model constructed from the config
+        """
+        from mtenn.conversion_utils.schnet import SchNet
+
+        # Create an mtenn SchNet model from PyG SchNet model
+        model = SchNet(
+            hidden_channels=self.hidden_channels,
+            num_filters=self.num_filters,
+            num_interactions=self.num_interactions,
+            num_gaussians=self.num_gaussians,
+            interaction_graph=self.interaction_graph,
+            cutoff=self.cutoff,
+            max_num_neighbors=self.max_num_neighbors,
+            readout=self.readout,
+            dipole=self.dipole,
+            mean=self.mean,
+            std=self.std,
+            atomref=self.atomref,
+        )
+
+        combination = mtenn_params.get("combination", None)
+        pred_readout = mtenn_params.get("pred_readout", None)
+        comb_readout = mtenn_params.get("comb_readout", None)
+
+        return SchNet.get_model(
+            model=model,
+            grouped=self.grouped,
+            fix_device=True,
+            strategy=self.strategy,
+            combination=combination,
+            pred_readout=pred_readout,
+            comb_readout=comb_readout,
+        )
+
+We can now build a default SchNet :py:class:`mtenn.model.Model` with:
+
+.. code-block:: python
+
+    from mtenn.config import SchNetModelConfig
+    config = SchNetModelConfig()
+    model = config.build()
