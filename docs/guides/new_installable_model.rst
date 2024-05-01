@@ -334,3 +334,8 @@ This function will need to be updated as well for any new ``Strategy`` types tha
             )
         else:
             return Model(representation, strategy, pred_readout, fix_device)
+
+.. _new-inst-model-config:
+
+Adding the new model to :py:mod:`mtenn.config`
+------------------------------------------------------------
