@@ -25,7 +25,7 @@ In practice, this block is a thin wrapper around an existing model architecture,
 
 For more information on the models that are currently implemented in ``mtenn``, see the :ref:`current-models` section.
 
-For information on adding new models into the ``mtenn`` framework, see the guides on :ref:`adding an installable model <new-installable-model-guide>` and :ref:`adding a non-installable model <new-non-installable-model-guide>`.
+For information on adding new models into the ``mtenn`` framework, see the guide on :ref:`adding a new installable model <new-installable-model-guide>`.
 
 
 .. _strategy-block:
