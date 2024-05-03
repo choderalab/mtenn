@@ -1,6 +1,6 @@
-from .e3nn import E3NN
-from .gat import GAT
-from .schnet import SchNet
-from .visnet import ViSNet
-
-__all__ = ["E3NN", "GAT", "SchNet", "ViSNet"]
+"""
+Subpackage where the implementations for individual models live. Each module in here
+should have a class that handles the logic for constructing ``Representation`` and
+``Strategy`` blocks for that model. For more information on how this works and how to
+add your own model, see our guide on :ref:`new-installable-model-guide`.
+"""

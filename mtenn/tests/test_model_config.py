@@ -294,7 +294,7 @@ def test_random_seed_visnet():
 
 def test_visnet_from_pyg():
     from torch_geometric.nn.models import ViSNet as PyVisNet
-    from mtenn.conversion_utils import ViSNet
+    from mtenn.conversion_utils.visnet import ViSNet
 
     model_params = {
         "lmax": 1,

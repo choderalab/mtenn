@@ -1,3 +1,16 @@
+"""
+Classes for describing the models in :py:mod:`mtenn.model`.
+
+``mtenn`` makes heavy use of ``pydantic`` schema to ensure reproducibility and
+self-documentation. Each model implemented in :py:mod:`mtenn.conversion_utils` must also
+have a corresponding config class here.
+
+These config classes act as a description of a model, which can then be instantiated
+using the config's ``build`` method.
+This ``build`` method must be implemented for any sub-class of the abstract
+:py:class:`ModelConfigBase <mtenn.config.ModelConfigBase>`.
+"""
+
 from __future__ import annotations
 
 import abc
@@ -11,39 +24,76 @@ import torch
 
 
 class StringEnum(str, Enum):
+    """
+    Helper class with some convenience functions for our ``Type`` classes below.
+    """
+
     @classmethod
     def get_values(cls) -> list[str]:
+        """
+        Get a list of all ``Enum`` values.
+        """
         return [member.value for member in cls]
 
     @classmethod
     def reverse_lookup(cls, value):
+        """
+        Get the ``Enum`` entry corresponding to ``value``.
+
+        Parameters
+        ----------
+        value : str
+            String value of the ``Enum`` entry
+
+        Returns
+        -------
+        cls
+            ``Enum`` entry corresponding to ``value``
+        """
         return cls(value)
 
     @classmethod
     def get_names(cls) -> list[str]:
+        """
+        Get a list of all ``Enum`` names.
+        """
         return [member.name for member in cls]
 
 
 class ModelType(StringEnum):
     """
-    Enum for model types
+    Enum for model types. See :py:mod:`mtenn.conversion_utils` for more details on
+    the models.
 
-    GAT: Graph Attention Network
-    schnet: SchNet
-    e3nn: E(3)-equivariant neural network
-    INVALID: Invalid model type to catch instantiation errors
+    * GAT: Graph Attention Network (:py:class:`GAT <mtenn.conversion_utils.gat.GAT>`)
+
+    * schnet: (:py:class:`SchNet <mtenn.conversion_utils.schnet.SchNet>`)
+
+    * e3nn: E(3)-equivariant neural network
+      (:py:class:`E3NN <mtenn.conversion_utils.e3nn.E3NN>`)
+
+    * visnet: (:py:class:`ViSNet <mtenn.conversion_utils.visnet.ViSNet>`)
+
+    * INVALID: Invalid model type to catch instantiation errors
     """
 
     GAT = "GAT"
     schnet = "schnet"
     e3nn = "e3nn"
-    INVALID = "INVALID"
     visnet = "visnet"
+    INVALID = "INVALID"
 
 
 class StrategyConfig(StringEnum):
     """
-    Enum for possible MTENN Strategy classes.
+    Enum for possible ``mtenn`` Strategy classes. See :py:mod:`mtenn.strategy` for
+    more details on each strategy.
+
+    * delta: :py:class:`DeltaStrategy <mtenn.strategy.DeltaStrategy>`
+
+    * concat: :py:class:`ConcatStrategy <mtenn.strategy.ConcatStrategy>`
+
+    * complex: :py:class:`ComplexOnlyStrategy <mtenn.strategy.ComplexOnlyStrategy>`
     """
 
     # delta G strategy
@@ -56,7 +106,12 @@ class StrategyConfig(StringEnum):
 
 class ReadoutConfig(StringEnum):
     """
-    Enum for possible MTENN Readout classes.
+    Enum for possible ``mtenn`` Readout classes. See :py:mod:`mtenn.readout` for
+    more details on each readout option.
+
+    * pic50: :py:class:`PIC50Readout <mtenn.readout.PIC50Readout>`
+
+    * pki: :py:class:`PKiReadout <mtenn.readout.PKiReadout>`
     """
 
     pic50 = "pic50"
@@ -65,7 +120,15 @@ class ReadoutConfig(StringEnum):
 
 class CombinationConfig(StringEnum):
     """
-    Enum for possible MTENN Readout classes.
+    Enum for possible ``mtenn`` Combination classes. See :py:mod:`mtenn.combination` for
+    more details on each combination option.
+
+    * mean: :py:class:`MeanCombination <mtenn.combination.MeanCombination>`
+
+    * max: :py:class:`MaxCombination <mtenn.combination.MaxCombination>`
+
+    * boltzmann:
+      :py:class:`BoltzmannCombination <mtenn.combination.BoltzmannCombination>`
     """
 
     mean = "mean"
@@ -74,6 +137,11 @@ class CombinationConfig(StringEnum):
 
 
 class ModelConfigBase(BaseModel):
+    """
+    Abstract base class that model config classes will subclass. Any subclass needs
+    to implement the ``_build`` method in order to be used.
+    """
+
     model_type: ModelType = Field(ModelType.INVALID, const=True, allow_mutation=False)
 
     # Random seed optional for reproducibility
@@ -89,31 +157,32 @@ class ModelConfigBase(BaseModel):
     strategy: StrategyConfig = Field(
         StrategyConfig.delta,
         description=(
-            "Which Strategy to use for combining complex, protein, and ligand "
-            "representations in the MTENN Model. "
+            "Which ``Strategy`` to use for combining complex, protein, and ligand "
+            "representations in the ``mtenn.Model``. "
             f"Options are [{', '.join(StrategyConfig.get_values())}]."
         ),
     )
     pred_readout: ReadoutConfig | None = Field(
         None,
         description=(
-            "Which Readout to use for the model predictions. This corresponds "
-            "to the individual pose predictions in the case of a GroupedModel. "
+            "Which ``Readout`` to use for the model predictions. This corresponds "
+            "to the individual pose predictions in the case of a ``GroupedModel``. "
             f"Options are [{', '.join(ReadoutConfig.get_values())}]."
         ),
     )
     combination: CombinationConfig | None = Field(
         None,
         description=(
-            "Which Combination to use for combining predictions in a GroupedModel. "
+            "Which ``Combination`` to use for combining predictions in a "
+            "``GroupedModel``. "
             f"Options are [{', '.join(CombinationConfig.get_values())}]."
         ),
     )
     comb_readout: ReadoutConfig | None = Field(
         None,
         description=(
-            "Which Readout to use for the combined model predictions. This is only "
-            "relevant in the case of a GroupedModel. "
+            "Which ``Readout`` to use for the combined model predictions. This is only "
+            "relevant in the case of a ``GroupedModel``. "
             f"Options are [{', '.join(ReadoutConfig.get_values())}]."
         ),
     )
@@ -123,14 +192,14 @@ class ModelConfigBase(BaseModel):
         True,
         description=(
             "Whether to take the min instead of max when combining pose predictions "
-            "with MaxCombination."
+            "with ``MaxCombination``."
         ),
     )
     max_comb_scale: float = Field(
         1000,
         description=(
             "Scaling factor for values when taking the max/min when combining pose "
-            "predictions with MaxCombination. A value of 1 will approximate the "
+            "predictions with ``MaxCombination``. A value of 1 will approximate the "
             "Boltzmann mean, while a larger value will more accurately approximate the "
             "max/min operation."
         ),
@@ -141,16 +210,17 @@ class ModelConfigBase(BaseModel):
         None,
         description=(
             "Substrate concentration to use when using the Cheng-Prusoff equation to "
-            "convert deltaG -> IC50 in PIC50Readout for pred_readout. Assumed to be in "
-            "the same units as pred_km."
+            "convert :math:`\Delta G` -> :math:`\mathrm{IC_{50}}` in ``PIC50Readout`` "
+            "for ``pred_readout``. Assumed to be in the same units as ``pred_km``."
         ),
     )
     pred_km: float | None = Field(
         None,
         description=(
-            "Km value to use when using the Cheng-Prusoff equation to convert "
-            "deltaG -> IC50 in PIC50Readout for pred_readout. Assumed to be in "
-            "the same units as pred_substrate."
+            ":math:`\mathrm{K_m}` value to use when using the Cheng-Prusoff equation "
+            "to convert :math:`\Delta G` -> :math:`\mathrm{IC_{50}}` in "
+            "``PIC50Readout`` for ``pred_readout``. Assumed to be in the same units as "
+            "``pred_substrate``."
         ),
     )
 
@@ -159,27 +229,34 @@ class ModelConfigBase(BaseModel):
         None,
         description=(
             "Substrate concentration to use when using the Cheng-Prusoff equation to "
-            "convert deltaG -> IC50 in PIC50Readout for comb_readout. Assumed to be in "
-            "the same units as comb_km."
+            "convert :math:`\Delta G` -> :math:`\mathrm{IC_{50}}` in ``PIC50Readout`` "
+            "for ``comb_readout``. Assumed to be in the same units as ``comb_km``."
         ),
     )
     comb_km: float | None = Field(
         None,
         description=(
-            "Km value to use when using the Cheng-Prusoff equation to convert "
-            "deltaG -> IC50 in PIC50Readout for comb_readout. Assumed to be in "
-            "the same units as comb_substrate."
+            ":math:`\mathrm{K_m}` value to use when using the Cheng-Prusoff equation "
+            "to convert :math:`\Delta G` -> :math:`\mathrm{IC_{50}}` in "
+            "``PIC50Readout`` for ``comb_readout``. Assumed to be in the same units as "
+            "``comb_substrate``."
         ),
     )
 
     class Config:
         validate_assignment = True
 
-    @abc.abstractmethod
-    def _build(self, mtenn_params={}) -> mtenn.model.Model:
-        ...
-
     def build(self) -> mtenn.model.Model:
+        """
+        Exposed function that first parses all the ``mtenn``-related args, and then
+        calls the ``_build`` method to construct the
+        :py:class:`Model <mtenn.model.Model>` object.
+
+        Returns
+        -------
+        mtenn.model.Model
+            Model constructed from the config
+        """
         # First set random seeds if applicable
         if self.rand_seed is not None:
             random.seed(self.rand_seed)
@@ -234,14 +311,78 @@ class ModelConfigBase(BaseModel):
 
         return model
 
+    @abc.abstractmethod
+    def _build(self, mtenn_params={}) -> mtenn.model.Model:
+        """
+        Method that actually builds the :py:class:`Model <mtenn.model.Model>` object.
+        Must be implemented for any subclass.
+
+        :meta public:
+
+        Parameters
+        ----------
+        mtenn_params : dict, optional
+            Dictionary that stores the ``Readout`` objects for the individual
+            predictions and for the combined prediction, and the ``Combination`` object
+            in the case of a multi-pose model. These are all constructed the same for all
+            ``Model`` types, so we can just handle them in the base class. Keys in the
+            dict will be:
+
+            * "combination": :py:mod:`Combination <mtenn.combination>`
+
+            * "pred_readout": :py:mod:`Readout <mtenn.readout>` for individual
+              pose predictions
+
+            * "comb_readout": :py:mod:`Readout <mtenn.readout>` for combined
+              prediction (in the case of a multi-pose model)
+
+        Returns
+        -------
+        mtenn.model.Model
+            Model constructed from the config
+        """
+        ...
+
     def update(self, config_updates={}) -> ModelConfigBase:
+        """
+        Create a new config object with field values replaced by any given in
+        ``config_updates``. Note that this is NOT an in-place operation, and will return
+        a new config object, leaving the original un-modified.
+
+        This function just wraps around the ``_update`` function, which can be overloaded
+        in any subclasses. A default ``_update`` implementation that should work for
+        most cases is provided.
+
+        Parameters
+        ----------
+        config_updates : dict
+            Dictionary mapping from field names to new values
+
+        Returns
+        -------
+        cls
+            Returns an object that is the same type as the calling object
+        """
         return self._update(config_updates)
 
     def _update(self, config_updates={}) -> ModelConfigBase:
         """
         Default version of this function. Just update original config with new options,
         and generate new object. Designed to be overloaded if there are specific things
-        that a class needs to handle (see GATModelConfig as an example).
+        that a class needs to handle (see
+        :py:class:`GATModelConfig <mtenn.config.GATModelConfig>` as an example).
+
+        :meta public:
+
+        Parameters
+        ----------
+        config_updates : dict
+            Dictionary mapping from field names to new values
+
+        Returns
+        -------
+        cls
+            Returns an object that is the same type as the calling object
         """
 
         orig_config = self.dict()
@@ -263,14 +404,16 @@ class ModelConfigBase(BaseModel):
 
 class GATModelConfig(ModelConfigBase):
     """
-    Class for constructing a GAT ML model. Note that there are two methods for defining
-    the size of the model:
-    * If single values are passed for all parameters, the value of `num_layers` will be
-    used as the size of the model, and each layer will have the parameters given
+    Class for constructing a graph attention ML model. Note that there are two methods
+    for defining the size of the model:
+
+    * If single values are passed for all parameters, the value of ``num_layers`` will
+      be used as the size of the model, and each layer will have the parameters given
+
     * If a list of values is passed for any parameters, all parameters must be lists of
-    the same size, or single values. For parameters that are single values, that same
-    value will be used for each layer. For parameters that are lists, those lists will
-    be used
+      the same size, or single values. For parameters that are single values, that same
+      value will be used for each layer. For parameters that are lists, those lists will
+      be used
 
     Parameters passed as strings are assumed to be comma-separated lists, and will first
     be cast to lists of the appropriate type, and then processed as described above.
@@ -280,8 +423,11 @@ class GATModelConfig(ModelConfigBase):
     Default values here are the default values given in DGL-LifeSci.
     """
 
-    from dgllife.utils import CanonicalAtomFeaturizer
+    # Import as private, mainly so Sphinx doesn't autodoc it
+    from dgllife.utils import CanonicalAtomFeaturizer as _CanonicalAtomFeaturizer
 
+    # Dict of model params that can be passed as a list, and the type that each will be
+    #  cast to
     LIST_PARAMS: ClassVar[dict] = {
         "hidden_feats": int,
         "num_heads": int,
@@ -292,14 +438,15 @@ class GATModelConfig(ModelConfigBase):
         "agg_modes": str,
         "activations": None,
         "biases": bool,
-    }
+    }  #: :meta private:
 
     model_type: ModelType = Field(ModelType.GAT, const=True)
 
     in_feats: int = Field(
-        CanonicalAtomFeaturizer().feat_size(),
+        _CanonicalAtomFeaturizer().feat_size(),
         description=(
-            "Input node feature size. Defaults to size of the CanonicalAtomFeaturizer."
+            "Input node feature size. Defaults to size of the "
+            "``CanonicalAtomFeaturizer``."
         ),
     )
     num_layers: int = Field(
@@ -309,69 +456,71 @@ class GATModelConfig(ModelConfigBase):
             "other argument."
         ),
     )
-    hidden_feats: str | list[int] = Field(
+    hidden_feats: str | int | list[int] = Field(
         32,
         description=(
-            "Output size of each GAT layer. If an int is passed, the value for "
-            "num_layers will be used to determine the size of the model. If a list of "
-            "ints is passed, the size of the model will be inferred from the length of "
-            "the list."
+            "Output size of each GAT layer. If an ``int`` is passed, the value for "
+            "``num_layers`` will be used to determine the size of the model. If a list "
+            "of ``int`` s is passed, the size of the model will be inferred from the "
+            "length of the list."
         ),
     )
-    num_heads: str | list[int] = Field(
+    num_heads: str | int | list[int] = Field(
         4,
         description=(
-            "Number of attention heads for each GAT layer. Passing an int or list of "
-            "ints functions similarly as for hidden_feats."
+            "Number of attention heads for each GAT layer. Passing an ``int`` or list "
+            "of ``int`` s functions similarly as for ``hidden_feats``."
         ),
     )
-    feat_drops: str | list[float] = Field(
+    feat_drops: str | float | list[float] = Field(
         0,
         description=(
-            "Dropout of input features for each GAT layer. Passing an float or list of "
-            "floats functions similarly as for hidden_feats."
+            "Dropout of input features for each GAT layer. Passing a ``float`` or "
+            "list of ``float`` s functions similarly as for ``hidden_feats``."
         ),
     )
-    attn_drops: str | list[float] = Field(
+    attn_drops: str | float | list[float] = Field(
         0,
         description=(
-            "Dropout of attention values for each GAT layer. Passing an float or list "
-            "of floats functions similarly as for hidden_feats."
+            "Dropout of attention values for each GAT layer. Passing a ``float`` or "
+            "list of ``float`` s functions similarly as for ``hidden_feats``."
         ),
     )
-    alphas: str | list[float] = Field(
+    alphas: str | float | list[float] = Field(
         0.2,
         description=(
-            "Hyperparameter for LeakyReLU gate for each GAT layer. Passing an float or "
-            "list of floats functions similarly as for hidden_feats."
+            "Hyperparameter for ``LeakyReLU`` gate for each GAT layer. Passing a "
+            "``float`` or list of ``float`` s functions similarly as for "
+            "``hidden_feats``."
         ),
     )
-    residuals: str | list[bool] = Field(
+    residuals: str | bool | list[bool] = Field(
         True,
         description=(
-            "Whether to use residual connection for each GAT layer. Passing a bool or "
-            "list of bools functions similarly as for hidden_feats."
+            "Whether to use residual connection for each GAT layer. Passing a ``bool`` "
+            "or list of ``bool`` s functions similarly as for ``hidden_feats``."
         ),
     )
     agg_modes: str | list[str] = Field(
         "flatten",
         description=(
             "Which aggregation mode [flatten, mean] to use for each GAT layer. "
-            "Passing a str or list of strs functions similarly as for hidden_feats."
+            "Passing a ``str`` or list of ``str`` s functions similarly as for "
+            "``hidden_feats``."
         ),
     )
-    activations: list[Callable] | list[None] | None = Field(
+    activations: Callable | list[Callable] | list[None] | None = Field(
         None,
         description=(
             "Activation function for each GAT layer. Passing a function or "
-            "list of functions functions similarly as for hidden_feats."
+            "list of functions functions similarly as for ``hidden_feats``."
         ),
     )
-    biases: str | list[bool] = Field(
+    biases: str | bool | list[bool] = Field(
         True,
         description=(
-            "Whether to use bias for each GAT layer. Passing a bool or "
-            "list of bools functions similarly as for hidden_feats."
+            "Whether to use bias for each GAT layer. Passing a ``bool`` or "
+            "list of ``bool`` s functions similarly as for ``hidden_feats``."
         ),
     )
     allow_zero_in_degree: bool = Field(
@@ -384,6 +533,10 @@ class GATModelConfig(ModelConfigBase):
 
     @root_validator(pre=False)
     def massage_into_lists(cls, values) -> GATModelConfig:
+        """
+        Validator to handle unifying all the values into the proper list forms based on
+        the rules described in the class docstring.
+        """
         # First convert string lists to actual lists
         for param, param_type in cls.LIST_PARAMS.items():
             param_val = values[param]
@@ -439,20 +592,36 @@ class GATModelConfig(ModelConfigBase):
 
     def _build(self, mtenn_params={}):
         """
-        Build an MTENN GAT Model from this config.
+        Build an ``mtenn`` GAT ``Model`` from this config.
+
+        :meta public:
 
         Parameters
         ----------
-        mtenn_params: dict
-            Dict giving the MTENN Readout. This will be passed by the `build` method in
-            the abstract base class
+        mtenn_params : dict, optional
+            Dictionary that stores the ``Readout`` objects for the individual
+            predictions and for the combined prediction, and the ``Combination`` object
+            in the case of a multi-pose model. These are all constructed the same for all
+            ``Model`` types, so we can just handle them in the base class. Keys in the
+            dict will be:
+
+            * "combination": :py:mod:`Combination <mtenn.combination>`
+
+            * "pred_readout": :py:mod:`Readout <mtenn.readout>` for individual
+              pose predictions
+
+            * "comb_readout": :py:mod:`Readout <mtenn.readout>` for combined
+              prediction (in the case of a multi-pose model)
+
+            although the combination-related entries will be ignore because this is a
+            ligand-only model.
 
         Returns
         -------
         mtenn.model.Model
-            MTENN GAT LigandOnlyModel
+            Model constructed from the config
         """
-        from mtenn.conversion_utils import GAT
+        from mtenn.conversion_utils.gat import GAT
 
         model = GAT(
             in_feats=self.in_feats,
@@ -472,6 +641,24 @@ class GATModelConfig(ModelConfigBase):
         return GAT.get_model(model=model, pred_readout=pred_readout, fix_device=True)
 
     def _update(self, config_updates={}) -> GATModelConfig:
+        """
+        GAT-specific implementation of updating logic. Need to handle stuff specially
+        to make sure that the original method of specifying parameters (either from a
+        passed value of ``num_layers`` or inferred from each parameter being a list) is
+        maintained.
+
+        :meta public:
+
+        Parameters
+        ----------
+        config_updates : dict
+            Dictionary mapping from field names to new values
+
+        Returns
+        -------
+        GATModelConfig
+            New ``GATModelConfig`` object
+        """
         orig_config = self.dict()
         if self._from_num_layers:
             # If originally generated from num_layers, want to pull out the first entry
@@ -569,20 +756,33 @@ class SchNetModelConfig(ModelConfigBase):
 
     def _build(self, mtenn_params={}):
         """
-        Build an MTENN SchNet Model from this config.
+        Build an ``mtenn`` SchNet ``Model`` from this config.
+
+        :meta public:
 
         Parameters
         ----------
-        mtenn_params: dict
-            Dict giving the MTENN Readout. This will be passed by the `build` method in
-            the abstract base class
+        mtenn_params : dict, optional
+            Dictionary that stores the ``Readout`` objects for the individual
+            predictions and for the combined prediction, and the ``Combination`` object
+            in the case of a multi-pose model. These are all constructed the same for all
+            ``Model`` types, so we can just handle them in the base class. Keys in the
+            dict will be:
+
+            * "combination": :py:mod:`Combination <mtenn.combination>`
+
+            * "pred_readout": :py:mod:`Readout <mtenn.readout>` for individual
+              pose predictions
+
+            * "comb_readout": :py:mod:`Readout <mtenn.readout>` for combined
+              prediction (in the case of a multi-pose model)
 
         Returns
         -------
         mtenn.model.Model
-            MTENN SchNet Model/GroupedModel
+            Model constructed from the config
         """
-        from mtenn.conversion_utils import SchNet
+        from mtenn.conversion_utils.schnet import SchNet
 
         # Create an MTENN SchNet model from PyG SchNet model
         model = SchNet(
@@ -632,13 +832,14 @@ class E3NNModelConfig(ModelConfigBase):
     irreps_hidden: dict[str, int] | str = Field(
         {"0": 10, "1": 3, "2": 2, "3": 1},
         description=(
-            "Irreps for the hidden layers of the network. "
-            "This can either take the form of an Irreps string, or a dict mapping "
-            "L levels (parity optional) to the number of Irreps of that level. "
+            "``Irreps`` for the hidden layers of the network. "
+            "This can either take the form of an ``Irreps`` string, or a dict mapping "
+            ":math:`\\mathcal{l}` levels (parity optional) to the number of ``Irreps`` "
+            "of that level. "
             "If parity is not passed for a given level, both parities will be used. If "
             "you only want one parity for a given level, make sure you specify it. "
             "A dict can also be specified as a string, in the format of a comma "
-            "separated list of <irreps_l>:<num_irreps>."
+            "separated list of ``<irreps_l>:<num_irreps>``."
         ),
     )
     lig: bool = Field(
@@ -667,6 +868,10 @@ class E3NNModelConfig(ModelConfigBase):
 
     @root_validator(pre=False)
     def massage_irreps(cls, values):
+        """
+        Check that the value given for ``irreps_hidden`` can be converted into an Irreps
+        representation, and do so.
+        """
         from e3nn import o3
 
         # First just check that the grouped stuff is properly assigned
@@ -726,8 +931,35 @@ class E3NNModelConfig(ModelConfigBase):
         return values
 
     def _build(self, mtenn_params={}):
+        """
+        Build an ``mtenn`` e3nn ``Model`` from this config.
+
+        :meta public:
+
+        Parameters
+        ----------
+        mtenn_params : dict, optional
+            Dictionary that stores the ``Readout`` objects for the individual
+            predictions and for the combined prediction, and the ``Combination`` object
+            in the case of a multi-pose model. These are all constructed the same for all
+            ``Model`` types, so we can just handle them in the base class. Keys in the
+            dict will be:
+
+            * "combination": :py:mod:`Combination <mtenn.combination>`
+
+            * "pred_readout": :py:mod:`Readout <mtenn.readout>` for individual
+              pose predictions
+
+            * "comb_readout": :py:mod:`Readout <mtenn.readout>` for combined
+              prediction (in the case of a multi-pose model)
+
+        Returns
+        -------
+        mtenn.model.Model
+            Model constructed from the config
+        """
         from e3nn.o3 import Irreps
-        from mtenn.conversion_utils import E3NN
+        from mtenn.conversion_utils.e3nn import E3NN
 
         model = E3NN(
             irreps_in=f"{self.num_atom_types}x0e",
@@ -792,11 +1024,14 @@ class ViSNetModelConfig(ModelConfigBase):
     atomref: list[float] | None = Field(
         None,
         description=(
-            "Reference values for single-atom properties. Should have length max_z"
+            "Reference values for single-atom properties. Should have length ``max_z``."
         ),
     )
     reduce_op: str = Field(
-        "sum", description="The type of reduction operation to apply. ['sum', 'mean']"
+        "sum",
+        description=(
+            "The type of reduction operation to apply. Options are [sum, mean]."
+        ),
     )
     mean: float = Field(0.0, description="The mean of the output distribution.")
     std: float = Field(
@@ -804,11 +1039,17 @@ class ViSNetModelConfig(ModelConfigBase):
     )
     derivative: bool = Field(
         False,
-        description="Whether to compute the derivative of the output with respect to the positions.",
+        description=(
+            "Whether to compute the derivative of the output with respect to the "
+            "positions."
+        ),
     )
 
     @root_validator(pre=False)
     def validate(cls, values):
+        """
+        Check that ``atomref`` and ``max_z`` agree.
+        """
         # Make sure the grouped stuff is properly assigned
         ModelConfigBase._check_grouped(values)
 
@@ -823,21 +1064,34 @@ class ViSNetModelConfig(ModelConfigBase):
 
     def _build(self, mtenn_params={}):
         """
-        Build an MTENN ViSNet Model from this config.
+        Build an ``mtenn`` ViSNet ``Model`` from this config.
+
+        :meta public:
 
         Parameters
         ----------
-        mtenn_params: dict
-            Dict giving the MTENN Readout. This will be passed by the `build` method in
-            the abstract base class
+        mtenn_params : dict, optional
+            Dictionary that stores the ``Readout`` objects for the individual
+            predictions and for the combined prediction, and the ``Combination`` object
+            in the case of a multi-pose model. These are all constructed the same for all
+            ``Model`` types, so we can just handle them in the base class. Keys in the
+            dict will be:
+
+            * "combination": :py:mod:`Combination <mtenn.combination>`
+
+            * "pred_readout": :py:mod:`Readout <mtenn.readout>` for individual
+              pose predictions
+
+            * "comb_readout": :py:mod:`Readout <mtenn.readout>` for combined
+              prediction (in the case of a multi-pose model)
 
         Returns
         -------
         mtenn.model.Model
-            MTENN ViSNet Model/GroupedModel
+            Model constructed from the config
         """
         # Create an MTENN ViSNet model from PyG ViSNet model
-        from mtenn.conversion_utils import ViSNet
+        from mtenn.conversion_utils.visnet import ViSNet
 
         model = ViSNet(
             lmax=self.lmax,

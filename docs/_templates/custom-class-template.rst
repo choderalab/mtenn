@@ -2,31 +2,28 @@
 
 .. currentmodule:: {{ module }}
 
+{% if objtype == "pydantic_model" %}
+
+.. autopydantic_model:: {{ name }}
+
+{% else %}
+
 .. autoclass:: {{ objname }}
    :members:
    :show-inheritance:
-   :inherited-members:
+   :special-members: __init__
 
    {% block methods %}
-   .. automethod:: __init__
-
    {% if methods %}
    .. rubric:: {{ _('Methods') }}
 
    .. autosummary::
    {% for item in methods %}
-      ~{{ name }}.{{ item }}
+      {% if item not in inherited_members %}
+         ~{{ name }}.{{ item }}
+      {% endif %}
    {%- endfor %}
    {% endif %}
    {% endblock %}
 
-   {% block attributes %}
-   {% if attributes %}
-   .. rubric:: {{ _('Attributes') }}
-
-   .. autosummary::
-   {% for item in attributes %}
-      ~{{ name }}.{{ item }}
-   {%- endfor %}
-   {% endif %}
-   {% endblock %}
+{% endif %}

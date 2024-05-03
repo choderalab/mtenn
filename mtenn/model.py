@@ -1,3 +1,8 @@
+"""
+This module contains the actual models that are used for making predictions. More
+information on how everything here works is in the :ref:`docs page <model-docs-page>`.
+"""
+
 import os
 import torch
 
@@ -9,16 +14,24 @@ from mtenn.readout import Readout
 
 class Model(torch.nn.Module):
     """
-    Model object containing a `representation` Module that will take an input
-    and convert it into some representation, and a `strategy` module that will
+    Model object containing a ``Representation`` block that will take an input
+    and convert it into some representation, and a ``Strategy`` block that will
     take a complex representation and any number of constituent "part"
     representations, and convert to a final scalar value.
     """
 
     def __init__(self, representation, strategy, readout=None, fix_device=False):
         """
+        Build a ``Model``.
+
         Parameters
         ----------
+        representation : Representation
+            ``Representation`` block for this model
+        strategy : Strategy
+            ``Strategy`` block for this model
+        readout : Readout, optional
+            ``Readout`` block for this model
         fix_device: bool, default=False
             If True, make sure the input is on the same device as the model,
             copying over as necessary.
@@ -32,21 +45,37 @@ class Model(torch.nn.Module):
 
     def get_representation(self, *args, **kwargs):
         """
-        Takes system topolgy and coordinates and returns Nxhidden dimension
-        representation.
-
-        Parameters
-        ----------
-
-        Returns
-        -------
+        Pass a structure through the model's ``Representation`` block. All arguments are
+        passed directly to ``self.representation``.
         """
 
         return self.representation(*args, **kwargs)
 
     def forward(self, comp, *parts):
-        ## This implementation of the forward function assumes the
-        ##  get_representation function takes a single data object
+        """
+        Handles all the logic detailed in the :ref:`docs page <single-pose-model-docs>`.
+
+        Parameters
+        ----------
+        comp : dict
+            Complex structure that will be passed to the ``Representation`` block
+        part : list[dict], optional
+            Structures for all individual parts of the complex (eg ligand and protein
+            separately). If this is not passed, the constituent parts will be
+            automatically parsed from ``comp``
+
+        Returns
+        -------
+        torch.Tensor
+            Final model prediction. If the model has a ``readout``, this value will have
+            the ``readout`` applied
+        list[torch.Tensor]
+            A list containing only the pre-``readout`` model prediction. This value is
+            returned mainly to align the signatures for the single- and multi-pose
+            models
+        """
+        # This implementation of the forward function assumes the
+        #  get_representation function takes a single data object
         tmp_comp = self._fix_device(comp)
         complex_rep = self.get_representation(tmp_comp)
 
@@ -61,8 +90,26 @@ class Model(torch.nn.Module):
             return energy_val, [energy_val]
 
     def _fix_device(self, data):
-        ## We'll call this on everything for uniformity, but if we fix_device is
-        ##  False we can just return
+        """
+        Make sure that the pose tensors are on the same device as the model before
+        attempting to call the model. Note that if ``self.fix_device`` is ``False``,
+        this function does nothing. Also note that this function uses the torch ``to``
+        function, which means that if a tensor is on the wrong device, a copy of the
+        tensor will be returned, whereas if the tensor is already on the correct device
+        the original tensor will be returned.
+
+        Parameters
+        ----------
+        data : dict
+            Structure pose
+
+        Returns
+        -------
+        dict
+            New dict with all tensors on the appropriate device
+        """
+        # We'll call this on everything for uniformity, but if we fix_device is
+        #  False we can just return
         if not self.fix_device:
             return data
 
@@ -84,15 +131,15 @@ class Model(torch.nn.Module):
 
         Parameters
         ----------
-        comp : Dict[str, object]
+        comp : dict[str, object]
             Dictionary representing the complex data object. Must have "lig" as
             a key that contains the index for splitting the data.
 
         Returns
         -------
-        Dict[str, object]
+        dict[str, object]
             Protein representation
-        Dict[str, object]
+        dict[str, object]
             Ligand representation
         """
         try:
@@ -115,11 +162,11 @@ class Model(torch.nn.Module):
 
 class GroupedModel(Model):
     """
-    Subclass of the above `Model` for use with grouped data, eg multiple docked
-    poses of the same molecule with the same protein. In addition to the
-    `Representation` and `Strategy` modules in the `Model` class, `GroupedModel`
-    also has a `Comination` module, that dictates how the `Model` predictions
-    for each item in the group of data are combined.
+    Subclass of :py:class:`Model <mtenn.model.Model>` for use with multi-pose data, eg
+    multiple docked poses of the same molecule with the same protein. In addition to the
+    ``Representation`` and ``Strategy`` blocks in the ``Model`` class, ``GroupedModel``
+    also has a ``Combination`` block that dictates how the individual ``Model``
+    predictions for each item in the group of data are combined.
     """
 
     def __init__(
@@ -132,22 +179,23 @@ class GroupedModel(Model):
         fix_device=False,
     ):
         """
-        The `representation`, `strategy`, and `pred_readout` options will be used
-        to initialize the underlying `Model` object, while the `combination` and
-        `comb_readout` modules will be applied to the output of the `Model` preds.
+        The ``representation``, ``strategy``, and ``pred_readout`` args will be used
+        to initialize the underlying :py:class:`Model <mtenn.model.Model>`, while the
+        ``combination`` and ``comb_readout`` args will be applied to the output of the
+        individual pose predictions.
 
         Parameters
         ----------
         representation : Representation
-            Representation object to get the representation of the input data.
+            ``Representation`` block for this model
         strategy : Strategy
-            Strategy object to get convert the representations into energy preds.
+            ``Strategy`` block for this model
         combination : Combination
-            Combination object for combining the energy predictions.
+            ``Combination`` block for this model
         pred_readout : Readout, optional
-            Readout object for the energy predictions.
+            ``Readout`` block for the individual pose predictions
         comb_readout : Readout, optional
-            Readout object for the combination output.
+            ``Readout`` block for the combined pose
         fix_device: bool, default=False
             If True, make sure the input is on the same device as the model,
             copying over as necessary.
@@ -160,18 +208,20 @@ class GroupedModel(Model):
 
     def forward(self, input_list):
         """
-        Forward method for `GroupedModel` class. Will call the `forward` method
-        of `Model` for each entry in `input_list`.
+        Handles all the logic detailed in the :ref:`docs page <multi-pose-model-docs>`.
 
         Parameters
         ----------
-        input_list : List[Tuple[Dict]]
+        input_list : list[tuple[dict]]
             List of tuples of (complex representation, part representations)
 
         Returns
         -------
         torch.Tensor
-            Combination of all predictions
+            Final multi-pose model prediction
+        list[torch.Tensor]
+            A list containing the pre-``pred_readout`` prediction for each entry in
+            ``input_list``
         """
         # Get predictions for all inputs in the list, and combine them in a
         #  tensor (while keeping track of gradients)
@@ -220,15 +270,21 @@ class GroupedModel(Model):
 
 class LigandOnlyModel(Model):
     """
-    A ligand-only version of the Model. In this case, the `representation` block will
-    hold the entire model, while the `strategy` block will simply be set as an Identity
-    module.
+    A ligand-only version of the ``Model``. In this case, the ``representation`` block
+    will hold the entire model, while the ``strategy`` block will simply be set as an
+    Identity module.
     """
 
     def __init__(self, model, readout=None, fix_device=False):
         """
+        Build a ``LigandOnlyModel``.
+
         Parameters
         ----------
+        model
+            This can be any kind of model that will go from a single input
+            representation to a prediction (eg a
+            :py:class:`GAT <mtenn.conversion_utils.gat.GAT` instance)
         fix_device: bool, default=False
             If True, make sure the input is on the same device as the model,
             copying over as necessary.
@@ -241,8 +297,26 @@ class LigandOnlyModel(Model):
         )
 
     def forward(self, rep):
-        ## This implementation of the forward function assumes the
-        ##  get_representation function takes a single data object
+        """
+        Handles all the logic detailed in the :ref:`docs page <ligand-only-model-docs>`.
+
+        Parameters
+        ----------
+        rep
+            Whatever input representation the unerlying model takes
+
+        Returns
+        -------
+        torch.Tensor
+            Final model prediction. If the model has a ``readout``, this value will have
+            the ``readout`` applied
+        list[torch.Tensor]
+            A list containing only the pre-``readout`` model prediction. This value is
+            returned mainly to align the signatures for the single- and multi-pose
+            models
+        """
+        # This implementation of the forward function assumes the
+        #  get_representation function takes a single data object
         tmp_rep = self._fix_device(rep)
         pred = self.get_representation(tmp_rep)
 
