@@ -660,7 +660,7 @@ class GATModelConfig(ModelConfigBase):
             New ``GATModelConfig`` object
         """
         orig_config = self.dict()
-        if self._from_num_layers:
+        if self._from_num_layers or ("num_layers" in config_updates):
             # If originally generated from num_layers, want to pull out the first entry
             #  in each list param so it can be re-broadcast with (potentially) new
             #  num_layers
