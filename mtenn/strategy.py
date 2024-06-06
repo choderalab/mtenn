@@ -39,7 +39,7 @@ class DeltaStrategy(Strategy):
         \Delta \mathrm{G_{pred}} &= \mathrm{G_{complex}} - \\sum_n \mathrm{G}_n
     """
 
-    def __init__(self, energy_func):
+    def __init__(self, energy_func, grouped=False):
         """
         Store module for predicting an energy from representation.
 
@@ -48,9 +48,14 @@ class DeltaStrategy(Strategy):
         energy_func : torch.nn.Module
             Some torch module that will predict an energy from an n-dimension vector
             representation of a structure
+        grouped : bool, default=False
+            This ``Strategy`` block will be used in a multi-pose model, so pass the
+            ligand predicted energies as well as the calculated
+            :math:`\Delta \mathrm{G_{pred}}` values
         """
         super(DeltaStrategy, self).__init__()
         self.energy_func: torch.nn.Module = energy_func
+        self.grouped = grouped
 
     def forward(self, comp, *parts):
         """
