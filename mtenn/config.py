@@ -18,7 +18,9 @@ from enum import Enum
 from pydantic import BaseModel, Field, root_validator
 import random
 from typing import Callable, ClassVar
-import mtenn
+import mtenn.combination
+import mtenn.readout
+import mtenn.model
 import numpy as np
 import torch
 
