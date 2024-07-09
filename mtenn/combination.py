@@ -167,7 +167,7 @@ class MeanCombinationFunc(torch.autograd.Function):
         all_preds = torch.stack(pred_list).flatten()
         final_pred = all_preds.mean(axis=None).detach()
 
-        return final_pred
+        return final_pred, all_preds
 
     @staticmethod
     def setup_context(ctx, inputs, output):
@@ -204,7 +204,7 @@ class MeanCombinationFunc(torch.autograd.Function):
         )
 
     @staticmethod
-    def backward(ctx, grad_output):
+    def backward(ctx, comb_grad, pose_grads):
         """
         Compute and return gradients for each parameter.
 
@@ -226,11 +226,15 @@ class MeanCombinationFunc(torch.autograd.Function):
         # Calculate final gradients for each parameter
         final_grads = {}
         for n, grad_list in grad_dict.items():
-            final_grads[n] = torch.stack(grad_list, axis=-1).mean(axis=-1)
+            # Gradient from final prediction loss
+            cur_final_grad = comb_grad * torch.stack(grad_list, axis=-1).mean(axis=-1)
 
-        # Adjust gradients by grad_output
-        for grad in final_grads.values():
-            grad *= grad_output
+            # Add in gradients for each pose from per-pose loss
+            for pose_grad, param_grad in zip(pose_grads, grad_list):
+                cur_final_grad += pose_grad * param_grad
+
+            # Store total gradient for each parameter
+            final_grads[n] = cur_final_grad.clone()
 
         # Pull out return vals
         return_vals = [None] * 3 + [final_grads[n] for n in ctx.param_names]
@@ -330,7 +334,7 @@ class MaxCombinationFunc(torch.autograd.Function):
         # Calculate the actual prediction
         final_pred = (neg * Q / scale).detach()
 
-        return final_pred
+        return final_pred, all_preds
 
     @staticmethod
     def setup_context(ctx, inputs, output):
@@ -368,7 +372,7 @@ class MaxCombinationFunc(torch.autograd.Function):
         )
 
     @staticmethod
-    def backward(ctx, grad_output):
+    def backward(ctx, comb_grad, pose_grads):
         """
         Compute and return gradients for each parameter.
 
@@ -397,7 +401,8 @@ class MaxCombinationFunc(torch.autograd.Function):
         # Calculate final gradients for each parameter
         final_grads = {}
         for n, grad_list in grad_dict.items():
-            final_grads[n] = (
+            # Gradient from final prediction loss
+            cur_final_grad = comb_grad * (
                 torch.stack(
                     [
                         grad * (pred - Q).exp()
@@ -409,9 +414,12 @@ class MaxCombinationFunc(torch.autograd.Function):
                 .sum(axis=-1)
             )
 
-        # Adjust gradients by grad_output
-        for grad in final_grads.values():
-            grad *= grad_output
+            # Add in gradients for each pose from per-pose loss
+            for pose_grad, param_grad in zip(pose_grads, grad_list):
+                cur_final_grad += pose_grad * param_grad
+
+            # Store total gradient for each parameter
+            final_grads[n] = cur_final_grad.clone()
 
         # Pull out return vals
         return_vals = [None] * 5 + [final_grads[n] for n in ctx.param_names]
@@ -491,7 +499,7 @@ class BoltzmannCombinationFunc(torch.autograd.Function):
         # Calculate final pred
         final_pred = torch.dot(w, -adj_preds)
 
-        return final_pred
+        return final_pred, -adj_preds
 
     @staticmethod
     def setup_context(ctx, inputs, output):
@@ -527,7 +535,7 @@ class BoltzmannCombinationFunc(torch.autograd.Function):
         )
 
     @staticmethod
-    def backward(ctx, grad_output):
+    def backward(ctx, comb_grad, pose_grads):
         """
         Compute and return gradients for each parameter.
 
@@ -577,7 +585,8 @@ class BoltzmannCombinationFunc(torch.autograd.Function):
         # Calculate final grads
         final_grads = {}
         for n, grad_list in grad_dict.items():
-            final_grads[n] = (
+            # Gradient from final prediction loss
+            cur_final_grad = comb_grad * (
                 torch.stack(
                     [
                         w_grad * -pred + w_val * grad
@@ -591,9 +600,12 @@ class BoltzmannCombinationFunc(torch.autograd.Function):
                 .sum(axis=-1)
             )
 
-        # Adjust gradients by grad_output
-        for grad in final_grads.values():
-            grad *= grad_output
+            # Add in gradients for each pose from per-pose loss
+            for pose_grad, param_grad in zip(pose_grads, grad_list):
+                cur_final_grad += pose_grad * param_grad
+
+            # Store total gradient for each parameter
+            final_grads[n] = cur_final_grad.clone()
 
         # Pull out return vals
         return_vals = [None] * 3 + [final_grads[n] for n in ctx.param_names]
