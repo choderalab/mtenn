@@ -267,7 +267,7 @@ class GroupedModel(Model):
         if self.comb_readout:
             return self.comb_readout(comb_pred), comb_pred_list
         else:
-            return comb_pred, pred_list
+            return comb_pred, comb_pred_list
 
 
 class LigandOnlyModel(Model):
