@@ -73,7 +73,7 @@ def test_max_combination(models_and_inputs):
         model_test,
         grouped=True,
         strategy="complex",
-        combination=MaxCombination(neg=False, scale=1.0),
+        combination=MaxCombination(negate_preds=False, pred_scale=1.0),
     )
 
     # Test GroupedModel
