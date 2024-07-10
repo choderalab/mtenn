@@ -250,24 +250,24 @@ class MaxCombination(Combination):
         \Delta G = \\frac{-1}{t} \mathrm{ln} \sum_{n=1}^N \mathrm{exp} (-t \Delta G_n)
     """
 
-    def __init__(self, neg=True, scale=1000.0):
+    def __init__(self, negate_preds=True, pred_scale=1000.0):
         """
         Parameters
         ----------
-        neg : bool, default=True
+        negate_preds : bool, default=True
             Negate the predictions before calculating the LSE, effectively finding
             the min. Preds are negated again before being returned
-        scale : float, default=1000.0
-            Fixed positive value to scale predictions by before taking the LSE. This
+        pred_scale : float, default=1000.0
+            Fixed positive value to pred_scale predictions by before taking the LSE. This
             tightens the bounds of the LSE approximation
         """
         super(MaxCombination, self).__init__()
 
-        self.neg = neg
-        self.scale = scale
+        self.negate_preds = negate_preds
+        self.pred_scale = pred_scale
 
     def __repr__(self):
-        return f"MaxCombination(neg={self.neg}, scale={self.scale})"
+        return f"MaxCombination(negate_preds={self.negate_preds}, pred_scale={self.pred_scale})"
 
     def __str__(self):
         return repr(self)
@@ -291,7 +291,12 @@ class MaxCombination(Combination):
             work right.
         """
         return MaxCombinationFunc.apply(
-            self.neg, self.scale, pred_list, grad_dict, param_names, *model_params
+            self.negate_preds,
+            self.pred_scale,
+            pred_list,
+            grad_dict,
+            param_names,
+            *model_params,
         )
 
 
@@ -304,17 +309,19 @@ class MaxCombinationFunc(torch.autograd.Function):
     """
 
     @staticmethod
-    def forward(neg, scale, pred_list, grad_dict, param_names, *model_params):
+    def forward(
+        negate_preds, pred_scale, pred_list, grad_dict, param_names, *model_params
+    ):
         """
         Find the max/min of all input :math:`\mathrm{\Delta G}` predictions.
 
         Parameters
         ----------
-        neg: bool
+        negate_preds: bool
             Negate the predictions before calculating the LSE, effectively finding
             the min. Preds are negated again before being returned
-        scale: float
-            Fixed positive value to scale predictions by before taking the LSE. This
+        pred_scale: float
+            Fixed positive value to pred_scale predictions by before taking the LSE. This
             tightens the bounds of the LSE approximation
         pred_list: List[torch.Tensor]
             List of :math:`\mathrm{\Delta G}` predictions to be combined using LSE
@@ -326,13 +333,13 @@ class MaxCombinationFunc(torch.autograd.Function):
             Actual parameters that we'll return the gradients for. Each param
             should be passed individually for the backward pass to work right.
         """
-        neg = (-1) ** neg
+        negative_multiplier = -1 if negate_preds else 1
         # Calculate once for reuse later
         all_preds = torch.stack(pred_list).flatten()
-        adj_preds = neg * scale * all_preds.detach()
+        adj_preds = negative_multiplier * pred_scale * all_preds.detach()
         Q = torch.logsumexp(adj_preds, dim=0)
         # Calculate the actual prediction
-        final_pred = (neg * Q / scale).detach()
+        final_pred = (negative_multiplier * Q / pred_scale).detach()
 
         return final_pred, all_preds
 
@@ -350,13 +357,20 @@ class MaxCombinationFunc(torch.autograd.Function):
         output : torch.Tensor
             Value returned from ``forward``
         """
-        neg, scale, pred_list, grad_dict, param_names, *model_params = inputs
+        (
+            negate_preds,
+            pred_scale,
+            pred_list,
+            grad_dict,
+            param_names,
+            *model_params,
+        ) = inputs
 
         grad_dict_keys, grad_dict_tensors = Combination.split_grad_dict(grad_dict)
 
         # Save non-Tensors for backward
-        ctx.neg = neg
-        ctx.scale = scale
+        ctx.negate_preds = negate_preds
+        ctx.pred_scale = pred_scale
         ctx.grad_dict_keys = grad_dict_keys
         ctx.param_names = param_names
 
@@ -392,10 +406,10 @@ class MaxCombinationFunc(torch.autograd.Function):
         grad_dict = Combination.join_grad_dict(ctx.grad_dict_keys, grad_dict_tensors)
 
         # Begin calculations
-        neg = (-1) ** ctx.neg
+        negative_multiplier = -1 if ctx.negate_preds else 1
 
         # Calculate once for reuse later
-        adj_preds = neg * ctx.scale * preds.detach()
+        adj_preds = negative_multiplier * ctx.pred_scale * preds.detach()
         Q = torch.logsumexp(adj_preds, dim=0)
 
         # Calculate final gradients for each parameter
