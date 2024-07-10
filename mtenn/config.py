@@ -271,7 +271,7 @@ class ModelConfigBase(BaseModel):
                 mtenn_combination = mtenn.combination.MeanCombination()
             case CombinationConfig.max:
                 mtenn_combination = mtenn.combination.MaxCombination(
-                    neg=self.max_comb_neg, scale=self.max_comb_scale
+                    negate_preds=self.max_comb_neg, pred_scale=self.max_comb_scale
                 )
             case CombinationConfig.boltzmann:
                 mtenn_combination = mtenn.combination.BoltzmannCombination()
