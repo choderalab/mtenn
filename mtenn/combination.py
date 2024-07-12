@@ -229,6 +229,10 @@ class MeanCombinationFunc(torch.autograd.Function):
             # Gradient from final prediction loss
             cur_final_grad = comb_grad * torch.stack(grad_list, axis=-1).mean(axis=-1)
 
+            # Make sure lengths match up (should always be true but just in case)
+            if len(pose_grads) != len(grad_list):
+                raise RuntimeError("Mismatch in gradient lengths.")
+
             # Add in gradients for each pose from per-pose loss
             for pose_grad, param_grad in zip(pose_grads, grad_list):
                 cur_final_grad += pose_grad * param_grad
@@ -427,6 +431,10 @@ class MaxCombinationFunc(torch.autograd.Function):
                 .detach()
                 .sum(axis=-1)
             )
+
+            # Make sure lengths match up (should always be true but just in case)
+            if len(pose_grads) != len(grad_list):
+                raise RuntimeError("Mismatch in gradient lengths.")
 
             # Add in gradients for each pose from per-pose loss
             for pose_grad, param_grad in zip(pose_grads, grad_list):
