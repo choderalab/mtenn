@@ -78,6 +78,7 @@ class ModelType(StringEnum):
     """
 
     GAT = "GAT"
+    gat_pyg = "gat_pyg"
     schnet = "schnet"
     e3nn = "e3nn"
     visnet = "visnet"
@@ -677,6 +678,75 @@ class GATModelConfig(ModelConfigBase):
             new_config["activations"] = None
 
         return GATModelConfig(**new_config)
+
+
+class PyGGATModelConfig(ModelConfigBase):
+    """
+    Class for constructing a GAT ML model. Default values here are based on the values
+    in DGL-LifeSci.
+    """
+
+    model_type: ModelType = Field(ModelType.schnet, const=True)
+
+    in_channels: int = Field(
+        -1,
+        description=(
+            "Input size. Can be left as -1 (default) to interpret based on "
+            "first forward call."
+        ),
+    )
+    hidden_channels: int = Field(32, description="Hidden embedding size.")
+    num_layers: int = Field(2, description="Number of GAT layers.")
+    dropout: float = Field(0, description="Dropout probability.")
+    heads: int = Field(4, description="Number of attention heads for each GAT layer.")
+    negative_slope: float = Field(
+        0.2, description="LeakyReLU angle of the negative slope."
+    )
+
+    def _build(self, mtenn_params={}):
+        """
+        Build an ``mtenn`` GAT ``Model`` from this config.
+
+        :meta public:
+
+        Parameters
+        ----------
+        mtenn_params : dict, optional
+            Dictionary that stores the ``Readout`` objects for the individual
+            predictions and for the combined prediction, and the ``Combination`` object
+            in the case of a multi-pose model. These are all constructed the same for all
+            ``Model`` types, so we can just handle them in the base class. Keys in the
+            dict will be:
+
+            * "combination": :py:mod:`Combination <mtenn.combination>`
+
+            * "pred_readout": :py:mod:`Readout <mtenn.readout>` for individual
+              pose predictions
+
+            * "comb_readout": :py:mod:`Readout <mtenn.readout>` for combined
+              prediction (in the case of a multi-pose model)
+
+            although the combination-related entries will be ignore because this is a
+            ligand-only model.
+
+        Returns
+        -------
+        mtenn.model.Model
+            Model constructed from the config
+        """
+        from mtenn.conversion_utils.gat_pyg import GAT
+
+        model = GAT(
+            in_channels=self.in_channels,
+            hidden_channels=self.hidden_channels,
+            num_layers=self.num_layers,
+            dropout=self.dropout,
+            heads=self.heads,
+            negative_slope=self.negative_slope,
+        )
+
+        pred_readout = mtenn_params.get("pred_readout", None)
+        return GAT.get_model(model=model, pred_readout=pred_readout, fix_device=True)
 
 
 class SchNetModelConfig(ModelConfigBase):
