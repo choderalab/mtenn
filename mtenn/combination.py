@@ -25,20 +25,36 @@ class Combination(torch.nn.Module, abc.ABC):
     def forward(self, pred_list, grad_dict, param_names, *model_params):
         """
         This function signature should be the same for any ``Combination`` subclass
-        implementation.
+        implementation. The return values should be:
+
+        * ``torch.Tensor``: Scalar-value tensor giving the final combined prediction
+
+        * ``torch.Tensor``: Tensor of shape ``(n_predictions,)`` giving the input per-pose
+        predictions. This is necessary for ``Pytorch`` to track the gradients of these
+        predictions in the case of eg a cross-entropy loss on the per-pose predictions
 
         Parameters
         ----------
         pred_list: List[torch.Tensor]
-            List of :math:`\mathrm{\Delta G}` predictions to be combined
+            List of :math:`\mathrm{\Delta G}` predictions to be combined, shape of
+            ``(n_predictions,)``
         grad_dict: dict[str, List[torch.Tensor]]
-            Dict mapping from parameter name to list of gradients
+            Dict mapping from parameter name to list of gradients. Should contain
+            ``n_model_parameters`` entries, with each entry mapping to a list of
+            ``n_predictions`` tensors. Each of these tensors is a ``detach``ed gradient
+            so the shape of each tensor will depend on the model parameter it
+            corresponds to, but the shapes of each tensor in any given entry should be
+            identical
         param_names: List[str]
-            List of parameter names
-        model_params: torch.Tensor
+            List of parameter names. Should contain ``n_model_parameters`` entries,
+            corresponding 1:1 with the keys in ``grad_dict``
+        model_params: List[torch.Tensor]
             Actual parameters that we'll return the gradients for. Each param
-            should be passed individually (ie not as a list) for the backward pass to
-            work right.
+            should be passed directly for the backward pass to
+            work right. These tensors should correspond 1:1 with and should be in the
+            same order as the entries in ``param_names`` (ie the ``i``th entry in
+            ``param_names`` should be the name of the ``i``th model parameter in
+            ``model_params``)
         """
         raise NotImplementedError("Must implement the `forward` method.")
 
@@ -148,20 +164,33 @@ class MeanCombinationFunc(torch.autograd.Function):
         Parameters
         ----------
         pred_list: List[torch.Tensor]
-            List of :math:`\mathrm{\Delta G}` predictions to be combined by their mean
+            List of :math:`\mathrm{\Delta G}` predictions to be combined, shape of
+            ``(n_predictions,)``
         grad_dict: dict[str, List[torch.Tensor]]
-            Dict mapping from parameter name to list of gradients
+            Dict mapping from parameter name to list of gradients. Should contain
+            ``n_model_parameters`` entries, with each entry mapping to a list of
+            ``n_predictions`` tensors. Each of these tensors is a ``detach``ed gradient
+            so the shape of each tensor will depend on the model parameter it
+            corresponds to, but the shapes of each tensor in any given entry should be
+            identical
         param_names: List[str]
-            List of parameter names
-        model_params: torch.Tensor
+            List of parameter names. Should contain ``n_model_parameters`` entries,
+            corresponding 1:1 with the keys in ``grad_dict``
+        model_params: List[torch.Tensor]
             Actual parameters that we'll return the gradients for. Each param
-            should be passed individually (ie not as a list) for the backward pass to
-            work right.
+            should be passed directly for the backward pass to
+            work right. These tensors should correspond 1:1 with and should be in the
+            same order as the entries in ``param_names`` (ie the ``i``th entry in
+            ``param_names`` should be the name of the ``i``th model parameter in
+            ``model_params``)
 
         Returns
         -------
         torch.Tensor
-            Mean of input :math:`\mathrm{\Delta G}` predictions.
+            Scalar-value tensor giving the mean of the input :math:`\mathrm{\Delta G}`
+            predictions
+        torch.Tensor
+            Tensor of shape ``(n_predictions,)`` giving the input per-pose predictions
         """
         # Return mean of all preds
         all_preds = torch.stack(pred_list).flatten()
@@ -328,14 +357,33 @@ class MaxCombinationFunc(torch.autograd.Function):
             Fixed positive value to pred_scale predictions by before taking the LSE. This
             tightens the bounds of the LSE approximation
         pred_list: List[torch.Tensor]
-            List of :math:`\mathrm{\Delta G}` predictions to be combined using LSE
+            List of :math:`\mathrm{\Delta G}` predictions to be combined, shape of
+            ``(n_predictions,)``
         grad_dict: dict[str, List[torch.Tensor]]
-            Dict mapping from parameter name to list of gradients
+            Dict mapping from parameter name to list of gradients. Should contain
+            ``n_model_parameters`` entries, with each entry mapping to a list of
+            ``n_predictions`` tensors. Each of these tensors is a ``detach``ed gradient
+            so the shape of each tensor will depend on the model parameter it
+            corresponds to, but the shapes of each tensor in any given entry should be
+            identical
         param_names: List[str]
-            List of parameter names
-        model_params: torch.Tensor
+            List of parameter names. Should contain ``n_model_parameters`` entries,
+            corresponding 1:1 with the keys in ``grad_dict``
+        model_params: List[torch.Tensor]
             Actual parameters that we'll return the gradients for. Each param
-            should be passed individually for the backward pass to work right.
+            should be passed directly for the backward pass to
+            work right. These tensors should correspond 1:1 with and should be in the
+            same order as the entries in ``param_names`` (ie the ``i``th entry in
+            ``param_names`` should be the name of the ``i``th model parameter in
+            ``model_params``)
+
+        Returns
+        -------
+        torch.Tensor
+            Scalar-value tensor giving the max/min of the input
+            :math:`\mathrm{\Delta G}` predictions
+        torch.Tensor
+            Tensor of shape ``(n_predictions,)`` giving the input per-pose predictions
         """
         negative_multiplier = -1 if negate_preds else 1
         # Calculate once for reuse later
@@ -500,14 +548,33 @@ class BoltzmannCombinationFunc(torch.autograd.Function):
         Parameters
         ----------
         pred_list: List[torch.Tensor]
-            List of :math:`\mathrm{\Delta G}` predictions to be combined using LSE
+            List of :math:`\mathrm{\Delta G}` predictions to be combined, shape of
+            ``(n_predictions,)``
         grad_dict: dict[str, List[torch.Tensor]]
-            Dict mapping from parameter name to list of gradients
+            Dict mapping from parameter name to list of gradients. Should contain
+            ``n_model_parameters`` entries, with each entry mapping to a list of
+            ``n_predictions`` tensors. Each of these tensors is a ``detach``ed gradient
+            so the shape of each tensor will depend on the model parameter it
+            corresponds to, but the shapes of each tensor in any given entry should be
+            identical
         param_names: List[str]
-            List of parameter names
-        model_params: torch.Tensor
+            List of parameter names. Should contain ``n_model_parameters`` entries,
+            corresponding 1:1 with the keys in ``grad_dict``
+        model_params: List[torch.Tensor]
             Actual parameters that we'll return the gradients for. Each param
-            should be passed individually for the backward pass to work right.
+            should be passed directly for the backward pass to
+            work right. These tensors should correspond 1:1 with and should be in the
+            same order as the entries in ``param_names`` (ie the ``i``th entry in
+            ``param_names`` should be the name of the ``i``th model parameter in
+            ``model_params``)
+
+        Returns
+        -------
+        torch.Tensor
+            Scalar-value tensor giving the Boltzmann mean of the input
+            :math:`\mathrm{\Delta G}` predictions
+        torch.Tensor
+            Tensor of shape ``(n_predictions,)`` giving the input per-pose predictions
         """
         # Save for later so we don't have to keep redoing this
         adj_preds = -torch.stack(pred_list).flatten().detach()
