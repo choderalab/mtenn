@@ -29,9 +29,10 @@ class Combination(torch.nn.Module, abc.ABC):
 
         * ``torch.Tensor``: Scalar-value tensor giving the final combined prediction
 
-        * ``torch.Tensor``: Tensor of shape ``(n_predictions,)`` giving the input per-pose
-        predictions. This is necessary for ``Pytorch`` to track the gradients of these
-        predictions in the case of eg a cross-entropy loss on the per-pose predictions
+        * ``torch.Tensor``: Tensor of shape ``(n_predictions,)`` giving the input
+        per-pose predictions. This is necessary for ``Pytorch`` to track the gradients
+        of these predictions in the case of eg a cross-entropy loss on the per-pose
+        predictions
 
         Parameters
         ----------
@@ -41,7 +42,7 @@ class Combination(torch.nn.Module, abc.ABC):
         grad_dict: dict[str, List[torch.Tensor]]
             Dict mapping from parameter name to list of gradients. Should contain
             ``n_model_parameters`` entries, with each entry mapping to a list of
-            ``n_predictions`` tensors. Each of these tensors is a ``detach``ed gradient
+            ``n_predictions`` tensors. Each of these tensors is a ``detach`` ed gradient
             so the shape of each tensor will depend on the model parameter it
             corresponds to, but the shapes of each tensor in any given entry should be
             identical
@@ -52,8 +53,8 @@ class Combination(torch.nn.Module, abc.ABC):
             Actual parameters that we'll return the gradients for. Each param
             should be passed directly for the backward pass to
             work right. These tensors should correspond 1:1 with and should be in the
-            same order as the entries in ``param_names`` (ie the ``i``th entry in
-            ``param_names`` should be the name of the ``i``th model parameter in
+            same order as the entries in ``param_names`` (ie the ``i`` th entry in
+            ``param_names`` should be the name of the ``i`` th model parameter in
             ``model_params``)
         """
         raise NotImplementedError("Must implement the `forward` method.")
@@ -117,7 +118,9 @@ class Combination(torch.nn.Module, abc.ABC):
 
 class MeanCombination(Combination):
     """
-    Combine a list of predictions by taking the mean.
+    Combine a list of predictions by taking the mean. See the docs for
+    :py:class:`MeanCombinationFunc <mtenn.combination.MeanCombinationFunc>` for more
+    details.
 
     .. math::
 
@@ -169,7 +172,7 @@ class MeanCombinationFunc(torch.autograd.Function):
         grad_dict: dict[str, List[torch.Tensor]]
             Dict mapping from parameter name to list of gradients. Should contain
             ``n_model_parameters`` entries, with each entry mapping to a list of
-            ``n_predictions`` tensors. Each of these tensors is a ``detach``ed gradient
+            ``n_predictions`` tensors. Each of these tensors is a ``detach`` ed gradient
             so the shape of each tensor will depend on the model parameter it
             corresponds to, but the shapes of each tensor in any given entry should be
             identical
@@ -180,8 +183,8 @@ class MeanCombinationFunc(torch.autograd.Function):
             Actual parameters that we'll return the gradients for. Each param
             should be passed directly for the backward pass to
             work right. These tensors should correspond 1:1 with and should be in the
-            same order as the entries in ``param_names`` (ie the ``i``th entry in
-            ``param_names`` should be the name of the ``i``th model parameter in
+            same order as the entries in ``param_names`` (ie the ``i`` th entry in
+            ``param_names`` should be the name of the ``i`` th model parameter in
             ``model_params``)
 
         Returns
@@ -277,6 +280,8 @@ class MeanCombinationFunc(torch.autograd.Function):
 class MaxCombination(Combination):
     """
     Approximate max/min of the predictions using the LogSumExp function for smoothness.
+    See the docs for :py:class:`MaxCombinationFunc
+    <mtenn.combination.MaxCombinationFunc>` for more details.
 
     .. math::
 
@@ -338,7 +343,17 @@ class MaxCombinationFunc(torch.autograd.Function):
     Custom autograd function that will handle the gradient math for us for taking the
     max/min of the :math:`\mathrm{\Delta G}` predictions.
 
-    :meta public:
+    For the ``forward`` pass, the final :math:`\mathrm{\Delta G}` prediction is
+    calculated according to the following:
+
+    .. math::
+
+        \mathrm{negative_multiplier} = \begin{cases}
+        -1 & \mathrm{negate_preds} \\
+        1  & \mathrm{not negate_preds}
+        \end{cases}
+
+        \Delta G = \\frac{-1}{t} \mathrm{ln} \sum_{n=1}^N \mathrm{exp} (-t \Delta G_n)
     """
 
     @staticmethod
@@ -362,7 +377,7 @@ class MaxCombinationFunc(torch.autograd.Function):
         grad_dict: dict[str, List[torch.Tensor]]
             Dict mapping from parameter name to list of gradients. Should contain
             ``n_model_parameters`` entries, with each entry mapping to a list of
-            ``n_predictions`` tensors. Each of these tensors is a ``detach``ed gradient
+            ``n_predictions`` tensors. Each of these tensors is a ``detach`` ed gradient
             so the shape of each tensor will depend on the model parameter it
             corresponds to, but the shapes of each tensor in any given entry should be
             identical
@@ -373,8 +388,8 @@ class MaxCombinationFunc(torch.autograd.Function):
             Actual parameters that we'll return the gradients for. Each param
             should be passed directly for the backward pass to
             work right. These tensors should correspond 1:1 with and should be in the
-            same order as the entries in ``param_names`` (ie the ``i``th entry in
-            ``param_names`` should be the name of the ``i``th model parameter in
+            same order as the entries in ``param_names`` (ie the ``i`` th entry in
+            ``param_names`` should be the name of the ``i`` th model parameter in
             ``model_params``)
 
         Returns
@@ -499,7 +514,9 @@ class MaxCombinationFunc(torch.autograd.Function):
 class BoltzmannCombination(Combination):
     """
     Combine a list of :math:`\mathrm{\Delta G}` predictions according to their
-    Boltzmann weight. Treat energy in implicit kT units.
+    Boltzmann weight. Treat energy in implicit kT units. See the docs for
+    :py:class:`BoltzmannCombinationFunc <mtenn.combination.BoltzmannCombinationFunc>`
+    for more details.
 
     .. math::
 
@@ -553,7 +570,7 @@ class BoltzmannCombinationFunc(torch.autograd.Function):
         grad_dict: dict[str, List[torch.Tensor]]
             Dict mapping from parameter name to list of gradients. Should contain
             ``n_model_parameters`` entries, with each entry mapping to a list of
-            ``n_predictions`` tensors. Each of these tensors is a ``detach``ed gradient
+            ``n_predictions`` tensors. Each of these tensors is a ``detach`` ed gradient
             so the shape of each tensor will depend on the model parameter it
             corresponds to, but the shapes of each tensor in any given entry should be
             identical
@@ -564,8 +581,8 @@ class BoltzmannCombinationFunc(torch.autograd.Function):
             Actual parameters that we'll return the gradients for. Each param
             should be passed directly for the backward pass to
             work right. These tensors should correspond 1:1 with and should be in the
-            same order as the entries in ``param_names`` (ie the ``i``th entry in
-            ``param_names`` should be the name of the ``i``th model parameter in
+            same order as the entries in ``param_names`` (ie the ``i`` th entry in
+            ``param_names`` should be the name of the ``i`` th model parameter in
             ``model_params``)
 
         Returns
