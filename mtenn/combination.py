@@ -30,9 +30,9 @@ class Combination(torch.nn.Module, abc.ABC):
         * ``torch.Tensor``: Scalar-value tensor giving the final combined prediction
 
         * ``torch.Tensor``: Tensor of shape ``(n_predictions,)`` giving the input
-        per-pose predictions. This is necessary for ``Pytorch`` to track the gradients
-        of these predictions in the case of eg a cross-entropy loss on the per-pose
-        predictions
+            per-pose predictions. This is necessary for ``Pytorch`` to track the
+            gradients of these predictions in the case of eg a cross-entropy loss on the
+            per-pose predictions
 
         Parameters
         ----------
@@ -296,7 +296,7 @@ class MaxCombination(Combination):
             Negate the predictions before calculating the LSE, effectively finding
             the min. Preds are negated again before being returned
         pred_scale : float, default=1000.0
-            Fixed positive value to pred_scale predictions by before taking the LSE. This
+            Fixed positive value to scale predictions by before taking the LSE. This
             tightens the bounds of the LSE approximation
         """
         super(MaxCombination, self).__init__()
@@ -348,12 +348,20 @@ class MaxCombinationFunc(torch.autograd.Function):
 
     .. math::
 
-        \mathrm{negative_multiplier} = \begin{cases}
-        -1 & \mathrm{negate_preds} \\
-        1  & \mathrm{not negate_preds}
-        \end{cases}
+        n = \\begin{cases}
+        -1 & \\text{negate_preds} \\\\
+        \\phantom{-}1  & \\text{not negate_preds}
+        \\end{cases}
 
-        \Delta G = \\frac{-1}{t} \mathrm{ln} \sum_{n=1}^N \mathrm{exp} (-t \Delta G_n)
+    .. math::
+
+        t &= \\text{pred_scale}
+
+        \Delta G &= n \\frac{1}{t} \mathrm{ln} \sum_{n=1}^N \mathrm{exp} (n t \Delta G_n)
+
+    The logic and math behind this scaling approach are detailed `here
+    <https://en.wikipedia.org/wiki/LogSumExp#Properties>`_.
+
     """
 
     @staticmethod
@@ -369,7 +377,7 @@ class MaxCombinationFunc(torch.autograd.Function):
             Negate the predictions before calculating the LSE, effectively finding
             the min. Preds are negated again before being returned
         pred_scale: float
-            Fixed positive value to pred_scale predictions by before taking the LSE. This
+            Fixed positive value to scale predictions by before taking the LSE. This
             tightens the bounds of the LSE approximation
         pred_list: List[torch.Tensor]
             List of :math:`\mathrm{\Delta G}` predictions to be combined, shape of
@@ -400,12 +408,26 @@ class MaxCombinationFunc(torch.autograd.Function):
         torch.Tensor
             Tensor of shape ``(n_predictions,)`` giving the input per-pose predictions
         """
+        # The value of negate_preds tells us if we are finding the max or min. If True,
+        #  we are finding the min and need to flip the sign of each individual
+        #  prediction, as well as the final combined prediction
         negative_multiplier = -1 if negate_preds else 1
+
         # Calculate once for reuse later
         all_preds = torch.stack(pred_list).flatten()
+
+        # We use adj_preds here to store the adjusted per-pose prediction values. These
+        #  values have been negated (if we are finding the min), and multiplied by our
+        #  scale value, if given
         adj_preds = negative_multiplier * pred_scale * all_preds.detach()
+
+        # Although defining this intermediate value isn't as helpful/necessary in the
+        #  forward pass, we do so anyway for consistency with the backward pass, where
+        #  it will be necessary for numerical stability
         Q = torch.logsumexp(adj_preds, dim=0)
-        # Calculate the actual prediction
+
+        # Perform the inverse adjustments we applied to the per-pose predictions, giving
+        #  us the original value of the max/min per-pose prediction
         final_pred = (negative_multiplier * Q / pred_scale).detach()
 
         return final_pred, all_preds
