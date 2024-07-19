@@ -30,9 +30,9 @@ class Combination(torch.nn.Module, abc.ABC):
         * ``torch.Tensor``: Scalar-value tensor giving the final combined prediction
 
         * ``torch.Tensor``: Tensor of shape ``(n_predictions,)`` giving the input
-            per-pose predictions. This is necessary for ``Pytorch`` to track the
-            gradients of these predictions in the case of eg a cross-entropy loss on the
-            per-pose predictions
+          per-pose predictions. This is necessary for ``Pytorch`` to track the
+          gradients of these predictions in the case of eg a cross-entropy loss on the
+          per-pose predictions
 
         Parameters
         ----------
@@ -427,7 +427,7 @@ class MaxCombinationFunc(torch.autograd.Function):
         Q = torch.logsumexp(adj_preds, dim=0)
 
         # Perform the inverse adjustments we applied to the per-pose predictions, giving
-        #  us the original value of the max/min per-pose prediction
+        #  us (approximately) the original value of the max/min per-pose prediction
         final_pred = (negative_multiplier * Q / pred_scale).detach()
 
         return final_pred, all_preds
@@ -444,8 +444,9 @@ class MaxCombinationFunc(torch.autograd.Function):
         inputs : List
             List containing all the parameters that will get passed to ``forward``
         output : torch.Tensor
-            Value returned from ``forward``
+            Values returned from ``forward``
         """
+        # Unpack the inputs
         (
             negate_preds,
             pred_scale,
@@ -455,6 +456,7 @@ class MaxCombinationFunc(torch.autograd.Function):
             *model_params,
         ) = inputs
 
+        # Break the grad dict up into lists of keys and corresponding lists of gradients
         grad_dict_keys, grad_dict_tensors = Combination.split_grad_dict(grad_dict)
 
         # Save non-Tensors for backward
@@ -465,8 +467,10 @@ class MaxCombinationFunc(torch.autograd.Function):
 
         # Save Tensors for backward
         # Saving:
-        #  * Predictions (1 tensor)
-        #  * Grad tensors (N params * M poses tensors)
+        #  * Predictions (1 tensor of shape (n_predictions,))
+        #  * Grad tensors (N params * M poses tensors, where all gradients corresponding
+        #    to a given model parameter are adjacent, ie first M tensors are the
+        #    per-pose gradients for the first model parameter, etc)
         #  * Model param tensors (N params tensors)
         ctx.save_for_backward(
             torch.stack(pred_list).flatten(),
