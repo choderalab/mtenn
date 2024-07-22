@@ -263,7 +263,7 @@ class MeanCombinationFunc(torch.autograd.Function):
                 raise RuntimeError("Mismatch in gradient lengths.")
 
             # Compute the gradient contributions from any per-pose prediction loss,
-            #  according to eqns (2), (4)
+            #  according to eqn (2)
             for pose_grad, param_grad in zip(pose_grads, grad_list):
                 cur_final_grad += pose_grad * param_grad
 
@@ -484,22 +484,34 @@ class MaxCombinationFunc(torch.autograd.Function):
         # Unpack saved tensors
         preds, *other_tensors = ctx.saved_tensors
 
-        # Split up other_tensors
+        # First section of these tensors are the flattened lists of gradients from each
+        #  individual pose or each model parameter
         grad_dict_tensors = other_tensors[: len(ctx.grad_dict_keys)]
 
+        # Reconstruct dict mapping from model parameter name to list of gradient tensors
+        # The ith entry in each list gives the gradient of the ith pose prediction wrt
+        #  that model parameter
         grad_dict = Combination.join_grad_dict(ctx.grad_dict_keys, grad_dict_tensors)
 
-        # Begin calculations
+        # Set negation multiplier for finding max/min (see docstring and associated
+        #  implementation math section for more details)
         negative_multiplier = -1 if ctx.negate_preds else 1
 
-        # Calculate once for reuse later
+        # We use adj_preds here to store the adjusted per-pose prediction values. These
+        #  values have been negated (if we are finding the min), and multiplied by our
+        #  scale value, if given
+        # These values correspond to the values inside the exponential in eqn (5) (and
+        #  subsequent equations)
         adj_preds = negative_multiplier * ctx.pred_scale * preds.detach()
+
+        # Calculate our normalizing constant (eqn (6))
         Q = torch.logsumexp(adj_preds, dim=0)
 
         # Calculate final gradients for each parameter
         final_grads = {}
         for n, grad_list in grad_dict.items():
-            # Gradient from final prediction loss
+            # Compute the gradient contributions from any combined prediction loss,
+            #  according to eqns (1), (9)
             cur_final_grad = comb_grad * (
                 torch.stack(
                     [
@@ -516,14 +528,18 @@ class MaxCombinationFunc(torch.autograd.Function):
             if len(pose_grads) != len(grad_list):
                 raise RuntimeError("Mismatch in gradient lengths.")
 
-            # Add in gradients for each pose from per-pose loss
+            # Compute the gradient contributions from any per-pose prediction loss,
+            #  according to eqn (2)
             for pose_grad, param_grad in zip(pose_grads, grad_list):
                 cur_final_grad += pose_grad * param_grad
 
             # Store total gradient for each parameter
             final_grads[n] = cur_final_grad.clone()
 
-        # Pull out return vals
+        # Return gradients for each of the model parameters that were passed in. Also
+        #  need to return values for the other values that were passed to forward
+        #  (negate_preds, pred_scale, pred_list, grad_dict, param_names), but these
+        #  don't get gradients so we just return None
         return_vals = [None] * 5 + [final_grads[n] for n in ctx.param_names]
         return tuple(return_vals)
 
