@@ -123,10 +123,6 @@ class MeanCombination(Combination):
     Combine a list of predictions by taking the mean. See the docs for
     :py:class:`MeanCombinationFunc <mtenn.combination.MeanCombinationFunc>` for more
     details.
-
-    .. math::
-
-        \Delta G = \\frac{1}{N} \sum_{n=1}^{N} \Delta G_n
     """
 
     def forward(self, pred_list, grad_dict, param_names, *model_params):
@@ -140,7 +136,13 @@ class MeanCombinationFunc(torch.autograd.Function):
     Custom autograd function that will handle the gradient math for us for combining
     :math:`\mathrm{\Delta G}` predictions to their mean.
 
-    :meta public:
+    .. math::
+
+        \Delta \\text{G}(\\theta) = \\frac{1}{N}
+        \\sum_{i=1}^{N} \\Delta \\text{G}_i (\\theta)
+
+    See :ref:`mean-comb-imp` for more details on the math.
+
     """
 
     @staticmethod
@@ -228,35 +230,50 @@ class MeanCombinationFunc(torch.autograd.Function):
         ----------
         ctx
             Pytorch context manager
-        grad_output : torch.Tensor
-            Gradient of the loss wrt the prediction (from ``forward``)
+        comb_grad : torch.Tensor
+            Scalar-value tensor giving the
+            :math:`\\frac{\\partial L}{\\partial \\Delta \\text{G}}` term from
+            :eq:`comb-grad`
+        pose_grads : torch.Tensor
+            Tensor of shape ``(n_predictions,)``, giving the
+            :math:`\\frac{\\partial L}{\\partial \\Delta \\text{G}_i}` terms from
+            :eq:`pose-grad`
         """
         # Unpack saved tensors
         preds, *other_tensors = ctx.saved_tensors
 
-        # Split up other_tensors
+        # First section of these tensors are the flattened lists of gradients from each
+        #  individual pose or each model parameter
         grad_dict_tensors = other_tensors[: len(ctx.grad_dict_keys)]
 
+        # Reconstruct dict mapping from model parameter name to list of gradient tensors
+        # The ith entry in each list gives the gradient of the ith pose prediction wrt
+        #  that model parameter
         grad_dict = Combination.join_grad_dict(ctx.grad_dict_keys, grad_dict_tensors)
 
         # Calculate final gradients for each parameter
         final_grads = {}
         for n, grad_list in grad_dict.items():
-            # Gradient from final prediction loss
+            # Compute the gradient contributions from any combined prediction loss,
+            #  according to eqns (1), (4)
             cur_final_grad = comb_grad * torch.stack(grad_list, axis=-1).mean(axis=-1)
 
             # Make sure lengths match up (should always be true but just in case)
             if len(pose_grads) != len(grad_list):
                 raise RuntimeError("Mismatch in gradient lengths.")
 
-            # Add in gradients for each pose from per-pose loss
+            # Compute the gradient contributions from any per-pose prediction loss,
+            #  according to eqns (2), (4)
             for pose_grad, param_grad in zip(pose_grads, grad_list):
                 cur_final_grad += pose_grad * param_grad
 
             # Store total gradient for each parameter
             final_grads[n] = cur_final_grad.clone()
 
-        # Pull out return vals
+        # Return gradients for each of the model parameters that were passed in. Also
+        #  need to return values for the other values that were passed to forward
+        #  (pred_list, grad_dict, param_names), but these don't get gradients so we just
+        #  return None
         return_vals = [None] * 3 + [final_grads[n] for n in ctx.param_names]
         return tuple(return_vals)
 
@@ -266,10 +283,6 @@ class MaxCombination(Combination):
     Approximate max/min of the predictions using the LogSumExp function for smoothness.
     See the docs for :py:class:`MaxCombinationFunc
     <mtenn.combination.MaxCombinationFunc>` for more details.
-
-    .. math::
-
-        \Delta G = \\frac{-1}{t} \mathrm{ln} \sum_{n=1}^N \mathrm{exp} (-t \Delta G_n)
     """
 
     def __init__(self, negate_preds=True, pred_scale=1000.0):
@@ -329,6 +342,7 @@ class MaxCombinationFunc(torch.autograd.Function):
     The logic and math behind this scaling approach are detailed `here
     <https://en.wikipedia.org/wiki/LogSumExp#Properties>`_.
 
+    See :ref:`max-comb-imp` for more details on the math.
     """
 
     @staticmethod
@@ -377,20 +391,24 @@ class MaxCombinationFunc(torch.autograd.Function):
         """
         # The value of negate_preds tells us if we are finding the max or min. If True,
         #  we are finding the min and need to flip the sign of each individual
-        #  prediction, as well as the final combined prediction
+        #  prediction, as well as the final combined prediction (this is the value n
+        #  described in the class docstring and associated implementation math section)
         negative_multiplier = -1 if negate_preds else 1
 
-        # Calculate once for reuse later
+        # Combine all torch tensors so we don't need to keep doing it at each step
         all_preds = torch.stack(pred_list).flatten()
 
         # We use adj_preds here to store the adjusted per-pose prediction values. These
         #  values have been negated (if we are finding the min), and multiplied by our
         #  scale value, if given
+        # These values correspond to the values inside the exponential in eqn (5) (and
+        #  subsequent equations)
         adj_preds = negative_multiplier * pred_scale * all_preds.detach()
 
         # Although defining this intermediate value isn't as helpful/necessary in the
         #  forward pass, we do so anyway for consistency with the backward pass, where
         #  it will be necessary for numerical stability
+        # This corresponds to eqn (6)
         Q = torch.logsumexp(adj_preds, dim=0)
 
         # Perform the inverse adjustments we applied to the per-pose predictions, giving
@@ -454,8 +472,14 @@ class MaxCombinationFunc(torch.autograd.Function):
         ----------
         ctx
             Pytorch context manager
-        grad_output : torch.Tensor
-            Gradient of the loss wrt the prediction (from ``forward``)
+        comb_grad : torch.Tensor
+            Scalar-value tensor giving the
+            :math:`\\frac{\\partial L}{\\partial \\Delta \\text{G}}` term from
+            :eq:`comb-grad`
+        pose_grads : torch.Tensor
+            Tensor of shape ``(n_predictions,)``, giving the
+            :math:`\\frac{\\partial L}{\\partial \\Delta \\text{G}_i}` terms from
+            :eq:`pose-grad`
         """
         # Unpack saved tensors
         preds, *other_tensors = ctx.saved_tensors
