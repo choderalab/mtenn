@@ -6,6 +6,8 @@ The ``Combination`` block is responsible for combining multiple single-pose mode
 predictions into a single multi-pose prediction. For more details on the implementation
 of these classes, see the :ref:`comb-docs-page` docs page and the guide on
 :ref:`new-combination-guide`.
+
+All equations referenced here correspond to those in :ref:`implemented-combs`.
 """
 
 import abc
@@ -128,24 +130,6 @@ class MeanCombination(Combination):
     """
 
     def forward(self, pred_list, grad_dict, param_names, *model_params):
-        """
-        Wrapper around the :py:class:`MeanCombinationFunc
-        <mtenn.combination.MeanCombinationFunc>` class's ``apply`` method.
-
-        Parameters
-        ----------
-        pred_list: List[torch.Tensor]
-            List of :math:`\mathrm{\Delta G}` predictions to be combined by their mean
-        grad_dict: dict[str, List[torch.Tensor]]
-            Dict mapping from parameter name to list of gradients
-        param_names: List[str]
-            List of parameter names
-        model_params: torch.Tensor
-            Actual parameters that we'll return the gradients for. Each param
-            should be passed individually (ie not as a list) for the backward pass to
-            work right.
-        """
-
         return MeanCombinationFunc.apply(
             pred_list, grad_dict, param_names, *model_params
         )
@@ -311,23 +295,6 @@ class MaxCombination(Combination):
         return repr(self)
 
     def forward(self, pred_list, grad_dict, param_names, *model_params):
-        """
-        Wrapper around the :py:class:`MaxCombinationFunc
-        <mtenn.combination.MaxCombinationFunc>` class's ``apply`` method.
-
-        Parameters
-        ----------
-        pred_list: List[torch.Tensor]
-            List of :math:`\mathrm{\Delta G}` predictions to find the max/min of
-        grad_dict: dict[str, List[torch.Tensor]]
-            Dict mapping from parameter name to list of gradients
-        param_names: List[str]
-            List of parameter names
-        model_params: torch.Tensor
-            Actual parameters that we'll return the gradients for. Each param
-            should be passed individually (ie not as a list) for the backward pass to
-            work right.
-        """
         return MaxCombinationFunc.apply(
             self.negate_preds,
             self.pred_scale,
@@ -553,23 +520,6 @@ class BoltzmannCombination(Combination):
     """
 
     def forward(self, pred_list, grad_dict, param_names, *model_params):
-        """
-        Wrapper around the :py:class:`BoltzmannCombinationFunc
-        <mtenn.combination.BoltzmannCombinationFunc>` class's ``apply`` method.
-
-        Parameters
-        ----------
-        pred_list: List[torch.Tensor]
-            List of :math:`\mathrm{\Delta G}` predictions to combine
-        grad_dict: dict[str, List[torch.Tensor]]
-            Dict mapping from parameter name to list of gradients
-        param_names: List[str]
-            List of parameter names
-        model_params: torch.Tensor
-            Actual parameters that we'll return the gradients for. Each param
-            should be passed individually (ie not as a list) for the backward pass to
-            work right.
-        """
         return BoltzmannCombinationFunc.apply(
             pred_list, grad_dict, param_names, *model_params
         )
