@@ -59,6 +59,50 @@ Math for Implemented Combinations
 Below, we detail the math required for appropriately combining gradients.
 This math is used in the ``backward`` pass in the various ``Combination`` classes.
 
+.. _imp-comb-loss-fn:
+
+Loss Functions
+^^^^^^^^^^^^^^
+
+We anticipate these ``Combination`` methods being used with a linear combination of two types of  loss functions:
+
+    * Loss based on the final combined prediction (ie :math:`L = f(\Delta \text{G} (\theta))`)
+
+    * Loss based on a linear combination of the per-pose predictions (ie :math:`L = f(\Delta \text{G}_1 (\theta), \Delta \text{G}_2 (\theta), ...)`)
+
+Ultimately for backprop we need to return the gradients of the loss wrt each model parameter.
+The gradients for each of these types of losses is given below.
+
+Combined Prediction
+"""""""""""""""""""
+
+.. math::
+    :label: comb-grad
+
+    \frac{\partial L}{\partial \theta} =
+    \frac{\partial L}{\partial \Delta \text{G}}
+    \frac{\partial \Delta \text{G}}{\partial \theta}
+
+The :math:`\frac{\partial L}{\partial \Delta \text{G}}` part of this equation will be a scalar that is calculated automatically by ``pytorch`` and fed to our ``Combination`` class.
+The :math:`\frac{\partial \Delta \text{G}}{\partial \theta}` parts will be computed internally.
+
+Per-Pose Prediction
+"""""""""""""""""""
+
+Because we assume this loss is based on a linear combination of the individual :math:`\Delta \text{G}_i` predictions, we can decompose the loss as:
+
+.. math::
+    :label: pose-grad
+
+    \frac{\partial L}{\partial \theta} =
+    \sum_{i=1}^N
+    \frac{\partial L}{\partial \Delta \text{G}_i}
+    \frac{\partial \Delta \text{G}_i}{\partial \theta}
+
+As before, the :math:`\frac{\partial L}{\partial \Delta \text{G}_i}` parts of this equation will be scalars calculated automatically by ``pytorch`` and fed to our ``Combination`` class, and the :math:`\frac{\partial \Delta \text{G}}{\partial \theta}` parts will be computed internally.
+
+.. _mean-comb-imp:
+
 Mean Combination
 ^^^^^^^^^^^^^^^^
 
@@ -73,6 +117,8 @@ This is mostly included as an example, but it can be illustrative.
     :label: mean-comb-grad
 
     \frac{\partial \Delta \text{G}(\theta)}{\partial \theta} = \frac{1}{N} \sum_{i=1}^{N} \frac{\partial \Delta \text{G}_i (\theta)}{\partial \theta}
+
+.. _max-comb-imp:
 
 Max Combination
 ^^^^^^^^^^^^^^^
