@@ -128,14 +128,10 @@ class CombinationConfig(StringEnum):
     * mean: :py:class:`MeanCombination <mtenn.combination.MeanCombination>`
 
     * max: :py:class:`MaxCombination <mtenn.combination.MaxCombination>`
-
-    * boltzmann:
-      :py:class:`BoltzmannCombination <mtenn.combination.BoltzmannCombination>`
     """
 
     mean = "mean"
     max = "max"
-    boltzmann = "boltzmann"
 
 
 class ModelConfigBase(BaseModel):
@@ -273,8 +269,6 @@ class ModelConfigBase(BaseModel):
                 mtenn_combination = mtenn.combination.MaxCombination(
                     negate_preds=self.max_comb_neg, pred_scale=self.max_comb_scale
                 )
-            case CombinationConfig.boltzmann:
-                mtenn_combination = mtenn.combination.BoltzmannCombination()
             case None:
                 mtenn_combination = None
 
