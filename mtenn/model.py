@@ -260,12 +260,14 @@ class GroupedModel(Model):
 
         # Separate out param names and params
         param_names, model_params = zip(*self.named_parameters())
-        comb_pred = self.combination(pred_list, grad_dict, param_names, *model_params)
+        comb_pred, comb_pred_list = self.combination(
+            pred_list, grad_dict, param_names, *model_params
+        )
 
         if self.comb_readout:
-            return self.comb_readout(comb_pred), pred_list
+            return self.comb_readout(comb_pred), comb_pred_list
         else:
-            return comb_pred, pred_list
+            return comb_pred, comb_pred_list
 
 
 class LigandOnlyModel(Model):

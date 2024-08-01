@@ -18,7 +18,9 @@ from enum import Enum
 from pydantic import BaseModel, Field, root_validator
 import random
 from typing import Callable, ClassVar
-import mtenn
+import mtenn.combination
+import mtenn.readout
+import mtenn.model
 import numpy as np
 import torch
 
@@ -126,14 +128,10 @@ class CombinationConfig(StringEnum):
     * mean: :py:class:`MeanCombination <mtenn.combination.MeanCombination>`
 
     * max: :py:class:`MaxCombination <mtenn.combination.MaxCombination>`
-
-    * boltzmann:
-      :py:class:`BoltzmannCombination <mtenn.combination.BoltzmannCombination>`
     """
 
     mean = "mean"
     max = "max"
-    boltzmann = "boltzmann"
 
 
 class ModelConfigBase(BaseModel):
@@ -269,10 +267,8 @@ class ModelConfigBase(BaseModel):
                 mtenn_combination = mtenn.combination.MeanCombination()
             case CombinationConfig.max:
                 mtenn_combination = mtenn.combination.MaxCombination(
-                    neg=self.max_comb_neg, scale=self.max_comb_scale
+                    negate_preds=self.max_comb_neg, pred_scale=self.max_comb_scale
                 )
-            case CombinationConfig.boltzmann:
-                mtenn_combination = mtenn.combination.BoltzmannCombination()
             case None:
                 mtenn_combination = None
 
