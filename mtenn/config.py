@@ -686,7 +686,7 @@ class PyGGATModelConfig(ModelConfigBase):
     in DGL-LifeSci.
     """
 
-    model_type: ModelType = Field(ModelType.schnet, const=True)
+    model_type: ModelType = Field(ModelType.gat_pyg, const=True)
 
     in_channels: int = Field(
         -1,
