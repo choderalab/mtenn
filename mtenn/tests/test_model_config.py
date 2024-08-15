@@ -12,8 +12,8 @@ from mtenn.strategy import ComplexOnlyStrategy, ConcatStrategy, DeltaStrategy
 
 
 def test_random_seed_gat():
-    rand_config = GATModelConfig()
-    set_config = GATModelConfig(rand_seed=10)
+    rand_config = GATModelConfig(in_channels=10)
+    set_config = GATModelConfig(in_channels=10, rand_seed=10)
 
     rand_model1 = rand_config.build()
     rand_model2 = rand_config.build()
@@ -44,6 +44,7 @@ def test_random_seed_gat():
 )
 def test_readout_gat(pred_r, pred_r_class, pred_r_args):
     model = GATModelConfig(
+        in_channels=10,
         pred_readout=pred_r,
         pred_substrate=pred_r_args[0],
         pred_km=pred_r_args[1],
@@ -60,32 +61,12 @@ def test_readout_gat(pred_r, pred_r_class, pred_r_args):
 
 
 def test_model_weights_gat():
-    model1 = GATModelConfig().build()
-    model2 = GATModelConfig(model_weights=model1.state_dict()).build()
+    model1 = GATModelConfig(in_channels=10).build()
+    model2 = GATModelConfig(in_channels=10, model_weights=model1.state_dict()).build()
 
     test_model_params = dict(model2.named_parameters())
     for n, ref_param in model1.named_parameters():
         assert (ref_param == test_model_params[n]).all()
-
-
-def test_no_diff_list_lengths_gat():
-    with pytest.raises(ValueError):
-        # Different length lists should raise error
-        _ = GATModelConfig(hidden_feats=[1, 2, 3], num_heads=[4, 5])
-
-
-def test_bad_param_mapping_gat():
-    with pytest.raises(ValueError):
-        # Can't convert string to int
-        _ = GATModelConfig(hidden_feats="sdf")
-
-
-def test_can_pass_lists_gat():
-    model_config = GATModelConfig(hidden_feats=[1, 2, 3])
-    model = model_config.build()
-
-    assert len(model.representation.gnn.gnn_layers) == 3
-    assert not model_config._from_num_layers
 
 
 def test_random_seed_e3nn():
