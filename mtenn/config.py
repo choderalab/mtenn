@@ -408,7 +408,7 @@ class GATModelConfig(ModelConfigBase):
     in DGL-LifeSci.
     """
 
-    model_type: ModelType = Field(ModelType.gat, const=True)
+    model_type: ModelType = Field(ModelType.GAT, const=True)
 
     in_channels: int = Field(
         -1,
