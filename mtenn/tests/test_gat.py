@@ -1,15 +1,36 @@
 import pytest
 import torch
 
-from asapdiscovery.data.backend.openeye import featurize_smiles
-from torch_geometric.nn.models import GAT as PygGAT
 from mtenn.conversion_utils.gat import GAT
+import rdkit.Chem as Chem
+from torch_geometric.nn.models import GAT as PygGAT
 
 
 @pytest.fixture
 def model_input():
+    # Build mol
     smiles = "CCCC"
-    feature_tensor, bond_list_tensor = featurize_smiles(smiles)
+    mol = Chem.MolFromSmiles(smiles)
+
+    # Get atomic numbers and bond indices (both directions)
+    atomic_nums = [a.GetAtomicNum() for a in mol.GetAtoms()]
+    bond_idxs = [
+        atom_pair
+        for bond in mol.GetBonds()
+        for atom_pair in (
+            (bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()),
+            (bond.GetEndAtomIdx(), bond.GetBeginAtomIdx()),
+        )
+    ]
+    # Add self bonds
+    bond_idxs += [(a.GetIdx(), a.GetIdx()) for a in mol.GetAtoms()]
+
+    # Encode atomic numbers as one-hot, assume max num of 100
+    feature_tensor = torch.nn.functional.one_hot(
+        torch.tensor(atomic_nums), num_classes=100
+    ).to(dtype=torch.float)
+    # Format bonds in correct shape
+    bond_list_tensor = torch.tensor(bond_idxs).t()
 
     return {"x": feature_tensor, "edge_index": bond_list_tensor, "smiles": smiles}
 
