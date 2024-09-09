@@ -78,6 +78,8 @@ class ModelType(StringEnum):
     """
 
     GAT = "GAT"
+    pyg_gat = "pyg_gat"
+    dgl_gat = "dgl_gat"
     schnet = "schnet"
     e3nn = "e3nn"
     visnet = "visnet"
@@ -469,6 +471,332 @@ class GATModelConfig(ModelConfigBase):
 
         pred_readout = mtenn_params.get("pred_readout", None)
         return GAT.get_model(model=model, pred_readout=pred_readout, fix_device=True)
+
+
+class PyGGATModelConfig(GATModelConfig):
+    model_type: ModelType = Field(ModelType.pyg_gat, const=True)
+
+    def _build(self, mtenn_params={}):
+        """
+        Build an ``mtenn`` PyGGAT ``Model`` from this config.
+
+        :meta public:
+
+        Parameters
+        ----------
+        mtenn_params : dict, optional
+            Dictionary that stores the ``Readout`` objects for the individual
+            predictions and for the combined prediction, and the ``Combination`` object
+            in the case of a multi-pose model. These are all constructed the same for all
+            ``Model`` types, so we can just handle them in the base class. Keys in the
+            dict will be:
+
+            * "combination": :py:mod:`Combination <mtenn.combination>`
+
+            * "pred_readout": :py:mod:`Readout <mtenn.readout>` for individual
+              pose predictions
+
+            * "comb_readout": :py:mod:`Readout <mtenn.readout>` for combined
+              prediction (in the case of a multi-pose model)
+
+            although the combination-related entries will be ignore because this is a
+            ligand-only model.
+
+        Returns
+        -------
+        mtenn.model.Model
+            Model constructed from the config
+        """
+        from mtenn.conversion_utils.pyg_gat import PyGGAT
+
+        model = PyGGAT(
+            in_channels=self.in_channels,
+            hidden_channels=self.hidden_channels,
+            num_layers=self.num_layers,
+            dropout=self.dropout,
+            heads=self.heads,
+            negative_slope=self.negative_slope,
+        )
+
+        pred_readout = mtenn_params.get("pred_readout", None)
+        return PyGGAT.get_model(model=model, pred_readout=pred_readout, fix_device=True)
+
+
+class DGLGATModelConfig(ModelConfigBase):
+    """
+    Class for constructing a graph attention ML model. Note that there are two methods
+    for defining the size of the model:
+
+    * If single values are passed for all parameters, the value of ``num_layers`` will
+      be used as the size of the model, and each layer will have the parameters given
+
+    * If a list of values is passed for any parameters, all parameters must be lists of
+      the same size, or single values. For parameters that are single values, that same
+      value will be used for each layer. For parameters that are lists, those lists will
+      be used
+
+    Parameters passed as strings are assumed to be comma-separated lists, and will first
+    be cast to lists of the appropriate type, and then processed as described above.
+
+    If lists of multiple different (non-1) sizes are found, an error will be raised.
+
+    Default values here are the default values given in DGL-LifeSci.
+    """
+
+    # Import as private, mainly so Sphinx doesn't autodoc it
+    from dgllife.utils import CanonicalAtomFeaturizer as _CanonicalAtomFeaturizer
+
+    # Dict of model params that can be passed as a list, and the type that each will be
+    #  cast to
+    LIST_PARAMS: ClassVar[dict] = {
+        "hidden_feats": int,
+        "num_heads": int,
+        "feat_drops": float,
+        "attn_drops": float,
+        "alphas": float,
+        "residuals": bool,
+        "agg_modes": str,
+        "activations": None,
+        "biases": bool,
+    }  #: :meta private:
+
+    model_type: ModelType = Field(ModelType.dgl_gat, const=True)
+
+    in_feats: int = Field(
+        _CanonicalAtomFeaturizer().feat_size(),
+        description=(
+            "Input node feature size. Defaults to size of the "
+            "``CanonicalAtomFeaturizer``."
+        ),
+    )
+    num_layers: int = Field(
+        2,
+        description=(
+            "Number of GAT layers. Ignored if a list of values is passed for any "
+            "other argument."
+        ),
+    )
+    hidden_feats: str | int | list[int] = Field(
+        32,
+        description=(
+            "Output size of each GAT layer. If an ``int`` is passed, the value for "
+            "``num_layers`` will be used to determine the size of the model. If a list "
+            "of ``int`` s is passed, the size of the model will be inferred from the "
+            "length of the list."
+        ),
+    )
+    num_heads: str | int | list[int] = Field(
+        4,
+        description=(
+            "Number of attention heads for each GAT layer. Passing an ``int`` or list "
+            "of ``int`` s functions similarly as for ``hidden_feats``."
+        ),
+    )
+    feat_drops: str | float | list[float] = Field(
+        0,
+        description=(
+            "Dropout of input features for each GAT layer. Passing a ``float`` or "
+            "list of ``float`` s functions similarly as for ``hidden_feats``."
+        ),
+    )
+    attn_drops: str | float | list[float] = Field(
+        0,
+        description=(
+            "Dropout of attention values for each GAT layer. Passing a ``float`` or "
+            "list of ``float`` s functions similarly as for ``hidden_feats``."
+        ),
+    )
+    alphas: str | float | list[float] = Field(
+        0.2,
+        description=(
+            "Hyperparameter for ``LeakyReLU`` gate for each GAT layer. Passing a "
+            "``float`` or list of ``float`` s functions similarly as for "
+            "``hidden_feats``."
+        ),
+    )
+    residuals: str | bool | list[bool] = Field(
+        True,
+        description=(
+            "Whether to use residual connection for each GAT layer. Passing a ``bool`` "
+            "or list of ``bool`` s functions similarly as for ``hidden_feats``."
+        ),
+    )
+    agg_modes: str | list[str] = Field(
+        "flatten",
+        description=(
+            "Which aggregation mode [flatten, mean] to use for each GAT layer. "
+            "Passing a ``str`` or list of ``str`` s functions similarly as for "
+            "``hidden_feats``."
+        ),
+    )
+    activations: Callable | list[Callable] | list[None] | None = Field(
+        None,
+        description=(
+            "Activation function for each GAT layer. Passing a function or "
+            "list of functions functions similarly as for ``hidden_feats``."
+        ),
+    )
+    biases: str | bool | list[bool] = Field(
+        True,
+        description=(
+            "Whether to use bias for each GAT layer. Passing a ``bool`` or "
+            "list of ``bool`` s functions similarly as for ``hidden_feats``."
+        ),
+    )
+    allow_zero_in_degree: bool = Field(
+        False, description="Allow zero in degree nodes for all graph layers."
+    )
+
+    # Internal tracker for if the parameters were originally built from lists or using
+    #  num_layers
+    _from_num_layers = False
+
+    @root_validator(pre=False)
+    def massage_into_lists(cls, values) -> DGLGATModelConfig:
+        """
+        Validator to handle unifying all the values into the proper list forms based on
+        the rules described in the class docstring.
+        """
+        # First convert string lists to actual lists
+        for param, param_type in cls.LIST_PARAMS.items():
+            param_val = values[param]
+            if isinstance(param_val, str):
+                try:
+                    param_val = list(map(param_type, param_val.split(",")))
+                except ValueError:
+                    raise ValueError(
+                        f"Unable to parse value {param_val} for parameter {param}. "
+                        f"Expected type of {param_type}."
+                    )
+                values[param] = param_val
+
+        # Get sizes of all lists
+        list_lens = {}
+        for p in cls.LIST_PARAMS:
+            param_val = values[p]
+            if not isinstance(param_val, list):
+                # Shouldn't be possible at this point but just in case
+                param_val = [param_val]
+                values[p] = param_val
+            list_lens[p] = len(param_val)
+
+        # Check that there's only one length present
+        list_lens_set = set(list_lens.values())
+        # This could be 0 if lists of length 1 were passed, which is valid
+        if len(list_lens_set - {1}) > 1:
+            raise ValueError(
+                "All passed parameter lists must be the same value. "
+                f"Instead got list lengths of: {list_lens}"
+            )
+        elif list_lens_set == {1}:
+            # If all lists have only one value, we defer to the value passed to
+            #  num_layers, as described in the class docstring
+            num_layers = values["num_layers"]
+            values["_from_num_layers"] = True
+        else:
+            num_layers = max(list_lens_set)
+            values["_from_num_layers"] = False
+
+        values["num_layers"] = num_layers
+        # If we just want a model with one layer, can return early since we've already
+        #  converted everything into lists
+        if num_layers == 1:
+            return values
+
+        # Adjust any length 1 list to be the right length
+        for p, list_len in list_lens.items():
+            if list_len == 1:
+                values[p] = values[p] * num_layers
+
+        return values
+
+    def _build(self, mtenn_params={}):
+        """
+        Build an ``mtenn`` GAT ``Model`` from this config.
+
+        :meta public:
+
+        Parameters
+        ----------
+        mtenn_params : dict, optional
+            Dictionary that stores the ``Readout`` objects for the individual
+            predictions and for the combined prediction, and the ``Combination`` object
+            in the case of a multi-pose model. These are all constructed the same for all
+            ``Model`` types, so we can just handle them in the base class. Keys in the
+            dict will be:
+
+            * "combination": :py:mod:`Combination <mtenn.combination>`
+
+            * "pred_readout": :py:mod:`Readout <mtenn.readout>` for individual
+              pose predictions
+
+            * "comb_readout": :py:mod:`Readout <mtenn.readout>` for combined
+              prediction (in the case of a multi-pose model)
+
+            although the combination-related entries will be ignore because this is a
+            ligand-only model.
+
+        Returns
+        -------
+        mtenn.model.Model
+            Model constructed from the config
+        """
+        from mtenn.conversion_utils.dgl_gat import DGLGAT
+
+        model = DGLGAT(
+            in_feats=self.in_feats,
+            hidden_feats=self.hidden_feats,
+            num_heads=self.num_heads,
+            feat_drops=self.feat_drops,
+            attn_drops=self.attn_drops,
+            alphas=self.alphas,
+            residuals=self.residuals,
+            agg_modes=self.agg_modes,
+            activations=self.activations,
+            biases=self.biases,
+            allow_zero_in_degree=self.allow_zero_in_degree,
+        )
+
+        pred_readout = mtenn_params.get("pred_readout", None)
+        return DGLGAT.get_model(model=model, pred_readout=pred_readout, fix_device=True)
+
+    def _update(self, config_updates={}) -> DGLGATModelConfig:
+        """
+        GAT-specific implementation of updating logic. Need to handle stuff specially
+        to make sure that the original method of specifying parameters (either from a
+        passed value of ``num_layers`` or inferred from each parameter being a list) is
+        maintained.
+
+        :meta public:
+
+        Parameters
+        ----------
+        config_updates : dict
+            Dictionary mapping from field names to new values
+
+        Returns
+        -------
+        DGLGATModelConfig
+            New ``DGLGATModelConfig`` object
+        """
+        orig_config = self.dict()
+        if self._from_num_layers or ("num_layers" in config_updates):
+            # If originally generated from num_layers, want to pull out the first entry
+            #  in each list param so it can be re-broadcast with (potentially) new
+            #  num_layers
+            for param_name in DGLGATModelConfig.LIST_PARAMS.keys():
+                orig_config[param_name] = orig_config[param_name][0]
+
+        # Get new config by overwriting old stuff with any new stuff
+        new_config = orig_config | config_updates
+
+        # A bit hacky, maybe try and change?
+        if isinstance(new_config["activations"], list) and (
+            new_config["activations"][0] is None
+        ):
+            new_config["activations"] = None
+
+        return DGLGATModelConfig(**new_config)
 
 
 class SchNetModelConfig(ModelConfigBase):
