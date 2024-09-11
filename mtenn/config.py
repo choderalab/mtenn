@@ -421,6 +421,7 @@ class GATModelConfig(ModelConfigBase):
     )
     hidden_channels: int = Field(32, description="Hidden embedding size.")
     num_layers: int = Field(2, description="Number of GAT layers.")
+    v2: bool = Field(False, description="Use GATv2Conv layer instead of GATConv.")
     dropout: float = Field(0, description="Dropout probability.")
     heads: int = Field(4, description="Number of attention heads for each GAT layer.")
     negative_slope: float = Field(
@@ -464,6 +465,7 @@ class GATModelConfig(ModelConfigBase):
             in_channels=self.in_channels,
             hidden_channels=self.hidden_channels,
             num_layers=self.num_layers,
+            v2=self.v2,
             dropout=self.dropout,
             heads=self.heads,
             negative_slope=self.negative_slope,
@@ -513,6 +515,7 @@ class PyGGATModelConfig(GATModelConfig):
             in_channels=self.in_channels,
             hidden_channels=self.hidden_channels,
             num_layers=self.num_layers,
+            v2=self.v2,
             dropout=self.dropout,
             heads=self.heads,
             negative_slope=self.negative_slope,
