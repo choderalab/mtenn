@@ -36,7 +36,8 @@ The input passed to this model should be a `dict` with the following keys (based
     * `pos`: Tensor of coordinates for each atom, shape of `(n,3)`
     * `z`: Tensor of bool labels of whether each atom is a protein atom (`False`) or ligand atom (`True`), shape of `(n,)`
 * `GAT`
-    * `g`: DGL graph object
+    * `x`: Tensor of input atom (node) features, shape of `(n,feats)`
+    * `edge_index`: Tensor giving source (first row) and dest (second row) atom indices, shape of `(2,n_bonds)`
 
 The prediction can then be generated simply with:
 ```python

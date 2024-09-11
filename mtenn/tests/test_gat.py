@@ -1,73 +1,77 @@
 import pytest
 import torch
 
-from dgllife.model import GAT as GAT_dgl
-from dgllife.utils import CanonicalAtomFeaturizer, SMILESToBigraph
 from mtenn.conversion_utils.gat import GAT
+import rdkit.Chem as Chem
+from torch_geometric.nn.models import GAT as PygGAT
 
 
 @pytest.fixture
 def model_input():
+    # Build mol
     smiles = "CCCC"
-    g = SMILESToBigraph(add_self_loop=True, node_featurizer=CanonicalAtomFeaturizer())(
-        smiles
-    )
+    mol = Chem.MolFromSmiles(smiles)
 
-    return {"g": g, "smiles": smiles}
+    # Get atomic numbers and bond indices (both directions)
+    atomic_nums = [a.GetAtomicNum() for a in mol.GetAtoms()]
+    bond_idxs = [
+        atom_pair
+        for bond in mol.GetBonds()
+        for atom_pair in (
+            (bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()),
+            (bond.GetEndAtomIdx(), bond.GetBeginAtomIdx()),
+        )
+    ]
+    # Add self bonds
+    bond_idxs += [(a.GetIdx(), a.GetIdx()) for a in mol.GetAtoms()]
+
+    # Encode atomic numbers as one-hot, assume max num of 100
+    feature_tensor = torch.nn.functional.one_hot(
+        torch.tensor(atomic_nums), num_classes=100
+    ).to(dtype=torch.float)
+    # Format bonds in correct shape
+    bond_list_tensor = torch.tensor(bond_idxs).t()
+
+    return {"x": feature_tensor, "edge_index": bond_list_tensor, "smiles": smiles}
 
 
 def test_build_gat_directly_kwargs():
-    model = GAT(in_feats=10, hidden_feats=[1, 2, 3])
-    assert len(model.gnn.gnn_layers) == 3
+    model = GAT(in_channels=-1, hidden_channels=32, num_layers=2)
+    assert model.gnn.num_layers == 2
 
-    assert model.gnn.gnn_layers[0].gat_conv._in_src_feats == 10
-    assert model.gnn.gnn_layers[0].gat_conv._out_feats == 1
+    assert model.gnn.convs[0].in_channels == -1
+    assert model.gnn.convs[0].out_channels == 32
 
-    # hidden_feats * num_heads = 1 * 4
-    assert model.gnn.gnn_layers[1].gat_conv._in_src_feats == 4
-    assert model.gnn.gnn_layers[1].gat_conv._out_feats == 2
-
-    # hidden_feats * num_heads = 2 * 4
-    assert model.gnn.gnn_layers[2].gat_conv._in_src_feats == 8
-    assert model.gnn.gnn_layers[2].gat_conv._out_feats == 3
+    assert model.gnn.convs[1].in_channels == 32
+    assert model.gnn.convs[1].out_channels == 32
 
 
-def test_build_gat_from_dgl_gat():
-    dgl_model = GAT_dgl(in_feats=10, hidden_feats=[1, 2, 3])
-    model = GAT(model=dgl_model)
+def test_build_gat_from_pyg_gat():
+    pyg_model = PygGAT(in_channels=10, hidden_channels=32, num_layers=2)
+    model = GAT(model=pyg_model)
 
     # Check set up as before
-    assert len(model.gnn.gnn_layers) == 3
+    assert model.gnn.num_layers == 2
 
-    assert model.gnn.gnn_layers[0].gat_conv._in_src_feats == 10
-    assert model.gnn.gnn_layers[0].gat_conv._out_feats == 1
+    assert model.gnn.convs[0].in_channels == 10
+    assert model.gnn.convs[0].out_channels == 32
 
-    # hidden_feats * num_heads = 1 * 4
-    assert model.gnn.gnn_layers[1].gat_conv._in_src_feats == 4
-    assert model.gnn.gnn_layers[1].gat_conv._out_feats == 2
-
-    # hidden_feats * num_heads = 2 * 4
-    assert model.gnn.gnn_layers[2].gat_conv._in_src_feats == 8
-    assert model.gnn.gnn_layers[2].gat_conv._out_feats == 3
+    assert model.gnn.convs[1].in_channels == 32
+    assert model.gnn.convs[1].out_channels == 32
 
     # Check that model weights got copied
-    ref_params = dict(dgl_model.state_dict())
+    ref_params = dict(pyg_model.state_dict())
     for n, model_param in model.gnn.named_parameters():
         assert (model_param == ref_params[n]).all()
 
 
-def test_set_predictor_hidden_feats():
-    model = GAT(in_feats=10, predictor_hidden_feats=10)
-    assert model.predict[0].out_features == 10
-
-
 def test_gat_can_predict(model_input):
-    model = GAT(in_feats=CanonicalAtomFeaturizer().feat_size())
+    model = GAT(in_channels=-1, hidden_channels=32, num_layers=2)
     _ = model(model_input)
 
 
 def test_representation_is_correct():
-    model = GAT(in_feats=10)
+    model = GAT(in_channels=10, hidden_channels=32, num_layers=2)
     rep = model._get_representation()
 
     model_params = dict(model.gnn.named_parameters())
@@ -76,14 +80,14 @@ def test_representation_is_correct():
 
 
 def test_get_model_no_ref():
-    model = GAT.get_model(in_feats=10)
+    model = GAT.get_model(in_channels=10, hidden_channels=32, num_layers=2)
 
     assert isinstance(model.representation, GAT)
     assert model.readout is None
 
 
 def test_get_model_ref():
-    ref_model = GAT(in_feats=10)
+    ref_model = GAT(in_channels=10, hidden_channels=32, num_layers=2)
     model = GAT.get_model(model=ref_model)
 
     assert isinstance(model.representation, GAT)
