@@ -148,6 +148,10 @@ class PKiReadout(Readout):
         \mathrm{pK_i} &= \mathrm{-log10(K_i)}
 
         \mathrm{pK_i} &= \mathrm{-log10(exp(\Delta G))}
+
+        \mathrm{pK_i} &= \\frac{\mathrm{-ln(exp(\Delta G))}}{\mathrm{ln(10)}}
+
+        \mathrm{pK_i} &= \\frac{\mathrm{-\Delta G}}{\mathrm{ln(10)}}
     """
 
     def __repr__(self):
@@ -168,6 +172,6 @@ class PKiReadout(Readout):
         torch.Tensor
             Calculated :math:`\mathrm{pK_i}` value.
         """
-        pki = -torch.log10(torch.exp(delta_g))
+        pki = -delta_g / torch.log(torch.tensor(10, dtype=delta_g.dtype))
 
         return pki
