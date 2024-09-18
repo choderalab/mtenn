@@ -108,6 +108,7 @@ class E3NN(Network):
         # Remove last layer
         model_copy.layers = model_copy.layers[:-1]
         model_copy.reduce_output = reduce_output
+        model_copy.irreps_out = model_copy.layers[-1].irreps_out
 
         return model_copy
 
@@ -169,7 +170,10 @@ class E3NN(Network):
             ``ConcatStrategy`` for the model
         """
 
-        return ConcatStrategy(extract_key="x")
+        # Calculate input size as 3 * dimensionality of output of Representation
+        #  (last layer in Representation is 2nd to last in original model)
+        input_size = 3 * self.layers[-2].irreps_out.dim
+        return ConcatStrategy(input_size=input_size, extract_key="x")
 
     @staticmethod
     def get_model(
@@ -227,23 +231,20 @@ class E3NN(Network):
         if model is None:
             model = E3NN(model_kwargs)
 
+        # Get representation module
+        representation = model._get_representation(reduce_output=strategy == "concat")
+
         # Construct strategy module based on model and
         #  representation (if necessary)
         strategy = strategy.lower()
         if strategy == "delta":
             strategy = model._get_delta_strategy()
-            reduce_output = False
         elif strategy == "concat":
             strategy = model._get_concat_strategy()
-            reduce_output = True
         elif strategy == "complex":
             strategy = model._get_complex_only_strategy()
-            reduce_output = False
         else:
             raise ValueError(f"Unknown strategy: {strategy}")
-
-        # Get representation module
-        representation = model._get_representation(reduce_output=reduce_output)
 
         # Check on `combination`
         if grouped and (combination is None):
