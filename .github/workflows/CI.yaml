@@ -46,6 +46,7 @@ jobs:
     - name: Setup Micromamba
       uses: mamba-org/setup-micromamba@v1
       with:
+        micromamba-version: '1.5.10-0'
         environment-file: ${{ matrix.deps }}
         environment-name: test
         create-args: >-
