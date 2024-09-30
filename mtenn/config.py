@@ -140,7 +140,8 @@ class ModelConfigBase(BaseModel):
     to implement the ``_build`` method in order to be used.
     """
 
-    model_type: ModelType = Field(ModelType.INVALID, const=True, frozen=True)
+    model_type: Literal[ModelType.INVALID] = ModelType.INVALID
+
 
     # Random seed optional for reproducibility
     rand_seed: int | None = Field(
