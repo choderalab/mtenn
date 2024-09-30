@@ -15,9 +15,9 @@ from __future__ import annotations
 
 import abc
 from enum import Enum
-from pydantic import BaseModel, Field, root_validator
+from pydantic import model_validator, ConfigDict, BaseModel, Field
 import random
-from typing import Callable, ClassVar
+from typing import Literal, Callable, ClassVar
 import mtenn.combination
 import mtenn.readout
 import mtenn.model
@@ -140,7 +140,7 @@ class ModelConfigBase(BaseModel):
     to implement the ``_build`` method in order to be used.
     """
 
-    model_type: ModelType = Field(ModelType.INVALID, const=True, allow_mutation=False)
+    model_type: ModelType = Field(ModelType.INVALID, const=True, frozen=True)
 
     # Random seed optional for reproducibility
     rand_seed: int | None = Field(
@@ -240,9 +240,7 @@ class ModelConfigBase(BaseModel):
             "``comb_substrate``."
         ),
     )
-
-    class Config:
-        validate_assignment = True
+    model_config = ConfigDict(validate_assignment=True)
 
     def build(self) -> mtenn.model.Model:
         """
@@ -436,7 +434,7 @@ class GATModelConfig(ModelConfigBase):
         "biases": bool,
     }  #: :meta private:
 
-    model_type: ModelType = Field(ModelType.GAT, const=True)
+    model_type: Literal[ModelType.GAT] = ModelType.GAT
 
     in_feats: int = Field(
         _CanonicalAtomFeaturizer().feat_size(),
@@ -527,7 +525,8 @@ class GATModelConfig(ModelConfigBase):
     #  num_layers
     _from_num_layers = False
 
-    @root_validator(pre=False)
+    @model_validator()
+    @classmethod
     def massage_into_lists(cls, values) -> GATModelConfig:
         """
         Validator to handle unifying all the values into the proper list forms based on
@@ -681,7 +680,7 @@ class SchNetModelConfig(ModelConfigBase):
     given in PyG.
     """
 
-    model_type: ModelType = Field(ModelType.schnet, const=True)
+    model_type: Literal[ModelType.schnet] = ModelType.schnet
 
     hidden_channels: int = Field(128, description="Hidden embedding size.")
     num_filters: int = Field(
@@ -738,7 +737,8 @@ class SchNetModelConfig(ModelConfigBase):
         ),
     )
 
-    @root_validator(pre=False)
+    @model_validator()
+    @classmethod
     def validate(cls, values):
         # Make sure the grouped stuff is properly assigned
         ModelConfigBase._check_grouped(values)
@@ -816,7 +816,7 @@ class E3NNModelConfig(ModelConfigBase):
     Class for constructing an e3nn ML model.
     """
 
-    model_type: ModelType = Field(ModelType.e3nn, const=True)
+    model_type: Literal[ModelType.e3nn] = ModelType.e3nn
 
     num_atom_types: int = Field(
         100,
@@ -862,7 +862,8 @@ class E3NNModelConfig(ModelConfigBase):
     num_neighbors: float = Field(25, description="Typical number of neighbor nodes.")
     num_nodes: float = Field(4700, description="Typical number of nodes in a graph.")
 
-    @root_validator(pre=False)
+    @model_validator()
+    @classmethod
     def massage_irreps(cls, values):
         """
         Check that the value given for ``irreps_hidden`` can be converted into an Irreps
@@ -994,7 +995,7 @@ class ViSNetModelConfig(ModelConfigBase):
     given in PyG.
     """
 
-    model_type: ModelType = Field(ModelType.visnet, const=True)
+    model_type: Literal[ModelType.visnet] = ModelType.visnet
     lmax: int = Field(1, description="The maximum degree of the spherical harmonics.")
     vecnorm_type: str | None = Field(
         None, description="The type of normalization to apply to the vectors."
@@ -1041,7 +1042,8 @@ class ViSNetModelConfig(ModelConfigBase):
         ),
     )
 
-    @root_validator(pre=False)
+    @model_validator()
+    @classmethod
     def validate(cls, values):
         """
         Check that ``atomref`` and ``max_z`` agree.
