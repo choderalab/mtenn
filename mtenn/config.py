@@ -526,7 +526,7 @@ class GATModelConfig(ModelConfigBase):
     #  num_layers
     _from_num_layers = False
 
-    @model_validator(mode="before")
+    @model_validator(mode="after")
     @classmethod
     def massage_into_lists(cls, values) -> GATModelConfig:
         """
@@ -738,7 +738,7 @@ class SchNetModelConfig(ModelConfigBase):
         ),
     )
 
-    @model_validator(mode="before")
+    @model_validator(mode="after")
     @classmethod
     def validate(cls, values):
         # Make sure the grouped stuff is properly assigned
@@ -863,7 +863,7 @@ class E3NNModelConfig(ModelConfigBase):
     num_neighbors: float = Field(25, description="Typical number of neighbor nodes.")
     num_nodes: float = Field(4700, description="Typical number of nodes in a graph.")
 
-    @model_validator(mode="before")
+    @model_validator(mode="after")
     @classmethod
     def massage_irreps(cls, values):
         """
@@ -1043,7 +1043,7 @@ class ViSNetModelConfig(ModelConfigBase):
         ),
     )
 
-    @model_validator(mode="before")
+    @model_validator(mode="after")
     @classmethod
     def validate(cls, values):
         """
