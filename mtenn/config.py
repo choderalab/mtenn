@@ -393,7 +393,7 @@ class ModelConfigBase(BaseModel):
         Makes sure that a Combination method is passed if using a GroupedModel. Only
         needs to be called for structure-based models.
         """
-        if values["grouped"] and (not values["combination"]):
+        if values.grouped and not values.combination:
             raise ValueError("combination must be specified for a GroupedModel.")
 
 
@@ -526,7 +526,7 @@ class GATModelConfig(ModelConfigBase):
     #  num_layers
     _from_num_layers = False
 
-    @model_validator(mode="before")
+    @model_validator(mode="after")
     @classmethod
     def massage_into_lists(cls, values) -> GATModelConfig:
         """
@@ -567,13 +567,13 @@ class GATModelConfig(ModelConfigBase):
         elif list_lens_set == {1}:
             # If all lists have only one value, we defer to the value passed to
             #  num_layers, as described in the class docstring
-            num_layers = values["num_layers"]
-            values["_from_num_layers"] = True
+            num_layers = values.num_layers
+            values._from_num_layers = True
         else:
             num_layers = max(list_lens_set)
-            values["_from_num_layers"] = False
+            values._from_num_layers = False
 
-        values["num_layers"] = num_layers
+        values.num_layers = num_layers
         # If we just want a model with one layer, can return early since we've already
         #  converted everything into lists
         if num_layers == 1:
@@ -738,14 +738,14 @@ class SchNetModelConfig(ModelConfigBase):
         ),
     )
 
-    @model_validator(mode="before")
+    @model_validator(mode="after")
     @classmethod
     def validate(cls, values):
         # Make sure the grouped stuff is properly assigned
         ModelConfigBase._check_grouped(values)
 
         # Make sure atomref length is correct (this is required by PyG)
-        atomref = values["atomref"]
+        atomref = values.atomref
         if (atomref is not None) and (len(atomref) != 100):
             raise ValueError(f"atomref must be length 100 (got {len(atomref)})")
 
@@ -863,7 +863,7 @@ class E3NNModelConfig(ModelConfigBase):
     num_neighbors: float = Field(25, description="Typical number of neighbor nodes.")
     num_nodes: float = Field(4700, description="Typical number of nodes in a graph.")
 
-    @model_validator(mode="before")
+    @model_validator(mode="after")
     @classmethod
     def massage_irreps(cls, values):
         """
@@ -876,7 +876,7 @@ class E3NNModelConfig(ModelConfigBase):
         ModelConfigBase._check_grouped(values)
 
         # Now deal with irreps
-        irreps = values["irreps_hidden"]
+        irreps = values.irreps_hidden
         # First see if this string should be converted into a dict
         if isinstance(irreps, str):
             if ":" in irreps:
@@ -925,7 +925,7 @@ class E3NNModelConfig(ModelConfigBase):
         except ValueError:
             raise ValueError(f"Couldn't parse irreps dict: {orig_irreps}")
 
-        values["irreps_hidden"] = irreps
+        values.irreps_hidden = irreps
         return values
 
     def _build(self, mtenn_params={}):
@@ -1043,7 +1043,7 @@ class ViSNetModelConfig(ModelConfigBase):
         ),
     )
 
-    @model_validator(mode="before")
+    @model_validator(mode="after")
     @classmethod
     def validate(cls, values):
         """
@@ -1053,10 +1053,10 @@ class ViSNetModelConfig(ModelConfigBase):
         ModelConfigBase._check_grouped(values)
 
         # Make sure atomref length is correct (this is required by PyG)
-        atomref = values["atomref"]
-        if (atomref is not None) and (len(atomref) != values["max_z"]):
+        atomref = values.atomref
+        if (atomref is not None) and (len(atomref) != values.max_z):
             raise ValueError(
-                f"atomref length must match max_z. (Expected {values['max_z']}, got {len(atomref)})"
+                f"atomref length must match max_z. (Expected {values.max_z}, got {len(atomref)})"
             )
 
         return values
