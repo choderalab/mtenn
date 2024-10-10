@@ -587,7 +587,8 @@ class GATModelConfig(ModelConfigBase):
             if list_len == 1:
                 values[p] = values[p] * num_layers
 
-        return self.__dict__.update(values)
+        self.__dict__.update(values)
+        return self
 
     def _build(self, mtenn_params={}):
         """
