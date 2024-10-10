@@ -527,14 +527,15 @@ class GATModelConfig(ModelConfigBase):
     _from_num_layers = False
 
     @model_validator(mode="after")
-    @classmethod
-    def massage_into_lists(cls, values) -> GATModelConfig:
+    def massage_into_lists(self) -> GATModelConfig:
         """
         Validator to handle unifying all the values into the proper list forms based on
         the rules described in the class docstring.
         """
+        values = self.dict()
+
         # First convert string lists to actual lists
-        for param, param_type in cls.LIST_PARAMS.items():
+        for param, param_type in self.LIST_PARAMS.items():
             param_val = values[param]
             if isinstance(param_val, str):
                 try:
@@ -548,7 +549,7 @@ class GATModelConfig(ModelConfigBase):
 
         # Get sizes of all lists
         list_lens = {}
-        for p in cls.LIST_PARAMS:
+        for p in self.LIST_PARAMS:
             param_val = values[p]
             if not isinstance(param_val, list):
                 # Shouldn't be possible at this point but just in case
@@ -567,24 +568,26 @@ class GATModelConfig(ModelConfigBase):
         elif list_lens_set == {1}:
             # If all lists have only one value, we defer to the value passed to
             #  num_layers, as described in the class docstring
-            num_layers = values.num_layers
-            values._from_num_layers = True
+            num_layers = values["num_layers"]
+            values["_from_num_layers"] = True
         else:
             num_layers = max(list_lens_set)
-            values._from_num_layers = False
+            values["_from_num_layers"] = False
 
-        values.num_layers = num_layers
+        values["num_layers"] = num_layers
         # If we just want a model with one layer, can return early since we've already
         #  converted everything into lists
         if num_layers == 1:
-            return values
+            # update self with the new values
+            self.__dict__.update(values)
+            
 
         # Adjust any length 1 list to be the right length
         for p, list_len in list_lens.items():
             if list_len == 1:
                 values[p] = values[p] * num_layers
 
-        return values
+        return self.__dict__.update(values)
 
     def _build(self, mtenn_params={}):
         """
