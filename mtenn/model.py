@@ -8,7 +8,7 @@ import torch
 
 from mtenn.combination import Combination
 from mtenn.representation import Representation
-from mtenn.strategy import Strategy
+from mtenn.strategy import ComplexOnlyStrategy, Strategy
 from mtenn.readout import Readout
 
 
@@ -79,9 +79,12 @@ class Model(torch.nn.Module):
         tmp_comp = self._fix_device(comp)
         complex_rep = self.get_representation(tmp_comp)
 
-        if len(parts) == 0:
-            parts = Model._split_parts(tmp_comp)
-        parts_rep = [self.get_representation(self._fix_device(p)) for p in parts]
+        if isinstance(self.strategy, ComplexOnlyStrategy):
+            parts_rep = []
+        else:
+            if len(parts) == 0:
+                parts = Model._split_parts(tmp_comp)
+            parts_rep = [self.get_representation(self._fix_device(p)) for p in parts]
 
         energy_val = self.strategy(complex_rep, *parts_rep)
         if self.readout:
