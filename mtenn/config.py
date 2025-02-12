@@ -244,6 +244,8 @@ class ModelConfigBase(BaseModel):
     class Config:
         validate_assignment = True
 
+        fields = {"model_weights": {"exclude": True}}
+
     def build(self) -> mtenn.model.Model:
         """
         Exposed function that first parses all the ``mtenn``-related args, and then
