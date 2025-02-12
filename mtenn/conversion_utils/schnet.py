@@ -100,7 +100,7 @@ class SchNet(PygSchNet):
 
         return model_copy
 
-    def _get_energy_func(self):
+    def _get_energy_func(self, layer_norm=False):
         """
         Return copy of last layer of the model.
 
@@ -108,6 +108,8 @@ class SchNet(PygSchNet):
         ----------
         model: mtenn.conversion_utils.schnet.SchNet
             ``SchNet`` model
+        layer_norm: bool, default=False
+            Apply a LayerNorm normalization before passing through the linear layer
 
         Returns
         -------
@@ -115,7 +117,12 @@ class SchNet(PygSchNet):
             Copy of last layer
         """
 
-        return deepcopy(self.lin2)
+        lin = deepcopy(self.lin2)
+        if layer_norm:
+            energy_func = torch.nn.Sequential(torch.nn.LayerNorm(lin.in_features), lin)
+        else:
+            energy_func = lin
+        return energy_func
 
     def _get_delta_strategy(self):
         """

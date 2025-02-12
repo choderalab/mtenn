@@ -115,7 +115,7 @@ class ConcatStrategy(Strategy):
     initialize a one-layer linear network of the appropriate dimensionality.
     """
 
-    def __init__(self, input_size, extract_key=None):
+    def __init__(self, input_size, extract_key=None, layer_norm=False):
         """
         Set the key to use to access vector representations if ``dict`` s are passed to
         the ``forward`` call.
@@ -126,9 +126,17 @@ class ConcatStrategy(Strategy):
             Input size of linear model
         extract_key : str, optional
             Key to use to extract representation from a dict
+        layer_norm: bool, default=False
+            Apply a LayerNorm normalization before passing through the linear layer
+
         """
         super(ConcatStrategy, self).__init__()
-        self.reduce_nn = torch.nn.Linear(input_size, 1)
+        if layer_norm:
+            self.reduce_nn = torch.nn.Sequential(
+                torch.nn.LayerNorm(input_size), torch.nn.Linear(input_size, 1)
+            )
+        else:
+            self.reduce_nn = torch.nn.Linear(input_size, 1)
         self.extract_key = extract_key
 
     def forward(self, comp, *parts):
