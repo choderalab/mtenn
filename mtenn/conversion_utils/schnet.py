@@ -7,6 +7,8 @@ torch_geometric.nn.models.SchNet.html#torch_geometric.nn.models.SchNet>`_.
 from copy import deepcopy
 import torch
 from torch_geometric.nn.models import SchNet as PygSchNet
+from torch_geometric.nn.models import RadiusInteractionGraph
+from typing import Callable, Optional
 
 from mtenn.model import GroupedModel, Model
 from mtenn.strategy import ComplexOnlyStrategy, ConcatStrategy, DeltaStrategy
@@ -249,3 +251,76 @@ class SchNet(PygSchNet):
             )
         else:
             return Model(representation, strategy, pred_readout, fix_device)
+
+
+class MemoizedRadiusInteractionGraph(RadiusInteractionGraph):
+    """
+    Memoized version of the PyG RadiusInteractionGraph. The lookup function used to
+    map the position and batch tensors to the edge index/weight tensors can be any
+    function with the appropriate signature, but defaults to a string of the number of
+    atoms and the x, y, and z coords of the first and last two atoms to 7 decimal
+    points. Note that this of course relies on the atoms for a given sample being in the
+    same order each time.
+    """
+
+    def __init__(
+        self,
+        lookup_function: Optional[Callable] = None,
+        cutoff: float = 10.0,
+        max_num_neighbors: int = 32,
+    ):
+        """
+        Initialize underlying RadiusInteractionGraph and define lookup function for
+        storing computed results.
+
+        Parameters
+        ----------
+        lookup_function: Callable, optional
+            Function mapping from position and batch tensors to a dict lookup key
+        cutoff: float, default=10.0
+            Cutoff distance for interatomic interactions
+        max_num_neighbors: int, default=32
+            The maximum number of neighbors to collect for each node within the
+            ``cutoff`` distance with the default interaction graph method
+        """
+        super().__init__(cutoff=cutoff, max_num_neighbors=max_num_neighbors)
+
+        if lookup_function is None:
+
+            def lookup_function(pos: torch.Tensor, batch: torch.Tensor):
+                return (
+                    str(len(pos))
+                    + "".join([f"{v:0.7f}" for v in pos[:2, :].flatten()])
+                    + "".join([f"{v:0.7f}" for v in pos[-2:, :].flatten()])
+                )
+
+        self.lookup_function = lookup_function
+        self.lookup_table = {}
+
+    def forward(self, pos: torch.Tensor, batch: torch.Tensor):
+        """
+        Perform forward pass of RadiusInteractionGraph class, first checking to see if
+        this calculation has already been done.
+
+        Parameters
+        ----------
+        pos: torch.Tensor
+            Coordinates of each atom
+        batch: torch.Tensor
+            Batch indices assigning each atom to a separate molecule
+
+        Returns
+        -------
+        torch.Tensor
+            Edge index tensor
+        torch.Tensor
+            Edge weight tensor
+        """
+        lookup_key = self.lookup_function(pos, batch)
+
+        try:
+            return self.lookup_table[lookup_key]
+        except KeyError:
+            edge_index, edge_weight = super().forward(pos, batch)
+            self.lookup_table[lookup_key] = (edge_index, edge_weight)
+            return edge_index, edge_weight
