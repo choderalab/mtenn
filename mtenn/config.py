@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import abc
 from enum import Enum
-from pydantic import BaseModel, Field, root_validator
+from pydantic import BaseModel, Field, root_validator, validator
 import random
 from typing import Callable, ClassVar
 import mtenn.combination
@@ -693,11 +693,12 @@ class SchNetModelConfig(ModelConfigBase):
     num_gaussians: int = Field(
         50, description="Number of gaussians to use in the interaction blocks."
     )
-    interaction_graph: Callable | None = Field(
+    interaction_graph: Callable | str | None = Field(
         None,
         description=(
             "Function to compute the pairwise interaction graph and "
-            "interatomic distances."
+            "interatomic distances. If an str is passed it must be one of the "
+            'supported options ["memoized_radius"].'
         ),
     )
     cutoff: float = Field(
@@ -752,6 +753,15 @@ class SchNetModelConfig(ModelConfigBase):
 
         return values
 
+    @validator("interaction_graph")
+    def check_interaction_graph_str(cls, v):
+        """
+        Validator to make sure that an appropriate str was passed.
+        """
+        if isinstance(v, str):
+            if v not in {"memoized_radius"}:
+                raise ValueError(f"Unknown value {v} for interaction_graph.")
+
     def _build(self, mtenn_params={}):
         """
         Build an ``mtenn`` SchNet ``Model`` from this config.
@@ -780,7 +790,21 @@ class SchNetModelConfig(ModelConfigBase):
         mtenn.model.Model
             Model constructed from the config
         """
-        from mtenn.conversion_utils.schnet import SchNet
+        from mtenn.conversion_utils.schnet import MemoizedRadiusInteractionGraph, SchNet
+
+        # Handle different options for interaction graph
+        if isinstance(self.interaction_graph, str):
+            match self.interaction_graph:
+                case "memoized_radius":
+                    interaction_graph = MemoizedRadiusInteractionGraph(
+                        cutoff=self.cutoff, max_num_neighbors=self.max_num_neighbors
+                    )
+                case _:
+                    raise ValueError(
+                        f"Unknown value {self.interaction_graph} for interaction_graph."
+                    )
+        else:
+            interaction_graph = self.interaction_graph
 
         # Create an MTENN SchNet model from PyG SchNet model
         model = SchNet(
@@ -788,7 +812,7 @@ class SchNetModelConfig(ModelConfigBase):
             num_filters=self.num_filters,
             num_interactions=self.num_interactions,
             num_gaussians=self.num_gaussians,
-            interaction_graph=self.interaction_graph,
+            interaction_graph=interaction_graph,
             cutoff=self.cutoff,
             max_num_neighbors=self.max_num_neighbors,
             readout=self.readout,
