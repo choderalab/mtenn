@@ -127,7 +127,7 @@ class ConcatStrategy(Strategy):
         extract_key : str, optional
             Key to use to extract representation from a dict
         layer_norm: bool, default=False
-            Apply a LayerNorm normalization before passing through the linear layer
+            Apply a ``LayerNorm`` normalization before passing through the linear layer
 
         """
         super(ConcatStrategy, self).__init__()
