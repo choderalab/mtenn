@@ -762,6 +762,8 @@ class SchNetModelConfig(ModelConfigBase):
             if v not in {"memoized_radius"}:
                 raise ValueError(f"Unknown value {v} for interaction_graph.")
 
+        return v
+
     def _build(self, mtenn_params={}):
         """
         Build an ``mtenn`` SchNet ``Model`` from this config.
