@@ -112,9 +112,14 @@ class E3NN(Network):
 
         return model_copy
 
-    def _get_energy_func(self, layer_norm=True):
+    def _get_energy_func(self, layer_norm=False):
         """
         Return copy of last layer of the model.
+
+        Parameters
+        ----------
+        layer_norm: bool, default=False
+            Apply a ``LayerNorm`` normalization before passing through the linear layer
 
         Returns
         -------
@@ -137,10 +142,15 @@ class E3NN(Network):
 
         return new_model
 
-    def _get_delta_strategy(self):
+    def _get_delta_strategy(self, layer_norm=False):
         """
         Build a :py:class:`DeltaStrategy <mtenn.strategy.DeltaStrategy>` object based on
         the calling model.
+
+        Parameters
+        ----------
+        layer_norm: bool, default=False
+            Apply a ``LayerNorm`` normalization before passing through the linear layer
 
         Returns
         -------
@@ -148,12 +158,17 @@ class E3NN(Network):
             ``DeltaStrategy`` built from the model
         """
 
-        return DeltaStrategy(self._get_energy_func())
+        return DeltaStrategy(self._get_energy_func(layer_norm))
 
-    def _get_complex_only_strategy(self):
+    def _get_complex_only_strategy(self, layer_norm=False):
         """
         Build a :py:class:`ComplexOnlyStrategy <mtenn.strategy.ComplexOnlyStrategy>`
         object based on the calling model.
+
+        Parameters
+        ----------
+        layer_norm: bool, default=False
+            Apply a ``LayerNorm`` normalization before passing through the linear layer
 
         Returns
         -------
@@ -161,12 +176,17 @@ class E3NN(Network):
             ``ComplexOnlyStrategy`` built from the model
         """
 
-        return ComplexOnlyStrategy(self._get_energy_func())
+        return ComplexOnlyStrategy(self._get_energy_func(layer_norm))
 
-    def _get_concat_strategy(self):
+    def _get_concat_strategy(self, layer_norm=False):
         """
         Build a :py:class:`ConcatStrategy <mtenn.strategy.ConcatStrategy>` object using
         the key ``"x"`` to extract the tensor representation from the data dict.
+
+        Parameters
+        ----------
+        layer_norm: bool, default=False
+            Apply a ``LayerNorm`` normalization before passing through the linear layer
 
         Returns
         -------
@@ -177,7 +197,9 @@ class E3NN(Network):
         # Calculate input size as 3 * dimensionality of output of Representation
         #  (last layer in Representation is 2nd to last in original model)
         input_size = 3 * self.layers[-2].irreps_out.dim
-        return ConcatStrategy(input_size=input_size, extract_key="x")
+        return ConcatStrategy(
+            input_size=input_size, extract_key="x", layer_norm=layer_norm
+        )
 
     @staticmethod
     def get_model(
@@ -186,6 +208,7 @@ class E3NN(Network):
         grouped=False,
         fix_device=False,
         strategy: str = "delta",
+        layer_norm: bool = False,
         combination=None,
         pred_readout=None,
         comb_readout=None,
@@ -212,6 +235,8 @@ class E3NN(Network):
         strategy: str, default='delta'
             ``Strategy`` to use to combine representations of the different parts.
             Options are [``delta``, ``concat``, ``complex``]
+        layer_norm: bool, default=False
+            Apply a ``LayerNorm`` normalization before passing through the linear layer
         combination: mtenn.combination.Combination, optional
             ``Combination`` object to use to combine multiple predictions. A value must
             be passed if ``grouped`` is ``True``
@@ -242,11 +267,11 @@ class E3NN(Network):
         #  representation (if necessary)
         strategy = strategy.lower()
         if strategy == "delta":
-            strategy = model._get_delta_strategy()
+            strategy = model._get_delta_strategy(layer_norm)
         elif strategy == "concat":
-            strategy = model._get_concat_strategy()
+            strategy = model._get_concat_strategy(layer_norm)
         elif strategy == "complex":
-            strategy = model._get_complex_only_strategy()
+            strategy = model._get_complex_only_strategy(layer_norm)
         else:
             raise ValueError(f"Unknown strategy: {strategy}")
 

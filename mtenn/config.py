@@ -160,6 +160,9 @@ class ModelConfigBase(BaseModel):
             f"Options are [{', '.join(StrategyConfig.get_values())}]."
         ),
     )
+    strategy_layer_norm: bool = Field(
+        False, description="Apply LayerNorm operation in the Strategy."
+    )
     pred_readout: ReadoutConfig | None = Field(
         None,
         description=(
@@ -833,6 +836,7 @@ class SchNetModelConfig(ModelConfigBase):
             grouped=self.grouped,
             fix_device=True,
             strategy=self.strategy,
+            layer_norm=self.strategy_layer_norm,
             combination=combination,
             pred_readout=pred_readout,
             comb_readout=comb_readout,
@@ -1010,6 +1014,7 @@ class E3NNModelConfig(ModelConfigBase):
             grouped=self.grouped,
             fix_device=True,
             strategy=self.strategy,
+            layer_norm=self.strategy_layer_norm,
             combination=combination,
             pred_readout=pred_readout,
             comb_readout=comb_readout,

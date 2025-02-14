@@ -111,7 +111,7 @@ class SchNet(PygSchNet):
         model: mtenn.conversion_utils.schnet.SchNet
             ``SchNet`` model
         layer_norm: bool, default=False
-            Apply a LayerNorm normalization before passing through the linear layer
+            Apply a ``LayerNorm`` normalization before passing through the linear layer
 
         Returns
         -------
@@ -126,10 +126,15 @@ class SchNet(PygSchNet):
             energy_func = lin
         return energy_func
 
-    def _get_delta_strategy(self):
+    def _get_delta_strategy(self, layer_norm=False):
         """
         Build a :py:class:`DeltaStrategy <mtenn.strategy.DeltaStrategy>` object based on
         the calling model.
+
+        Parameters
+        ----------
+        layer_norm: bool, default=False
+            Apply a ``LayerNorm`` normalization before passing through the linear layer
 
         Returns
         -------
@@ -137,12 +142,17 @@ class SchNet(PygSchNet):
             ``DeltaStrategy`` built from the model
         """
 
-        return DeltaStrategy(self._get_energy_func())
+        return DeltaStrategy(self._get_energy_func(layer_norm))
 
-    def _get_complex_only_strategy(self):
+    def _get_complex_only_strategy(self, layer_norm=False):
         """
         Build a :py:class:`ComplexOnlyStrategy <mtenn.strategy.ComplexOnlyStrategy>`
         object based on the calling model.
+
+        Parameters
+        ----------
+        layer_norm: bool, default=False
+            Apply a ``LayerNorm`` normalization before passing through the linear layer
 
         Returns
         -------
@@ -150,12 +160,17 @@ class SchNet(PygSchNet):
             ``ComplexOnlyStrategy`` built from the model
         """
 
-        return ComplexOnlyStrategy(self._get_energy_func())
+        return ComplexOnlyStrategy(self._get_energy_func(layer_norm))
 
-    def _get_concat_strategy(self):
+    def _get_concat_strategy(self, layer_norm=False):
         """
         Build a :py:class:`ConcatStrategy <mtenn.strategy.ConcatStrategy>` object with
         the appropriate ``input_size``.
+
+        Parameters
+        ----------
+        layer_norm: bool, default=False
+            Apply a ``LayerNorm`` normalization before passing through the linear layer
 
         Returns
         -------
@@ -166,7 +181,7 @@ class SchNet(PygSchNet):
         # Calculate input size as 3 * dimensionality of output of Representation
         #  (ie lin1 layer)
         input_size = 3 * self.lin1.out_features
-        return ConcatStrategy(input_size=input_size)
+        return ConcatStrategy(input_size=input_size, layer_norm=layer_norm)
 
     @staticmethod
     def get_model(
@@ -174,6 +189,7 @@ class SchNet(PygSchNet):
         grouped=False,
         fix_device=False,
         strategy: str = "delta",
+        layer_norm: bool = False,
         combination=None,
         pred_readout=None,
         comb_readout=None,
@@ -197,6 +213,8 @@ class SchNet(PygSchNet):
         strategy: str, default='delta'
             ``Strategy`` to use to combine representations of the different parts.
             Options are [``delta``, ``concat``, ``complex``]
+        layer_norm: bool, default=False
+            Apply a ``LayerNorm`` normalization before passing through the linear layer
         combination: mtenn.combination.Combination, optional
             ``Combination`` object to use to combine multiple predictions. A value must
             be passed if ``grouped`` is ``True``
@@ -226,11 +244,11 @@ class SchNet(PygSchNet):
         #  representation (if necessary)
         strategy = strategy.lower()
         if strategy == "delta":
-            strategy = model._get_delta_strategy()
+            strategy = model._get_delta_strategy(layer_norm)
         elif strategy == "concat":
-            strategy = model._get_concat_strategy()
+            strategy = model._get_concat_strategy(layer_norm)
         elif strategy == "complex":
-            strategy = model._get_complex_only_strategy()
+            strategy = model._get_complex_only_strategy(layer_norm)
         else:
             raise ValueError(f"Unknown strategy: {strategy}")
 
