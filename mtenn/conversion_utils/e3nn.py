@@ -112,7 +112,7 @@ class E3NN(Network):
 
         return model_copy
 
-    def _get_energy_func(self):
+    def _get_energy_func(self, layer_norm=True):
         """
         Return copy of last layer of the model.
 
@@ -129,7 +129,11 @@ class E3NN(Network):
 
         new_model = Network(**conv_kwargs)
 
-        new_model.layers[0] = final_conv.layers[-1]
+        if layer_norm:
+            new_model.layers[0] = E3NNLayerNorm(final_conv.layers[-1].irreps_in.dim)
+            new_model.layers.append(final_conv.layers[-1])
+        else:
+            new_model.layers[0] = final_conv.layers[-1]
 
         return new_model
 
@@ -263,3 +267,13 @@ class E3NN(Network):
             )
         else:
             return Model(representation, strategy, pred_readout, fix_device)
+
+
+class E3NNLayerNorm(torch.nn.LayerNorm):
+    """
+    Wrapper class around the torch LayerNorm to match the expected signature in the
+    e3nn model forward pass.
+    """
+
+    def forward(self, x, *args, **kwargs):
+        return super().forward(x)
