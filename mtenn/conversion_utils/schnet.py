@@ -7,7 +7,7 @@ torch_geometric.nn.models.SchNet.html#torch_geometric.nn.models.SchNet>`_.
 from copy import deepcopy
 import torch
 from torch_geometric.nn.models import SchNet as PygSchNet
-from torch_geometric.nn.models import RadiusInteractionGraph
+from torch_geometric.nn.models.schnet import RadiusInteractionGraph
 from typing import Callable, Optional
 
 from mtenn.model import GroupedModel, Model
