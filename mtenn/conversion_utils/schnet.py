@@ -297,6 +297,12 @@ class MemoizedRadiusInteractionGraph(RadiusInteractionGraph):
         self.lookup_function = lookup_function
         self.lookup_table = {}
 
+    def __repr__(self):
+        return (
+            f"MemoizedRadiusInteractionGraph(cutoff={self.cutoff}, "
+            f"max_num_neighbors={self.max_num_neighbors})"
+        )
+
     def forward(self, pos: torch.Tensor, batch: torch.Tensor):
         """
         Perform forward pass of RadiusInteractionGraph class, first checking to see if
