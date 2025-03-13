@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import abc
 from enum import Enum
+from pathlib import Path
 from pydantic import BaseModel, Field, root_validator, validator
 import random
 from typing import Callable, ClassVar
@@ -149,6 +150,11 @@ class ModelConfigBase(BaseModel):
 
     # Model weights
     model_weights: dict | None = Field(None, type=dict, description="Model weights.")
+    weights_path: Path | None = Field(
+        None,
+        type=Path,
+        description="Path to model weights, will be loaded at build time.",
+    )
 
     # Shared parameters for MTENN
     grouped: bool = Field(False, description="Model is a grouped (multi-pose) model.")
@@ -249,6 +255,14 @@ class ModelConfigBase(BaseModel):
 
         fields = {"model_weights": {"exclude": True}}
 
+    @validator("weights_path")
+    def check_weights_path_exists(cls, v):
+        # Just make sure it exists
+        if (v is not None) and (not v.exists()):
+            raise ValueError(f"Weights path does not exist: {v}")
+
+        return v
+
     def build(self) -> mtenn.model.Model:
         """
         Exposed function that first parses all the ``mtenn``-related args, and then
@@ -307,6 +321,15 @@ class ModelConfigBase(BaseModel):
         model = self._build(mtenn_params)
 
         # Set model weights
+        if self.weights_path:
+            if self.model_weights:
+                print("model_weights specified so ignoring weights_path", flush=True)
+            else:
+                print(f"Loading model weights from {self.weights_path}", flush=True)
+                self.model_weights = torch.load(
+                    self.weights_path,
+                    map_location=next(iter(model.parameters())).device,
+                )
         if self.model_weights:
             model.load_state_dict(self.model_weights)
 
