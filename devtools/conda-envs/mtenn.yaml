@@ -3,10 +3,11 @@ channels:
   - conda-forge
 dependencies:
   - pytorch
-  - pytorch_geometric
+  - pytorch_geometric >=2.5.0
   - pytorch_cluster
   - pytorch_scatter
   - pytorch_sparse
+  - pydantic >=2.0.0a0
   - numpy
   - h5py
   - e3nn
@@ -14,3 +15,4 @@ dependencies:
   - dgl
   - rdkit
   - ase
+  - fsspec
