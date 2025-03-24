@@ -65,8 +65,35 @@ class StringEnum(str, Enum):
 
 class ModelType(StringEnum):
     """
-    Enum for model types. See :py:mod:`mtenn.conversion_utils` for more details on
-    the models.
+    Enum for model types. See the models in :py:mode:`mtenn.model` for more details on
+    the different types of models.
+
+    * model: Standard model for structure-based predictions
+      (:py:class:`Model <mtenn.model.Model>`)
+
+    * grouped: Model for making multi-pose predictions
+      (:py:class:`GroupedModel <mtenn.model.GroupedModel>`)
+
+    * ligand: Model for making predictions based only on the ligand
+      (:py:class:`LigandOnlyModel <mtenn.model.LigandOnlyModel>`)
+
+    * split: Model with multiple ``Representation``s to treat the complex, ligand, and
+      protein separately (:py:class:`SplitModel <mtenn.model.SplitModel>`)
+
+    * INVALID: Invalid model type to catch instantiation errors
+    """
+
+    model = "model"
+    grouped = "grouped"
+    ligand = "ligand"
+    split = "split"
+    INVALID = "INVALID"
+
+
+class RepresentationType(StringEnum):
+    """
+    Enum for ``Representation`` model types. See :py:mod:`mtenn.conversion_utils` for
+    more details on the models.
 
     * GAT: Graph Attention Network (:py:class:`GAT <mtenn.conversion_utils.gat.GAT>`)
 
