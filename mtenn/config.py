@@ -432,34 +432,23 @@ class ModelConfigBase(BaseModel, abc.ABC):
 
 
 class RepresentationConfigBase(BaseModel):
+    """
+    Abstract base class that model config classes will subclass. Any subclass needs
+    to implement the ``build`` method in order to be used.
+    """
+
+    model_type: Literal[RepresentationType.INVALID] = RepresentationType.INVALID
+
     @abc.abstractmethod
-    def _build(self, mtenn_params={}) -> mtenn.model.Model:
+    def build(self) -> mtenn.representation.Representation:
         """
-        Method that actually builds the :py:class:`Model <mtenn.model.Model>` object.
-        Must be implemented for any subclass.
-
-        :meta public:
-
-        Parameters
-        ----------
-        mtenn_params : dict, optional
-            Dictionary that stores the ``Readout`` objects for the individual
-            predictions and for the combined prediction, and the ``Combination`` object
-            in the case of a multi-pose model. These are all constructed the same for all
-            ``Model`` types, so we can just handle them in the base class. Keys in the
-            dict will be:
-
-            * "combination": :py:mod:`Combination <mtenn.combination>`
-
-            * "pred_readout": :py:mod:`Readout <mtenn.readout>` for individual
-              pose predictions
-
-            * "comb_readout": :py:mod:`Readout <mtenn.readout>` for combined
-              prediction (in the case of a multi-pose model)
+        Method to construct the
+        :py:class:`Representation <mtenn.representation.Representation>` object. Must be
+        implemented for any subclass
 
         Returns
         -------
-        mtenn.model.Model
+        mtenn.representation.Representation
             Model constructed from the config
         """
         ...
