@@ -703,29 +703,9 @@ class GATRepresentationConfig(RepresentationConfigBase):
         Build a :py:class:`GAT <mtenn.conversion_utils.gat.GAT>` ``Representation`` from
         this config.
 
-        Parameters
-        ----------
-        mtenn_params : dict, optional
-            Dictionary that stores the ``Readout`` objects for the individual
-            predictions and for the combined prediction, and the ``Combination`` object
-            in the case of a multi-pose model. These are all constructed the same for all
-            ``Model`` types, so we can just handle them in the base class. Keys in the
-            dict will be:
-
-            * "combination": :py:mod:`Combination <mtenn.combination>`
-
-            * "pred_readout": :py:mod:`Readout <mtenn.readout>` for individual
-              pose predictions
-
-            * "comb_readout": :py:mod:`Readout <mtenn.readout>` for combined
-              prediction (in the case of a multi-pose model)
-
-            although the combination-related entries will be ignore because this is a
-            ligand-only model.
-
         Returns
         -------
-        mtenn.model.Model
+        mtenn.conversion_utils.gat.GAT
             Model constructed from the config
         """
         from mtenn.conversion_utils.gat import GAT
@@ -785,7 +765,7 @@ class GATRepresentationConfig(RepresentationConfigBase):
         return GATRepresentationConfig(**new_config)
 
 
-class SchNetModelConfig(ModelConfigBase):
+class SchNetRepresentationConfig(RepresentationConfigBase):
     """
     Class for constructing a SchNet ML model. Default values here are the default values
     given in PyG.
@@ -873,32 +853,14 @@ class SchNetModelConfig(ModelConfigBase):
 
         return v
 
-    def _build(self, mtenn_params={}):
+    def build(self):
         """
-        Build an ``mtenn`` SchNet ``Model`` from this config.
-
-        :meta public:
-
-        Parameters
-        ----------
-        mtenn_params : dict, optional
-            Dictionary that stores the ``Readout`` objects for the individual
-            predictions and for the combined prediction, and the ``Combination`` object
-            in the case of a multi-pose model. These are all constructed the same for all
-            ``Model`` types, so we can just handle them in the base class. Keys in the
-            dict will be:
-
-            * "combination": :py:mod:`Combination <mtenn.combination>`
-
-            * "pred_readout": :py:mod:`Readout <mtenn.readout>` for individual
-              pose predictions
-
-            * "comb_readout": :py:mod:`Readout <mtenn.readout>` for combined
-              prediction (in the case of a multi-pose model)
+        Build a :py:class:`SchNet <mtenn.conversion_utils.schnet.SchNet>`
+        ``Representation`` from this config.
 
         Returns
         -------
-        mtenn.model.Model
+        mtenn.conversion_utils.schnet.SchNet
             Model constructed from the config
         """
         from mtenn.conversion_utils.schnet import MemoizedRadiusInteractionGraph, SchNet
@@ -933,20 +895,7 @@ class SchNetModelConfig(ModelConfigBase):
             atomref=self.atomref,
         )
 
-        combination = mtenn_params.get("combination", None)
-        pred_readout = mtenn_params.get("pred_readout", None)
-        comb_readout = mtenn_params.get("comb_readout", None)
-
-        return SchNet.get_model(
-            model=model,
-            grouped=self.grouped,
-            fix_device=True,
-            strategy=self.strategy,
-            layer_norm=self.strategy_layer_norm,
-            combination=combination,
-            pred_readout=pred_readout,
-            comb_readout=comb_readout,
-        )
+        return model._get_representation()
 
 
 class E3NNModelConfig(ModelConfigBase):
