@@ -455,7 +455,7 @@ class RepresentationConfigBase(BaseModel):
         """
         ...
 
-    def update(self, config_updates={}) -> ModelConfigBase:
+    def update(self, config_updates={}) -> RepresentationConfigBase:
         """
         Create a new config object with field values replaced by any given in
         ``config_updates``. Note that this is NOT an in-place operation, and will return
@@ -477,12 +477,13 @@ class RepresentationConfigBase(BaseModel):
         """
         return self._update(config_updates)
 
-    def _update(self, config_updates={}) -> ModelConfigBase:
+    def _update(self, config_updates={}) -> RepresentationConfigBase:
         """
         Default version of this function. Just update original config with new options,
         and generate new object. Designed to be overloaded if there are specific things
         that a class needs to handle (see
-        :py:class:`GATModelConfig <mtenn.config.GATModelConfig>` as an example).
+        :py:class:`GATRepresentationConfig <mtenn.config.GATRepresentationConfig>` as an
+        example).
 
         :meta public:
 
@@ -505,7 +506,7 @@ class RepresentationConfigBase(BaseModel):
         return type(self)(**new_config)
 
 
-class GATModelConfig(ModelConfigBase):
+class GATRepresentationConfig(RepresentationConfigBase):
     """
     Class for constructing a graph attention ML model. Note that there are two methods
     for defining the size of the model:
@@ -635,7 +636,7 @@ class GATModelConfig(ModelConfigBase):
     _from_num_layers = False
 
     @model_validator(mode="after")
-    def massage_into_lists(self) -> GATModelConfig:
+    def massage_into_lists(self) -> GATRepresentationConfig:
         """
         Validator to handle unifying all the values into the proper list forms based on
         the rules described in the class docstring.
@@ -697,11 +698,10 @@ class GATModelConfig(ModelConfigBase):
         self.__dict__.update(values)
         return self
 
-    def _build(self, mtenn_params={}):
+    def build(self):
         """
-        Build an ``mtenn`` GAT ``Model`` from this config.
-
-        :meta public:
+        Build a :py:class:`GAT <mtenn.conversion_utils.gat.GAT>` ``Representation`` from
+        this config.
 
         Parameters
         ----------
@@ -744,10 +744,9 @@ class GATModelConfig(ModelConfigBase):
             allow_zero_in_degree=self.allow_zero_in_degree,
         )
 
-        pred_readout = mtenn_params.get("pred_readout", None)
-        return GAT.get_model(model=model, pred_readout=pred_readout, fix_device=True)
+        return model._get_representation()
 
-    def _update(self, config_updates={}) -> GATModelConfig:
+    def _update(self, config_updates={}) -> GATRepresentationConfig:
         """
         GAT-specific implementation of updating logic. Need to handle stuff specially
         to make sure that the original method of specifying parameters (either from a
@@ -763,15 +762,15 @@ class GATModelConfig(ModelConfigBase):
 
         Returns
         -------
-        GATModelConfig
-            New ``GATModelConfig`` object
+        GATRepresentationConfig
+            New ``GATRepresentationConfig`` object
         """
         orig_config = self.dict()
         if self._from_num_layers or ("num_layers" in config_updates):
             # If originally generated from num_layers, want to pull out the first entry
             #  in each list param so it can be re-broadcast with (potentially) new
             #  num_layers
-            for param_name in GATModelConfig.LIST_PARAMS.keys():
+            for param_name in GATRepresentationConfig.LIST_PARAMS.keys():
                 orig_config[param_name] = orig_config[param_name][0]
 
         # Get new config by overwriting old stuff with any new stuff
@@ -783,7 +782,7 @@ class GATModelConfig(ModelConfigBase):
         ):
             new_config["activations"] = None
 
-        return GATModelConfig(**new_config)
+        return GATRepresentationConfig(**new_config)
 
 
 class SchNetModelConfig(ModelConfigBase):
