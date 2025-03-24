@@ -390,7 +390,7 @@ class ModelConfigBase(BaseModel, abc.ABC):
         return model
 
     @abc.abstractmethod
-    def _build(self, mtenn_params={}) -> mtenn.model.Model:
+    def _build(self, mtenn_params=None) -> mtenn.model.Model:
         """
         Method that actually builds the :py:class:`Model <mtenn.model.Model>` object.
         Must be implemented for any subclass.
@@ -431,7 +431,28 @@ class ModelConfigBase(BaseModel, abc.ABC):
             raise ValueError("combination must be specified for a GroupedModel.")
 
 
-class RepresentationConfigBase(BaseModel):
+class ModelConfig(ModelConfigBase):
+    """
+    Class for construction a standard structure-based
+    :py:class:`Model <mtenn.model.Model>.
+    """
+
+    model_type: Literal[ModelType.model] = ModelType.model
+
+    @field_validator("representation")
+    def check_representation(cls, v):
+        # Make sure it's been passed
+        if v is None:
+            raise ValueError("A value must be passed for `representation`")
+
+        return v
+
+    def _build(self, mtenn_params=None):
+        ## Need to figure out how to handle the different strategies
+        pass
+
+
+class RepresentationConfigBase(BaseModel, abc.ABC):
     """
     Abstract base class that model config classes will subclass. Any subclass needs
     to implement the ``build`` method in order to be used.
