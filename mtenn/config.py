@@ -442,11 +442,17 @@ class RepresentationConfigBase(BaseModel):
     ] = RepresentationType.INVALID
 
     @abc.abstractmethod
-    def build(self) -> mtenn.representation.Representation:
+    def build(self, strategy: StrategyConfig) -> mtenn.representation.Representation:
         """
         Method to construct the
         :py:class:`Representation <mtenn.representation.Representation>` object. Must be
         implemented for any subclass
+
+        Parameters
+        ----------
+        strategy : StrategyConfig
+            Which ``Strategy`` to use for combining complex, protein, and ligand
+            representations
 
         Returns
         -------
@@ -698,10 +704,16 @@ class GATRepresentationConfig(RepresentationConfigBase):
         self.__dict__.update(values)
         return self
 
-    def build(self):
+    def build(self, strategy):
         """
         Build a :py:class:`GAT <mtenn.conversion_utils.gat.GAT>` ``Representation`` from
         this config.
+
+        Parameters
+        ----------
+        strategy : StrategyConfig
+            Which ``Strategy`` to use for combining complex, protein, and ligand
+            representations (here for compatibility but not used)
 
         Returns
         -------
@@ -853,10 +865,16 @@ class SchNetRepresentationConfig(RepresentationConfigBase):
 
         return v
 
-    def build(self):
+    def build(self, strategy):
         """
         Build a :py:class:`SchNet <mtenn.conversion_utils.schnet.SchNet>`
         ``Representation`` from this config.
+
+        Parameters
+        ----------
+        strategy : StrategyConfig
+            Which ``Strategy`` to use for combining complex, protein, and ligand
+            representations (here for compatibility but not used)
 
         Returns
         -------
@@ -898,7 +916,7 @@ class SchNetRepresentationConfig(RepresentationConfigBase):
         return model._get_representation()
 
 
-class E3NNModelConfig(ModelConfigBase):
+class E3NNRepresentationConfig(RepresentationConfigBase):
     """
     Class for constructing an e3nn ML model.
     """
@@ -1014,37 +1032,26 @@ class E3NNModelConfig(ModelConfigBase):
         values.irreps_hidden = irreps
         return values
 
-    def _build(self, mtenn_params={}):
+    def build(self, strategy):
         """
-        Build an ``mtenn`` e3nn ``Model`` from this config.
-
-        :meta public:
+        Build a :py:class:`E3NN <mtenn.conversion_utils.e3nn.E3NN>` ``Representation``
+        from this config.
 
         Parameters
         ----------
-        mtenn_params : dict, optional
-            Dictionary that stores the ``Readout`` objects for the individual
-            predictions and for the combined prediction, and the ``Combination`` object
-            in the case of a multi-pose model. These are all constructed the same for all
-            ``Model`` types, so we can just handle them in the base class. Keys in the
-            dict will be:
-
-            * "combination": :py:mod:`Combination <mtenn.combination>`
-
-            * "pred_readout": :py:mod:`Readout <mtenn.readout>` for individual
-              pose predictions
-
-            * "comb_readout": :py:mod:`Readout <mtenn.readout>` for combined
-              prediction (in the case of a multi-pose model)
+        strategy : StrategyConfig
+            Which ``Strategy`` to use for combining complex, protein, and ligand
+            representations (used to decide value for ``reduce_output``)
 
         Returns
         -------
-        mtenn.model.Model
+        mtenn.conversion_utils.e3nn.E3NN
             Model constructed from the config
         """
         from e3nn.o3 import Irreps
         from mtenn.conversion_utils.e3nn import E3NN
 
+        reduce_output = strategy == StrategyConfig.concat
         model = E3NN(
             irreps_in=f"{self.num_atom_types}x0e",
             irreps_hidden=self.irreps_hidden,
@@ -1058,23 +1065,10 @@ class E3NNModelConfig(ModelConfigBase):
             radial_neurons=self.num_radial_neurons,
             num_neighbors=self.num_neighbors,
             num_nodes=self.num_nodes,
-            reduce_output=True,
+            reduce_output=reduce_output,
         )
 
-        combination = mtenn_params.get("combination", None)
-        pred_readout = mtenn_params.get("pred_readout", None)
-        comb_readout = mtenn_params.get("comb_readout", None)
-
-        return E3NN.get_model(
-            model=model,
-            grouped=self.grouped,
-            fix_device=True,
-            strategy=self.strategy,
-            layer_norm=self.strategy_layer_norm,
-            combination=combination,
-            pred_readout=pred_readout,
-            comb_readout=comb_readout,
-        )
+        return model._get_representation(reduce_output=reduce_output)
 
 
 class ViSNetModelConfig(ModelConfigBase):
