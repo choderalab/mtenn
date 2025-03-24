@@ -22,7 +22,6 @@ from typing import Literal, Callable, ClassVar
 import mtenn.combination
 import mtenn.model
 import mtenn.readout
-from mtenn.representation import Representation
 import numpy as np
 import torch
 
@@ -136,7 +135,7 @@ class CombinationConfig(StringEnum):
     max = "max"
 
 
-class ModelConfigBase(BaseModel):
+class ModelConfigBase(BaseModel, abc.ABC):
     """
     Abstract base class that model config classes will subclass. Any subclass needs
     to implement the ``_build`` method in order to be used.
@@ -161,7 +160,7 @@ class ModelConfigBase(BaseModel):
 
     # Shared parameters for MTENN
     grouped: bool = Field(False, description="Model is a grouped (multi-pose) model.")
-    representation: Representation | None = Field(
+    representation: RepresentationConfigBase | None = Field(
         None,
         description=(
             "Which underlying ``Representation`` model to use. This field is used for "
@@ -169,21 +168,21 @@ class ModelConfigBase(BaseModel):
             "``SplitModel``)."
         ),
     )
-    complex_representation: Representation | None = Field(
+    complex_representation: RepresentationConfigBase | None = Field(
         None,
         description=(
             "Which underlying ``Representation`` model to use for the complex."
             "This field is only used for ``SplitModel``."
         ),
     )
-    ligand_representation: Representation | None = Field(
+    ligand_representation: RepresentationConfigBase | None = Field(
         None,
         description=(
             "Which underlying ``Representation`` model to use for the ligand."
             "This field is only used for ``SplitModel``."
         ),
     )
-    protein_representation: Representation | None = Field(
+    protein_representation: RepresentationConfigBase | None = Field(
         None,
         description=(
             "Which underlying ``Representation`` model to use for the protein."
@@ -395,6 +394,49 @@ class ModelConfigBase(BaseModel):
         """
         ...
 
+    @staticmethod
+    def _check_grouped(values):
+        """
+        Makes sure that a Combination method is passed if using a GroupedModel. Only
+        needs to be called for structure-based models.
+        """
+        if values.grouped and not values.combination:
+            raise ValueError("combination must be specified for a GroupedModel.")
+
+
+class RepresentationConfigBase(BaseModel):
+    @abc.abstractmethod
+    def _build(self, mtenn_params={}) -> mtenn.model.Model:
+        """
+        Method that actually builds the :py:class:`Model <mtenn.model.Model>` object.
+        Must be implemented for any subclass.
+
+        :meta public:
+
+        Parameters
+        ----------
+        mtenn_params : dict, optional
+            Dictionary that stores the ``Readout`` objects for the individual
+            predictions and for the combined prediction, and the ``Combination`` object
+            in the case of a multi-pose model. These are all constructed the same for all
+            ``Model`` types, so we can just handle them in the base class. Keys in the
+            dict will be:
+
+            * "combination": :py:mod:`Combination <mtenn.combination>`
+
+            * "pred_readout": :py:mod:`Readout <mtenn.readout>` for individual
+              pose predictions
+
+            * "comb_readout": :py:mod:`Readout <mtenn.readout>` for combined
+              prediction (in the case of a multi-pose model)
+
+        Returns
+        -------
+        mtenn.model.Model
+            Model constructed from the config
+        """
+        ...
+
     def update(self, config_updates={}) -> ModelConfigBase:
         """
         Create a new config object with field values replaced by any given in
@@ -443,15 +485,6 @@ class ModelConfigBase(BaseModel):
         new_config = orig_config | config_updates
 
         return type(self)(**new_config)
-
-    @staticmethod
-    def _check_grouped(values):
-        """
-        Makes sure that a Combination method is passed if using a GroupedModel. Only
-        needs to be called for structure-based models.
-        """
-        if values.grouped and not values.combination:
-            raise ValueError("combination must be specified for a GroupedModel.")
 
 
 class GATModelConfig(ModelConfigBase):
