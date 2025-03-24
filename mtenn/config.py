@@ -20,8 +20,9 @@ from pydantic import field_validator, model_validator, ConfigDict, BaseModel, Fi
 import random
 from typing import Literal, Callable, ClassVar
 import mtenn.combination
-import mtenn.readout
 import mtenn.model
+import mtenn.readout
+from mtenn.representation import Representation
 import numpy as np
 import torch
 
@@ -160,6 +161,35 @@ class ModelConfigBase(BaseModel):
 
     # Shared parameters for MTENN
     grouped: bool = Field(False, description="Model is a grouped (multi-pose) model.")
+    representation: Representation | None = Field(
+        None,
+        description=(
+            "Which underlying ``Representation`` model to use. This field is used for "
+            "``Model``s that use the same ``Representation`` for all inputs (ie not "
+            "``SplitModel``)."
+        ),
+    )
+    complex_representation: Representation | None = Field(
+        None,
+        description=(
+            "Which underlying ``Representation`` model to use for the complex."
+            "This field is only used for ``SplitModel``."
+        ),
+    )
+    ligand_representation: Representation | None = Field(
+        None,
+        description=(
+            "Which underlying ``Representation`` model to use for the ligand."
+            "This field is only used for ``SplitModel``."
+        ),
+    )
+    protein_representation: Representation | None = Field(
+        None,
+        description=(
+            "Which underlying ``Representation`` model to use for the protein."
+            "This field is only used for ``SplitModel``."
+        ),
+    )
     strategy: StrategyConfig = Field(
         StrategyConfig.delta,
         description=(
