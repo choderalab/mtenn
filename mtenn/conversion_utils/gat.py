@@ -91,6 +91,7 @@ class GAT(torch.nn.Module):
             gnn_out_feats = self.gnn.hidden_feats[-1] * self.gnn.num_heads[-1]
         else:
             gnn_out_feats = self.gnn.hidden_feats[-1]
+        # Returns a Tensor 2x length of input (sum and max)
         self.readout = WeightedSumAndMax(gnn_out_feats)
 
         # Use given hidden feats if supplied, otherwise use 1/2 gnn_out_feats
@@ -136,7 +137,10 @@ class GAT(torch.nn.Module):
         """
 
         # Copy model so initial model isn't affected
-        model_copy = deepcopy(self.gnn)
+        model_copy = deepcopy(self)
+
+        # Replace predict module with identity module
+        model_copy.predict = torch.nn.Identity()
 
         return model_copy
 
@@ -150,7 +154,7 @@ class GAT(torch.nn.Module):
             Sequential module calling copy of `model`'s last two layers
         """
 
-        return torch.nn.Sequential(deepcopy(self.readout), deepcopy(self.predict))
+        return deepcopy(self.predict)
 
     @staticmethod
     def get_model(
