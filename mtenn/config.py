@@ -437,7 +437,9 @@ class RepresentationConfigBase(BaseModel):
     to implement the ``build`` method in order to be used.
     """
 
-    model_type: Literal[RepresentationType.INVALID] = RepresentationType.INVALID
+    representation_type: Literal[
+        RepresentationType.INVALID
+    ] = RepresentationType.INVALID
 
     @abc.abstractmethod
     def build(self) -> mtenn.representation.Representation:
@@ -541,7 +543,7 @@ class GATModelConfig(ModelConfigBase):
         "biases": bool,
     }  #: :meta private:
 
-    model_type: Literal[ModelType.GAT] = ModelType.GAT
+    representation_type: Literal[RepresentationType.GAT] = RepresentationType.GAT
 
     in_feats: int = Field(
         _CanonicalAtomFeaturizer().feat_size(),
@@ -790,7 +792,7 @@ class SchNetModelConfig(ModelConfigBase):
     given in PyG.
     """
 
-    model_type: Literal[ModelType.schnet] = ModelType.schnet
+    representation_type: Literal[RepresentationType.schnet] = RepresentationType.schnet
 
     hidden_channels: int = Field(128, description="Hidden embedding size.")
     num_filters: int = Field(
@@ -953,7 +955,7 @@ class E3NNModelConfig(ModelConfigBase):
     Class for constructing an e3nn ML model.
     """
 
-    model_type: Literal[ModelType.e3nn] = ModelType.e3nn
+    representation_type: Literal[RepresentationType.e3nn] = RepresentationType.e3nn
 
     num_atom_types: int = Field(
         100,
@@ -1133,7 +1135,7 @@ class ViSNetModelConfig(ModelConfigBase):
     given in PyG.
     """
 
-    model_type: Literal[ModelType.visnet] = ModelType.visnet
+    representation_type: Literal[RepresentationType.visnet] = RepresentationType.visnet
     lmax: int = Field(1, description="The maximum degree of the spherical harmonics.")
     vecnorm_type: str | None = Field(
         None, description="The type of normalization to apply to the vectors."
