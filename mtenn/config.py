@@ -448,8 +448,34 @@ class ModelConfig(ModelConfigBase):
         return v
 
     def _build(self, mtenn_params=None):
-        ## Need to figure out how to handle the different strategies
-        pass
+        if mtenn_params is None:
+            mtenn_params = {}
+
+        conv_model = self.representation.build()
+        if self.representation.representation_type == RepresentationType.e3nn:
+            representation = conv_model._get_representation(
+                reduce_output=(self.strategy == "concat")
+            )
+        else:
+            representation = conv_model._get_representation()
+
+        match self.strategy:
+            case StrategyConfig.delta:
+                strategy = conv_model._get_delta_strategy(self.strategy_layer_norm)
+            case StrategyConfig.concat:
+                strategy = conv_model._get_concat_strategy(self.strategy_layer_norm)
+            case StrategyConfig.complex:
+                strategy = conv_model._get_complex_only_strategy(
+                    self.strategy_layer_norm
+                )
+            case _:
+                raise ValueError(f"Unknown strategy: {self.strategy}")
+
+        return mtenn.model.Model(
+            representation=representation,
+            strategy=strategy,
+            readout=mtenn_params.get("pred_readout", None),
+        )
 
 
 class RepresentationConfigBase(BaseModel, abc.ABC):
@@ -463,17 +489,11 @@ class RepresentationConfigBase(BaseModel, abc.ABC):
     ] = RepresentationType.INVALID
 
     @abc.abstractmethod
-    def build(self, strategy: StrategyConfig) -> mtenn.representation.Representation:
+    def build(self: StrategyConfig) -> mtenn.representation.Representation:
         """
         Method to construct the
         :py:class:`Representation <mtenn.representation.Representation>` object. Must be
         implemented for any subclass
-
-        Parameters
-        ----------
-        strategy : StrategyConfig
-            Which ``Strategy`` to use for combining complex, protein, and ligand
-            representations
 
         Returns
         -------
@@ -725,16 +745,10 @@ class GATRepresentationConfig(RepresentationConfigBase):
         self.__dict__.update(values)
         return self
 
-    def build(self, strategy):
+    def build(self):
         """
         Build a :py:class:`GAT <mtenn.conversion_utils.gat.GAT>` ``Representation`` from
         this config.
-
-        Parameters
-        ----------
-        strategy : StrategyConfig
-            Which ``Strategy`` to use for combining complex, protein, and ligand
-            representations (here for compatibility but not used)
 
         Returns
         -------
@@ -757,7 +771,8 @@ class GATRepresentationConfig(RepresentationConfigBase):
             allow_zero_in_degree=self.allow_zero_in_degree,
         )
 
-        return model._get_representation()
+        return model
+        # return model._get_representation()
 
     def _update(self, config_updates={}) -> GATRepresentationConfig:
         """
@@ -886,16 +901,10 @@ class SchNetRepresentationConfig(RepresentationConfigBase):
 
         return v
 
-    def build(self, strategy):
+    def build(self):
         """
         Build a :py:class:`SchNet <mtenn.conversion_utils.schnet.SchNet>`
         ``Representation`` from this config.
-
-        Parameters
-        ----------
-        strategy : StrategyConfig
-            Which ``Strategy`` to use for combining complex, protein, and ligand
-            representations (here for compatibility but not used)
 
         Returns
         -------
@@ -934,7 +943,8 @@ class SchNetRepresentationConfig(RepresentationConfigBase):
             atomref=self.atomref,
         )
 
-        return model._get_representation()
+        return model
+        # return model._get_representation()
 
 
 class E3NNRepresentationConfig(RepresentationConfigBase):
@@ -1053,16 +1063,10 @@ class E3NNRepresentationConfig(RepresentationConfigBase):
         values.irreps_hidden = irreps
         return values
 
-    def build(self, strategy):
+    def build(self):
         """
         Build a :py:class:`E3NN <mtenn.conversion_utils.e3nn.E3NN>` ``Representation``
         from this config.
-
-        Parameters
-        ----------
-        strategy : StrategyConfig
-            Which ``Strategy`` to use for combining complex, protein, and ligand
-            representations (used to decide value for ``reduce_output``)
 
         Returns
         -------
@@ -1089,7 +1093,8 @@ class E3NNRepresentationConfig(RepresentationConfigBase):
             reduce_output=reduce_output,
         )
 
-        return model._get_representation(reduce_output=reduce_output)
+        return model
+        # return model._get_representation(reduce_output=reduce_output)
 
 
 class ViSNetModelConfig(ModelConfigBase):
