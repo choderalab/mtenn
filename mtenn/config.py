@@ -503,7 +503,7 @@ class GroupedModelConfig(ModelConfig):
     :py:class:`GroupedModel <mtenn.model.GroupedModel>`.
     """
 
-    model_type: Literal[ModelType.grouped] = ModelType.model
+    model_type: Literal[ModelType.grouped] = ModelType.grouped
 
     grouped: Literal[False] = True
 
@@ -538,6 +538,29 @@ class GroupedModelConfig(ModelConfig):
             combination=mtenn_params["combination"],
             pred_readout=mtenn_params.get("pred_readout", None),
             comb_readout=mtenn_params.get("comb_readout", None),
+            fix_device=True,
+        )
+
+
+class LigandOnlyModelConfig(ModelConfig):
+    """
+    Class for constructing a ligand only
+    :py:class:`LigandOnlyModel <mtenn.model.LigandOnlyModel>`.
+    """
+
+    model_type: Literal[ModelType.ligand] = ModelType.ligand
+
+    def _build(self, mtenn_params=None):
+        if mtenn_params is None:
+            mtenn_params = {}
+
+        conv_model = self.representation.build()
+        if self.representation.representation_type == RepresentationType.e3nn:
+            conv_model.reduce_output = self.strategy == "concat"
+
+        return mtenn.model.LigandOnlyModel(
+            representation=conv_model,
+            readout=mtenn_params.get("pred_readout", None),
             fix_device=True,
         )
 
