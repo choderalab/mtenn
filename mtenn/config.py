@@ -18,7 +18,7 @@ from enum import Enum
 from pathlib import Path
 from pydantic import field_validator, model_validator, ConfigDict, BaseModel, Field
 import random
-from typing import Literal, Callable, ClassVar
+from typing import Any, Literal, Callable, ClassVar
 import mtenn.combination
 import mtenn.model
 import mtenn.readout
@@ -187,7 +187,7 @@ class ModelConfigBase(BaseModel, abc.ABC):
 
     # Shared parameters for MTENN
     grouped: bool = Field(False, description="Model is a grouped (multi-pose) model.")
-    representation: RepresentationConfigBase | None = Field(
+    representation: Any | None = Field(
         None,
         description=(
             "Which underlying ``Representation`` model to use. This field is used for "
@@ -195,21 +195,21 @@ class ModelConfigBase(BaseModel, abc.ABC):
             "``SplitModel``)."
         ),
     )
-    complex_representation: RepresentationConfigBase | None = Field(
+    complex_representation: Any | None = Field(
         None,
         description=(
             "Which underlying ``Representation`` model to use for the complex."
             "This field is only used for ``SplitModel``."
         ),
     )
-    ligand_representation: RepresentationConfigBase | None = Field(
+    ligand_representation: Any | None = Field(
         None,
         description=(
             "Which underlying ``Representation`` model to use for the ligand."
             "This field is only used for ``SplitModel``."
         ),
     )
-    protein_representation: RepresentationConfigBase | None = Field(
+    protein_representation: Any | None = Field(
         None,
         description=(
             "Which underlying ``Representation`` model to use for the protein."
@@ -422,7 +422,7 @@ class ModelConfigBase(BaseModel, abc.ABC):
         ...
 
     @model_validator(mode="after")
-    def _check_grouped(self):
+    def check_grouped(self):
         """
         Makes sure that a Combination method is passed if using a GroupedModel. Only
         needs to be called for structure-based models.
@@ -431,6 +431,20 @@ class ModelConfigBase(BaseModel, abc.ABC):
             raise ValueError("combination must be specified for a GroupedModel.")
 
         return self
+
+    @field_validator(
+        "representation",
+        "complex_representation",
+        "ligand_representation",
+        "protein_representation",
+    )
+    def check_representation_configs(cls, v):
+        if (v is not None) and (not isinstance(v, RepresentationConfigBase)):
+            raise TypeError(
+                f"Passed value {v} is not an instance of RepresentationConfigBase."
+            )
+
+        return v
 
 
 class ModelConfig(ModelConfigBase):
@@ -882,7 +896,6 @@ class SchNetRepresentationConfig(RepresentationConfigBase):
     @model_validator(mode="after")
     @classmethod
     def validate(cls, values):
-
         # Make sure atomref length is correct (this is required by PyG)
         atomref = values.atomref
         if (atomref is not None) and (len(atomref) != 100):
@@ -1006,7 +1019,6 @@ class E3NNRepresentationConfig(RepresentationConfigBase):
         representation, and do so.
         """
         from e3nn import o3
-
 
         # Now deal with irreps
         irreps = values.irreps_hidden
