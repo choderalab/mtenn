@@ -565,6 +565,80 @@ class LigandOnlyModelConfig(ModelConfig):
         )
 
 
+class SplitModelConfig(ModelConfigBase):
+    """
+    Class for constructing a :py:class:`SplitModel <mtenn.model.SplitModel>`.
+    """
+
+    model_type: Literal[ModelType.split] = ModelType.split
+
+    @model_validator(mode="after")
+    def check_representations(self):
+        # Make sure that an appropriate number of configs have been passed
+        if self.complex_representation is None:
+            raise ValueError(
+                (
+                    "SplitModel doesn't currently support not specifying a "
+                    "complex_representation."
+                )
+            )
+
+        if self.ligand_representation is None:
+            print(
+                "WARNING: No config passed for ligand_representation, the ligand will "
+                "be treated with the same model as is used for the complex."
+            )
+        if self.protein_representation is None:
+            print(
+                "WARNING: No config passed for protein_representation, the protein will "
+                "be treated with the same model as is used for the complex."
+            )
+
+        return self
+
+    def _build(self, mtenn_params=None):
+        if mtenn_params is None:
+            mtenn_params = {}
+
+        representations = []
+        for rep_config in [
+            self.complex_representation,
+            self.ligand_representation,
+            self.protein_representation,
+        ]:
+            if rep_config is None:
+                representations.append(None)
+                continue
+
+            conv_model = rep_config.build()
+
+            if rep_config.representation_type == RepresentationType.e3nn:
+                representation = conv_model._get_representation(
+                    reduce_output=(self.strategy == "concat")
+                )
+            else:
+                representation = conv_model._get_representation()
+
+        match self.strategy:
+            case StrategyConfig.delta:
+                strategy = conv_model._get_delta_strategy(self.strategy_layer_norm)
+            case StrategyConfig.concat:
+                strategy = conv_model._get_concat_strategy(self.strategy_layer_norm)
+            case StrategyConfig.complex:
+                strategy = conv_model._get_complex_only_strategy(
+                    self.strategy_layer_norm
+                )
+            case _:
+                raise ValueError(f"Unknown strategy: {self.strategy}")
+
+        return mtenn.model.Model(
+            representation=representation,
+            strategy=strategy,
+            readout=mtenn_params.get("pred_readout", None),
+            fix_device=True,
+        )
+
+
 class RepresentationConfigBase(BaseModel, abc.ABC):
     """
     Abstract base class that model config classes will subclass. Any subclass needs
