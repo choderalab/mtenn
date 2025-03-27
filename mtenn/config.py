@@ -421,14 +421,16 @@ class ModelConfigBase(BaseModel, abc.ABC):
         """
         ...
 
-    @staticmethod
-    def _check_grouped(values):
+    @model_validator(mode="after")
+    def _check_grouped(self):
         """
         Makes sure that a Combination method is passed if using a GroupedModel. Only
         needs to be called for structure-based models.
         """
-        if values.grouped and not values.combination:
+        if self.grouped and not self.combination:
             raise ValueError("combination must be specified for a GroupedModel.")
+
+        return self
 
 
 class ModelConfig(ModelConfigBase):
@@ -880,8 +882,6 @@ class SchNetRepresentationConfig(RepresentationConfigBase):
     @model_validator(mode="after")
     @classmethod
     def validate(cls, values):
-        # Make sure the grouped stuff is properly assigned
-        ModelConfigBase._check_grouped(values)
 
         # Make sure atomref length is correct (this is required by PyG)
         atomref = values.atomref
@@ -1007,8 +1007,6 @@ class E3NNRepresentationConfig(RepresentationConfigBase):
         """
         from e3nn import o3
 
-        # First just check that the grouped stuff is properly assigned
-        ModelConfigBase._check_grouped(values)
 
         # Now deal with irreps
         irreps = values.irreps_hidden
@@ -1156,8 +1154,6 @@ class ViSNetModelConfig(ModelConfigBase):
         """
         Check that ``atomref`` and ``max_z`` agree.
         """
-        # Make sure the grouped stuff is properly assigned
-        ModelConfigBase._check_grouped(values)
 
         # Make sure atomref length is correct (this is required by PyG)
         atomref = values.atomref
