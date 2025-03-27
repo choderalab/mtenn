@@ -170,6 +170,9 @@ class ModelConfigBase(BaseModel, abc.ABC):
 
     model_type: Literal[ModelType.INVALID] = ModelType.INVALID
 
+    # Model is a grouped (multi-pose) model
+    grouped: Literal[False] = False
+
     # Random seed optional for reproducibility
     rand_seed: int | None = Field(
         None, type=int, description="Random seed to set for Python, PyTorch, and NumPy."
@@ -186,7 +189,6 @@ class ModelConfigBase(BaseModel, abc.ABC):
     )
 
     # Shared parameters for MTENN
-    grouped: bool = Field(False, description="Model is a grouped (multi-pose) model.")
     representation: Any | None = Field(
         None,
         description=(
@@ -427,7 +429,7 @@ class ModelConfigBase(BaseModel, abc.ABC):
         Makes sure that a Combination method is passed if using a GroupedModel. Only
         needs to be called for structure-based models.
         """
-        if self.grouped and not self.combination:
+        if self.grouped and (not self.combination):
             raise ValueError("combination must be specified for a GroupedModel.")
 
         return self
@@ -449,7 +451,7 @@ class ModelConfigBase(BaseModel, abc.ABC):
 
 class ModelConfig(ModelConfigBase):
     """
-    Class for construction a standard structure-based
+    Class for constructing a standard structure-based
     :py:class:`Model <mtenn.model.Model>.
     """
 
@@ -491,6 +493,52 @@ class ModelConfig(ModelConfigBase):
             representation=representation,
             strategy=strategy,
             readout=mtenn_params.get("pred_readout", None),
+            fix_device=True,
+        )
+
+
+class GroupedModelConfig(ModelConfig):
+    """
+    Class for constructing a multi-pose
+    :py:class:`GroupedModel <mtenn.model.GroupedModel>`.
+    """
+
+    model_type: Literal[ModelType.grouped] = ModelType.model
+
+    grouped: Literal[False] = True
+
+    def _build(self, mtenn_params=None):
+        if mtenn_params is None:
+            mtenn_params = {}
+
+        conv_model = self.representation.build()
+        if self.representation.representation_type == RepresentationType.e3nn:
+            representation = conv_model._get_representation(
+                reduce_output=(self.strategy == "concat")
+            )
+        else:
+            representation = conv_model._get_representation()
+
+        match self.strategy:
+            case StrategyConfig.delta:
+                strategy = conv_model._get_delta_strategy(self.strategy_layer_norm)
+            case StrategyConfig.concat:
+                strategy = conv_model._get_concat_strategy(self.strategy_layer_norm)
+            case StrategyConfig.complex:
+                strategy = conv_model._get_complex_only_strategy(
+                    self.strategy_layer_norm
+                )
+            case _:
+                raise ValueError(f"Unknown strategy: {self.strategy}")
+
+        # Already validated that the combination key exists so can just grab it
+        return mtenn.model.GroupedModel(
+            representation=representation,
+            strategy=strategy,
+            combination=mtenn_params["combination"],
+            pred_readout=mtenn_params.get("pred_readout", None),
+            comb_readout=mtenn_params.get("comb_readout", None),
+            fix_device=True,
         )
 
 
@@ -1086,7 +1134,6 @@ class E3NNRepresentationConfig(RepresentationConfigBase):
         from e3nn.o3 import Irreps
         from mtenn.conversion_utils.e3nn import E3NN
 
-        reduce_output = strategy == StrategyConfig.concat
         model = E3NN(
             irreps_in=f"{self.num_atom_types}x0e",
             irreps_hidden=self.irreps_hidden,
@@ -1100,7 +1147,7 @@ class E3NNRepresentationConfig(RepresentationConfigBase):
             radial_neurons=self.num_radial_neurons,
             num_neighbors=self.num_neighbors,
             num_nodes=self.num_nodes,
-            reduce_output=reduce_output,
+            reduce_output=False,
         )
 
         return model
