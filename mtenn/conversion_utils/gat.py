@@ -149,7 +149,7 @@ class GAT(torch.nn.Module):
 
         return model_copy
 
-    def _get_energy_func(self):
+    def _get_energy_func(self, layer_norm=False):
         """
         Return last two layer of the model.
 
@@ -157,9 +157,20 @@ class GAT(torch.nn.Module):
         -------
         torch.nn.Sequential
             Sequential module calling copy of `model`'s last two layers
+        layer_norm: bool, default=False
+            Apply a ``LayerNorm`` normalization before passing through the model's
+            predictor
         """
 
-        return deepcopy(self.predict)
+        pred_model = deepcopy(self.predict)
+        if layer_norm:
+            energy_func = torch.nn.Sequential(
+                torch.nn.LayerNorm(self.output_dim), pred_model
+            )
+        else:
+            energy_func = pred_model
+
+        return energy_func
 
     @staticmethod
     def get_model(
