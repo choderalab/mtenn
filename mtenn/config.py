@@ -666,9 +666,11 @@ class SplitModelConfig(ModelConfigBase):
             case _:
                 raise ValueError(f"Unknown strategy: {self.strategy}")
 
-        return mtenn.model.Model(
-            representation=representation,
+        return mtenn.model.SplitModel(
+            complex_representation=representations[0],
             strategy=strategy,
+            ligand_representation=representations[1],
+            protein_representation=representations[2],
             readout=mtenn_params.get("pred_readout", None),
             fix_device=True,
         )
