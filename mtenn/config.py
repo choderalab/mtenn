@@ -660,8 +660,8 @@ class SplitModelConfig(ModelConfigBase):
                     layer_norm=self.strategy_layer_norm,
                 )
             case StrategyConfig.complex:
-                strategy = conv_model._get_complex_only_strategy(
-                    self.strategy_layer_norm
+                strategy = mtenn.strategy.ComplexOnlyStrategy(
+                    conv_models[0]._get_energy_func(self.strategy_layer_norm)
                 )
             case _:
                 raise ValueError(f"Unknown strategy: {self.strategy}")
