@@ -93,6 +93,7 @@ class GAT(torch.nn.Module):
             gnn_out_feats = self.gnn.hidden_feats[-1]
         # Returns a Tensor 2x length of input (sum and max)
         self.readout = WeightedSumAndMax(gnn_out_feats)
+        self.readout_out_feats = 2 * gnn_out_feats
 
         # Use given hidden feats if supplied, otherwise use 1/2 gnn_out_feats
         if predictor_hidden_feats is None:
@@ -100,7 +101,7 @@ class GAT(torch.nn.Module):
 
         # 2 layer MLP with ReLU activation (borrowed from GATPredictor)
         self.predict = torch.nn.Sequential(
-            torch.nn.Linear(2 * gnn_out_feats, predictor_hidden_feats),
+            torch.nn.Linear(self.readout_out_feats, predictor_hidden_feats),
             torch.nn.ReLU(),
             torch.nn.Linear(predictor_hidden_feats, 1),
         )
@@ -125,6 +126,10 @@ class GAT(torch.nn.Module):
         node_feats = self.gnn(g, g.ndata["h"])
         graph_feats = self.readout(g, node_feats)
         return self.predict(graph_feats)
+
+    @property
+    def output_dim(self):
+        return self.readout_out_feats
 
     def _get_representation(self):
         """
