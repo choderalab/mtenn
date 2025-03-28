@@ -90,6 +90,10 @@ class E3NN(Network):
     def output_dim(self):
         return self.irreps_out
 
+    @property
+    def extract_key(self):
+        return "x"
+
     def _get_representation(self, reduce_output=False):
         """
         Copy model and remove last layer.

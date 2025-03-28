@@ -131,6 +131,10 @@ class GAT(torch.nn.Module):
     def output_dim(self):
         return self.readout_out_feats
 
+    @property
+    def extract_key(self):
+        return None
+
     def _get_representation(self):
         """
         Input model, remove last layer.

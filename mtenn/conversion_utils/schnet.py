@@ -84,6 +84,10 @@ class SchNet(PygSchNet):
     def output_dim(self):
         return self.lin1.out_features
 
+    @property
+    def extract_key(self):
+        return None
+
     def _get_representation(self):
         """
         Copy model and set last layer as the ``Identity``.
