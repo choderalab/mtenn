@@ -369,7 +369,7 @@ class SplitModel(torch.nn.Module):
             If True, make sure the input is on the same device as the model,
             copying over as necessary.
         """
-        super(Model, self).__init__()
+        super(SplitModel, self).__init__()
         self.complex_representation: Representation = complex_representation
         if ligand_representation is None:
             ligand_representation = complex_representation
