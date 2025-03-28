@@ -442,6 +442,29 @@ class ModelConfigBase(BaseModel, abc.ABC):
         "protein_representation",
     )
     def check_representation_configs(cls, v):
+        if isinstance(v, dict):
+            try:
+                rep_type = v["representation_type"]
+
+                match rep_type:
+                    case "gat":
+                        rep_class = GATRepresentationConfig
+                    case "schnet":
+                        rep_class = SchNetRepresentationConfig
+                    case "e3nn":
+                        rep_class = E3NNRepresentationConfig
+                    case other:
+                        raise TypeError(f"Unknown representation_type {other}")
+
+                v = rep_class(**v)
+            except KeyError:
+                raise ValueError(
+                    (
+                        "Passed dict doesn't match expected format for "
+                        "RepresentationConfigBase."
+                    )
+                )
+
         if (v is not None) and (not isinstance(v, RepresentationConfigBase)):
             raise TypeError(
                 f"Passed value {v} is not an instance of RepresentationConfigBase."
