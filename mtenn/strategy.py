@@ -101,13 +101,17 @@ class SplitDeltaStrategy(Strategy):
 
     .. math::
 
-        \mathrm{G_{complex}} &= \phi_{\mathrm{complex}} (\mathrm{\\boldsymbol{x}_{complex}})
+        \mathrm{G_{complex}} &= \phi_{\mathrm{complex}}
+        (\mathrm{\\boldsymbol{x}_{complex}})
 
-        \mathrm{G_{ligand}} &= \phi_{\mathrm{ligand}} (\mathrm{\\boldsymbol{x}_{ligand}})
+        \mathrm{G_{ligand}} &= \phi_{\mathrm{ligand}}
+        (\mathrm{\\boldsymbol{x}_{ligand}})
 
-        \mathrm{G_{protein}} &= \phi_{\mathrm{protein}} (\mathrm{\\boldsymbol{x}_{protein}})
+        \mathrm{G_{protein}} &= \phi_{\mathrm{protein}}
+        (\mathrm{\\boldsymbol{x}_{protein}})
 
-        \Delta \mathrm{G_{pred}} &= \mathrm{G_{complex}} - (\mathrm{G_{ligand}} + \mathrm{G_{protein}})
+        \Delta \mathrm{G_{pred}} &= \mathrm{G_{complex}}
+        - (\mathrm{G_{ligand}} + \mathrm{G_{protein}})
     """
 
     def __init__(
@@ -259,6 +263,98 @@ class ConcatStrategy(Strategy):
 
         # Concat comp w/ permut-invariant parts representation
         full_embedded = torch.cat([comp, parts_cat])
+
+        return self.reduce_nn(full_embedded)
+
+
+class SplitConcatStrategy(Strategy):
+    """
+    Strategy for combining the complex representation and parts representations
+    in some learned manner. This implementation assumes different sizes for the protein
+    and ligand representations, and so skips the sum-pooling step. If possible, it's
+    recommended to use :py:class:ConcatStrategy. For representation sizes of :math:`d`
+    for the complex and protein and :math:`l` for the ligand, this ``Strategy`` acts as
+    a function :math:`\phi: \mathbb{R}^{2d+l} \\rightarrow \mathbb{R}` that predicts a
+    scalar-value :math:`\Delta G` prediction.
+
+    We concatenate the representations in the order of complex, ligand, protein:
+
+    .. math::
+
+        \mathrm{\\boldsymbol{x}} &= [\mathrm{\\boldsymbol{x}_{complex}},
+        \mathrm{\\boldsymbol{x}_{ligand}}, \mathrm{\\boldsymbol{x}_{protein}}]
+
+        \Delta \mathrm{G_{pred}} &= \phi (\mathrm{\\boldsymbol{x}})
+
+    """
+
+    def __init__(
+        self,
+        input_size,
+        complex_extract_key=None,
+        ligand_extract_key=None,
+        protein_extract_key=None,
+        layer_norm=False,
+    ):
+        """
+        Set the key to use to access vector representations if ``dict`` s are passed to
+        the ``forward`` call.
+
+        Parameters
+        ----------
+        input_size : int
+            Input size of linear model
+        complex_extract_key : str, optional
+            Key to use to extract representation from a dict for the complex
+        ligand_extract_key : str, optional
+            Key to use to extract representation from a dict for the ligand
+        protein_extract_key : str, optional
+            Key to use to extract representation from a dict for the protein
+        layer_norm: bool, default=False
+            Apply a ``LayerNorm`` normalization before passing through the linear layer
+
+        """
+        super(ConcatStrategy, self).__init__()
+        if layer_norm:
+            self.reduce_nn = torch.nn.Sequential(
+                torch.nn.LayerNorm(input_size), torch.nn.Linear(input_size, 1)
+            )
+        else:
+            self.reduce_nn = torch.nn.Linear(input_size, 1)
+        self.extract_keys = [
+            complex_extract_key,
+            ligand_extract_key,
+            protein_extract_key,
+        ]
+
+    def forward(self, comp, ligand, protein):
+        """
+        Concatenate all representations, and pass through a one-layer linear NN.
+
+        Parameters
+        ----------
+        comp : torch.Tensor
+            Complex representation
+        ligand : torch.Tensor
+            Ligand representation
+        protein : torch.Tensor
+            Protein representation
+
+        Returns
+        -------
+        torch.Tensor
+            Predicted :math:`\Delta G` value
+        """
+        # Extract representation from dict
+        all_reps = []
+        for extract_key, rep in zip(self.extract_keys, [comp, ligand, protein]):
+            if (extract_key is not None) and isinstance(rep, dict):
+                all_reps.append(rep[self.extract_key].flatten())
+            else:
+                all_reps.append(rep.flatten())
+
+        # Concat comp w/ permut-invariant parts representation
+        full_embedded = torch.cat(all_reps)
 
         return self.reduce_nn(full_embedded)
 
