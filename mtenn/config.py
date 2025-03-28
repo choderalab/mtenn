@@ -22,6 +22,7 @@ from typing import Any, Literal, Callable, ClassVar
 import mtenn.combination
 import mtenn.model
 import mtenn.readout
+import mtenn.strategy
 import numpy as np
 import torch
 
@@ -597,22 +598,27 @@ class SplitModelConfig(ModelConfigBase):
         return self
 
     def _build(self, mtenn_params=None):
+        from mtenn.conversion_utils.e3nn import E3NN
+
         if mtenn_params is None:
             mtenn_params = {}
 
+        conv_models = [
+            rep_config.build() if rep_config is not None else None
+            for rep_config in [
+                self.complex_representation,
+                self.ligand_representation,
+                self.protein_representation,
+            ]
+        ]
+
         representations = []
-        for rep_config in [
-            self.complex_representation,
-            self.ligand_representation,
-            self.protein_representation,
-        ]:
-            if rep_config is None:
+        for conv_model in conv_models:
+            if conv_model is None:
                 representations.append(None)
                 continue
 
-            conv_model = rep_config.build()
-
-            if rep_config.representation_type == RepresentationType.e3nn:
+            if isinstance(conv_model, E3NN):
                 representation = conv_model._get_representation(
                     reduce_output=(self.strategy == "concat")
                 )
@@ -621,9 +627,38 @@ class SplitModelConfig(ModelConfigBase):
 
         match self.strategy:
             case StrategyConfig.delta:
-                strategy = conv_model._get_delta_strategy(self.strategy_layer_norm)
+                energy_funcs = [
+                    conv_model._get_energy_func(self.strategy_layer_norm)
+                    if conv_model is not None
+                    else None
+                    for conv_model in conv_models
+                ]
+
+                strategy = mtenn.strategy.SplitDeltaStrategy(*energy_funcs)
             case StrategyConfig.concat:
-                strategy = conv_model._get_concat_strategy(self.strategy_layer_norm)
+                input_size = conv_models[0].output_dim
+                for conv_model in conv_models[1:]:
+                    input_size += (
+                        conv_model.output_dim
+                        if conv_model is not None
+                        else conv_models[0].output_dim
+                    )
+
+                strategy = mtenn.strategy.SplitConcatStrategy(
+                    input_size=input_size,
+                    complex_extract_key=conv_models[0].extract_key,
+                    ligand_extract_key=(
+                        conv_models[1].extract_key
+                        if conv_models[1] is not None
+                        else conv_models[0].extract_key
+                    ),
+                    protein_extract_key=(
+                        conv_models[2].extract_key
+                        if conv_models[2] is not None
+                        else conv_models[0].extract_key
+                    ),
+                    layer_norm=self.strategy_layer_norm,
+                )
             case StrategyConfig.complex:
                 strategy = conv_model._get_complex_only_strategy(
                     self.strategy_layer_norm
