@@ -19,7 +19,7 @@ import json
 from pathlib import Path
 from pydantic import field_validator, model_validator, ConfigDict, BaseModel, Field
 import random
-from typing import Any, Literal, Callable, ClassVar
+from typing import Literal, Callable, ClassVar
 import mtenn.combination
 import mtenn.model
 import mtenn.readout
@@ -470,12 +470,15 @@ class ModelConfigBase(BaseModel, abc.ABC):
 
                 v = rep_class(**v)
             except KeyError:
-                raise ValueError(
-                    (
-                        "Passed dict doesn't match expected format for "
-                        "RepresentationConfigBase."
+                if len(v) == 0:
+                    v = None
+                else:
+                    raise ValueError(
+                        (
+                            "Passed dict doesn't match expected format for "
+                            "RepresentationConfigBase."
+                        )
                     )
-                )
 
         if (v is not None) and (not isinstance(v, RepresentationConfigBase)):
             raise TypeError(
