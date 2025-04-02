@@ -647,6 +647,8 @@ class SplitModelConfig(ModelConfigBase):
                 )
             else:
                 representation = conv_model._get_representation()
+            representations.append(representation)
+        print("representations", representations, flush=True)
 
         match self.strategy:
             case StrategyConfig.delta:
