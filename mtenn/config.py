@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import abc
 from enum import Enum
+import json
 from pathlib import Path
 from pydantic import field_validator, model_validator, ConfigDict, BaseModel, Field
 import random
@@ -190,7 +191,7 @@ class ModelConfigBase(BaseModel, abc.ABC):
     )
 
     # Shared parameters for MTENN
-    representation: Any | None = Field(
+    representation: RepresentationConfigBase | None = Field(
         None,
         description=(
             "Which underlying ``Representation`` model to use. This field is used for "
@@ -198,21 +199,21 @@ class ModelConfigBase(BaseModel, abc.ABC):
             "``SplitModel``)."
         ),
     )
-    complex_representation: Any | None = Field(
+    complex_representation: RepresentationConfigBase | None = Field(
         None,
         description=(
             "Which underlying ``Representation`` model to use for the complex."
             "This field is only used for ``SplitModel``."
         ),
     )
-    ligand_representation: Any | None = Field(
+    ligand_representation: RepresentationConfigBase | None = Field(
         None,
         description=(
             "Which underlying ``Representation`` model to use for the ligand."
             "This field is only used for ``SplitModel``."
         ),
     )
-    protein_representation: Any | None = Field(
+    protein_representation: RepresentationConfigBase | None = Field(
         None,
         description=(
             "Which underlying ``Representation`` model to use for the protein."
@@ -440,9 +441,20 @@ class ModelConfigBase(BaseModel, abc.ABC):
         "complex_representation",
         "ligand_representation",
         "protein_representation",
+        mode="before",
     )
-    def check_representation_configs(cls, v):
+    def check_representation_configs(cls, v, info):
         if isinstance(v, dict):
+            config_file = v.pop("cache", None)
+            if config_file and config_file.exists():
+                print("loading from cache", info.field_name, flush=True)
+                loaded_kwargs = json.loads(config_file.read_text())
+            else:
+                loaded_kwargs = {}
+
+            # Anything passed explicitly will override anything in the files
+            v = loaded_kwargs | v
+
             try:
                 rep_type = v["representation_type"]
 
@@ -529,7 +541,7 @@ class GroupedModelConfig(ModelConfig):
 
     model_type: Literal[ModelType.grouped] = ModelType.grouped
 
-    grouped: Literal[False] = True
+    grouped: Literal[True] = True
 
     def _build(self, mtenn_params=None):
         if mtenn_params is None:
