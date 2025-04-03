@@ -1116,14 +1116,13 @@ class SchNetRepresentationConfig(RepresentationConfigBase):
     )
 
     @model_validator(mode="after")
-    @classmethod
-    def validate(cls, values):
+    def validate(self):
         # Make sure atomref length is correct (this is required by PyG)
-        atomref = values.atomref
+        atomref = self.atomref
         if (atomref is not None) and (len(atomref) != 100):
             raise ValueError(f"atomref must be length 100 (got {len(atomref)})")
 
-        return values
+        return self
 
     @field_validator("interaction_graph")
     def check_interaction_graph_str(cls, v):
@@ -1234,8 +1233,7 @@ class E3NNRepresentationConfig(RepresentationConfigBase):
     num_nodes: float = Field(4700, description="Typical number of nodes in a graph.")
 
     @model_validator(mode="after")
-    @classmethod
-    def massage_irreps(cls, values):
+    def massage_irreps(self):
         """
         Check that the value given for ``irreps_hidden`` can be converted into an Irreps
         representation, and do so.
@@ -1243,7 +1241,7 @@ class E3NNRepresentationConfig(RepresentationConfigBase):
         from e3nn import o3
 
         # Now deal with irreps
-        irreps = values.irreps_hidden
+        irreps = self.irreps_hidden
         # First see if this string should be converted into a dict
         if isinstance(irreps, str):
             if ":" in irreps:
@@ -1265,7 +1263,7 @@ class E3NNRepresentationConfig(RepresentationConfigBase):
                     raise ValueError(f"Invalid irreps string: {irreps}")
 
                 # If already in a good string, can just return
-                return values
+                return self
 
         # If we got a dict, need to massage that into an Irreps string
         # First make a copy of the input dict in case of errors
@@ -1382,20 +1380,19 @@ class ViSNetModelConfig(ModelConfigBase):
     )
 
     @model_validator(mode="after")
-    @classmethod
-    def validate(cls, values):
+    def validate(self):
         """
         Check that ``atomref`` and ``max_z`` agree.
         """
 
         # Make sure atomref length is correct (this is required by PyG)
-        atomref = values.atomref
-        if (atomref is not None) and (len(atomref) != values.max_z):
+        atomref = self.atomref
+        if (atomref is not None) and (len(atomref) != self.max_z):
             raise ValueError(
-                f"atomref length must match max_z. (Expected {values.max_z}, got {len(atomref)})"
+                f"atomref length must match max_z. (Expected {self.max_z}, got {len(atomref)})"
             )
 
-        return values
+        return self
 
     def _build(self, mtenn_params={}):
         """
