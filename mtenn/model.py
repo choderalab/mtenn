@@ -390,7 +390,7 @@ class SplitModel(torch.nn.Module):
 
         return self.representation(*args, **kwargs)
 
-    def forward(self, comp, *parts):
+    def forward(self, comp, prot=None, lig=None):
         """
         Handles all the logic detailed in the :ref:`docs page <single-pose-model-docs>`.
         This class assumes the only data in ``parts`` is the protein and ligand, in that
@@ -422,11 +422,11 @@ class SplitModel(torch.nn.Module):
         if isinstance(self.strategy, ComplexOnlyStrategy):
             parts_rep = []
         else:
-            if len(parts) == 0:
-                parts = Model._split_parts(tmp_comp)
-            prot_rep = self.protein_representation(self._fix_device(parts[0]))
-            lig_rep = self.ligand_representation(self._fix_device(parts[1]))
-            parts_rep = [prot_rep, lig_rep]
+            if (prot is None) and (lig is None):
+                prot, lig = Model._split_parts(tmp_comp)
+            lig_rep = self.ligand_representation(self._fix_device(lig))
+            prot_rep = self.protein_representation(self._fix_device(prot))
+            parts_rep = [lig_rep, prot_rep]
 
         energy_val = self.strategy(complex_rep, *parts_rep)
         if self.readout:

@@ -142,7 +142,7 @@ class SplitDeltaStrategy(Strategy):
         self.ligand_energy_func: torch.nn.Module = ligand_energy_func
         self.protein_energy_func: torch.nn.Module = protein_energy_func
 
-    def forward(self, comp, *parts):
+    def forward(self, comp, prot, lig):
         """
         Make energy predictions for each representation, and then perform the delta
         calculation.
@@ -162,8 +162,8 @@ class SplitDeltaStrategy(Strategy):
         """
         # Get energy predictions for each representation
         complex_pred = self.complex_energy_func(comp)
-        lig_pred = self.ligand_energy_func(parts[0])
-        prot_pred = self.protein_energy_func(parts[0])
+        lig_pred = self.ligand_energy_func(lig)
+        prot_pred = self.protein_energy_func(prot)
 
         # Calculate delta G
         dG_pred = complex_pred - (lig_pred + prot_pred)
