@@ -641,17 +641,20 @@ class SplitModelConfig(ModelConfigBase):
         if mtenn_params is None:
             mtenn_params = {}
 
-        conv_models = [
-            rep_config.build() if rep_config is not None else None
-            for rep_config in [
-                self.complex_representation,
-                self.ligand_representation,
-                self.protein_representation,
-            ]
-        ]
+        complex_conv_model = self.complex_representation.build()
+        ligand_conv_model = (
+            self.ligand_representation.build()
+            if self.ligand_representation is not None
+            else None
+        )
+        protein_conv_model = (
+            self.protein_representation.build()
+            if self.protein_representation is not None
+            else None
+        )
 
         representations = []
-        for conv_model in conv_models:
+        for conv_model in [complex_conv_model, ligand_conv_model, protein_conv_model]:
             if conv_model is None:
                 representations.append(None)
                 continue
@@ -663,54 +666,73 @@ class SplitModelConfig(ModelConfigBase):
             else:
                 representation = conv_model._get_representation()
             representations.append(representation)
+
+        complex_rep, ligand_rep, protein_rep = representations
+
         print("representations", representations, flush=True)
 
         match self.strategy:
             case StrategyConfig.delta:
-                energy_funcs = [
-                    conv_model._get_energy_func(self.strategy_layer_norm)
-                    if conv_model is not None
+                complex_energy_func = complex_rep._get_energy_func(
+                    self.strategy_layer_norm
+                )
+                ligand_energy_func = (
+                    ligand_rep._get_energy_func(self.strategy_layer_norm)
+                    if ligand_rep is not None
                     else None
-                    for conv_model in conv_models
-                ]
+                )
+                protein_energy_func = (
+                    protein_rep._get_energy_func(self.strategy_layer_norm)
+                    if protein_rep is not None
+                    else None
+                )
 
-                strategy = mtenn.strategy.SplitDeltaStrategy(*energy_funcs)
+                strategy = mtenn.strategy.SplitDeltaStrategy(
+                    complex_energy_func=complex_energy_func,
+                    ligand_energy_func=ligand_energy_func,
+                    protein_energy_func=protein_energy_func,
+                )
             case StrategyConfig.concat:
-                input_size = conv_models[0].output_dim
-                for conv_model in conv_models[1:]:
-                    input_size += (
+                input_size = sum(
+                    [
                         conv_model.output_dim
                         if conv_model is not None
-                        else conv_models[0].output_dim
-                    )
+                        else complex_conv_model.output_dim
+                        for conv_model in [
+                            complex_conv_model,
+                            ligand_conv_model,
+                            protein_conv_model,
+                        ]
+                    ]
+                )
 
                 strategy = mtenn.strategy.SplitConcatStrategy(
                     input_size=input_size,
-                    complex_extract_key=conv_models[0].extract_key,
+                    complex_extract_key=complex_conv_model.extract_key,
                     ligand_extract_key=(
-                        conv_models[1].extract_key
-                        if conv_models[1] is not None
-                        else conv_models[0].extract_key
+                        ligand_conv_model.extract_key
+                        if ligand_conv_model is not None
+                        else complex_conv_model.extract_key
                     ),
                     protein_extract_key=(
-                        conv_models[2].extract_key
-                        if conv_models[2] is not None
-                        else conv_models[0].extract_key
+                        protein_conv_model.extract_key
+                        if protein_conv_model is not None
+                        else complex_conv_model.extract_key
                     ),
                     layer_norm=self.strategy_layer_norm,
                 )
             case StrategyConfig.complex:
                 strategy = mtenn.strategy.ComplexOnlyStrategy(
-                    conv_models[0]._get_energy_func(self.strategy_layer_norm)
+                    complex_conv_model._get_energy_func(self.strategy_layer_norm)
                 )
             case _:
                 raise ValueError(f"Unknown strategy: {self.strategy}")
 
         return mtenn.model.SplitModel(
-            complex_representation=representations[0],
+            complex_representation=complex_rep,
             strategy=strategy,
-            ligand_representation=representations[1],
-            protein_representation=representations[2],
+            ligand_representation=ligand_rep,
+            protein_representation=protein_rep,
             readout=mtenn_params.get("pred_readout", None),
             fix_device=True,
         )
