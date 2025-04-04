@@ -420,15 +420,15 @@ class SplitModel(torch.nn.Module):
         complex_rep = self.complex_representation(tmp_comp)
 
         if isinstance(self.strategy, ComplexOnlyStrategy):
-            parts_rep = []
+            lig_rep = None
+            prot_rep = None
         else:
             if (prot is None) and (lig is None):
                 prot, lig = Model._split_parts(tmp_comp)
             lig_rep = self.ligand_representation(self._fix_device(lig))
             prot_rep = self.protein_representation(self._fix_device(prot))
-            parts_rep = [lig_rep, prot_rep]
 
-        energy_val = self.strategy(complex_rep, *parts_rep)
+        energy_val = self.strategy(comp=complex_rep, prot=prot_rep, lig=lig_rep)
         if self.readout:
             return self.readout(energy_val), [energy_val]
         else:
