@@ -669,21 +669,19 @@ class SplitModelConfig(ModelConfigBase):
 
         complex_rep, ligand_rep, protein_rep = representations
 
-        print("representations", representations, flush=True)
-
         match self.strategy:
             case StrategyConfig.delta:
-                complex_energy_func = complex_rep._get_energy_func(
+                complex_energy_func = complex_conv_model._get_energy_func(
                     self.strategy_layer_norm
                 )
                 ligand_energy_func = (
-                    ligand_rep._get_energy_func(self.strategy_layer_norm)
-                    if ligand_rep is not None
+                    ligand_conv_model._get_energy_func(self.strategy_layer_norm)
+                    if ligand_conv_model is not None
                     else None
                 )
                 protein_energy_func = (
-                    protein_rep._get_energy_func(self.strategy_layer_norm)
-                    if protein_rep is not None
+                    protein_conv_model._get_energy_func(self.strategy_layer_norm)
+                    if protein_conv_model is not None
                     else None
                 )
 
