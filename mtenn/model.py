@@ -425,6 +425,7 @@ class SplitModel(torch.nn.Module):
         else:
             if (prot is None) and (lig is None):
                 prot, lig = Model._split_parts(tmp_comp)
+
             lig_rep = self.ligand_representation(self._fix_device(lig))
             prot_rep = self.protein_representation(self._fix_device(prot))
 

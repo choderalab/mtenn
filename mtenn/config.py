@@ -17,7 +17,14 @@ import abc
 from enum import Enum
 import json
 from pathlib import Path
-from pydantic import field_validator, model_validator, ConfigDict, BaseModel, Field
+from pydantic import (
+    field_serializer,
+    field_validator,
+    model_validator,
+    ConfigDict,
+    BaseModel,
+    Field,
+)
 import random
 from typing import Literal, Callable, ClassVar
 import mtenn.combination
@@ -109,7 +116,7 @@ class RepresentationType(StringEnum):
     * INVALID: Invalid model type to catch instantiation errors
     """
 
-    GAT = "GAT"
+    gat = "gat"
     schnet = "schnet"
     e3nn = "e3nn"
     visnet = "visnet"
@@ -320,6 +327,18 @@ class ModelConfigBase(BaseModel, abc.ABC):
             raise ValueError(f"Weights path does not exist: {v}")
 
         return v
+
+    @field_serializer(
+        "representation",
+        "complex_representation",
+        "protein_representation",
+        "ligand_representation",
+        when_used="json",
+    )
+    def serialize_representation(self, representation):
+        if representation is None:
+            return None
+        return representation.model_dump()
 
     def build(self) -> mtenn.model.Model:
         """
@@ -849,7 +868,7 @@ class GATRepresentationConfig(RepresentationConfigBase):
         "biases": bool,
     }  #: :meta private:
 
-    representation_type: Literal[RepresentationType.GAT] = RepresentationType.GAT
+    representation_type: Literal[RepresentationType.gat] = RepresentationType.gat
 
     in_feats: int = Field(
         _CanonicalAtomFeaturizer().feat_size(),
