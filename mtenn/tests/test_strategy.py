@@ -16,14 +16,11 @@ def energy_func():
 
 
 @pytest.fixture
-def reduce_nn():
+def reduce_nn_wts_dict():
     """
     Simple linear model with all weights == 1 for easy testing.
     """
-    model = torch.nn.Linear(15, 1, bias=False)
-    model.load_state_dict({"weight": torch.ones_like(model.weight)})
-
-    return model
+    return {"weight": torch.ones((1, 15)), "bias": torch.ones((1,))}
 
 
 @pytest.fixture
@@ -43,46 +40,38 @@ def test_complex_only(energy_func, inputs):
     assert strat(*inputs) == 10  # sum(0, 1, 2, 3, 4)
 
 
-def test_concat_strat_no_extract_key(reduce_nn, inputs):
-    strat = ConcatStrategy()
-    strat.reduce_nn = reduce_nn
-
+def test_concat_strat_no_extract_key(reduce_nn_wts_dict, inputs):
     comp, prot, lig = inputs
+
+    input_size = len(comp.flatten()) + len(prot.flatten()) + len(lig.flatten())
+    strat = ConcatStrategy(input_size=input_size)
+    strat.reduce_nn.load_state_dict(reduce_nn_wts_dict)
 
     # What should be going on inside the concat strat
     full_rep = torch.cat([prot, lig]) + torch.cat([lig, prot])
     full_rep = torch.cat([comp, full_rep])
-    ref_sum = full_rep.sum(axis=None)
+    ref_sum = full_rep.sum(axis=None) + 1
 
     # Test
     pred = strat(comp, prot, lig)
     assert pred == ref_sum
 
 
-def test_concat_strat_extract_key(reduce_nn, inputs):
-    strat = ConcatStrategy(extract_key="x")
-    strat.reduce_nn = reduce_nn
-
+def test_concat_strat_extract_key(reduce_nn_wts_dict, inputs):
     comp, prot, lig = inputs
+
+    input_size = len(comp.flatten()) + len(prot.flatten()) + len(lig.flatten())
+    strat = ConcatStrategy(input_size=input_size, extract_key="x")
+    strat.reduce_nn.load_state_dict(reduce_nn_wts_dict)
 
     # What should be going on inside the concat strat
     full_rep = torch.cat([prot, lig]) + torch.cat([lig, prot])
     full_rep = torch.cat([comp, full_rep])
-    ref_sum = full_rep.sum(axis=None)
+    ref_sum = full_rep.sum(axis=None) + 1
 
     # Test
     pred = strat({"x": comp}, {"x": prot}, {"x": lig})
     assert pred == ref_sum
-
-
-def test_concat_strat_auto_init(inputs):
-    strat = ConcatStrategy()
-    comp, prot, lig = inputs
-
-    pred1 = strat(comp, prot, lig)
-    pred2 = strat(comp, prot, lig)
-
-    assert pred1 == pred2
 
 
 def test_delta_strat(energy_func, inputs):
