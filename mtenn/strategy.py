@@ -19,7 +19,7 @@ class Strategy(torch.nn.Module, abc.ABC):
         """
         For any strategy class, this function should take a complex representation and
         (optionally) any number of "part" representations, and return a single
-        :math:`\mathrm{\Delta G}` prediction.
+        :math:`\\mathrm{\\Delta G}` prediction.
         """
         raise NotImplementedError("Must implement the `forward` method.")
 
@@ -28,15 +28,15 @@ class DeltaStrategy(Strategy):
     """
     Simple strategy for subtracting the sum of the individual component energies
     from the complex energy. This ``Strategy`` requires an ``energy_func``
-    :math:`\phi: \mathbb{R}^n \\rightarrow \mathbb{R}` that maps from an n-dimensional
+    :math:`\\phi: \\mathbb{R}^n \\rightarrow \\mathbb{R}` that maps from an n-dimensional
     vector representation (output from a ``Representation`` block) to a scalar-value
     energy prediction.
 
     .. math::
 
-        \mathrm{G} &= \phi (\mathrm{\\boldsymbol{x}})
+        \\mathrm{G} &= \\phi (\\mathrm{\\boldsymbol{x}})
 
-        \Delta \mathrm{G_{pred}} &= \mathrm{G_{complex}} - \\sum_n \mathrm{G}_n
+        \\Delta \\mathrm{G_{pred}} &= \\mathrm{G_{complex}} - \\sum_n \\mathrm{G}_n
     """
 
     def __init__(self, energy_func):
@@ -68,7 +68,7 @@ class DeltaStrategy(Strategy):
         Returns
         -------
         torch.Tensor
-            Predicted :math:`\Delta G` value
+            Predicted :math:`\\Delta G` value
         """
         # Get energy predictions for each representation
         complex_pred = self.energy_func(comp)
@@ -87,7 +87,7 @@ class SplitDeltaStrategy(Strategy):
     """
     Simple strategy for subtracting the sum of the individual component energies
     from the complex energy. This ``Strategy`` requires an individual ``energy_func``
-    (:math:`\phi: \mathbb{R}^n \\rightarrow \mathbb{R}` that maps from an n-dimensional
+    (:math:`\\phi: \\mathbb{R}^n \\rightarrow \\mathbb{R}` that maps from an n-dimensional
     vector representation (output from a ``Representation`` block) to a scalar-value
     energy prediction) for the complex, ligand, and protein representations. As with
     :py:class:`SplitModel <mtenn.model.SplitModel>`, the ``complex_energy_func`` is
@@ -101,17 +101,17 @@ class SplitDeltaStrategy(Strategy):
 
     .. math::
 
-        \mathrm{G_{complex}} &= \phi_{\mathrm{complex}}
-        (\mathrm{\\boldsymbol{x}_{complex}})
+        \\mathrm{G_{complex}} &= \\phi_{\\mathrm{complex}}
+        (\\mathrm{\\boldsymbol{x}_{complex}})
 
-        \mathrm{G_{ligand}} &= \phi_{\mathrm{ligand}}
-        (\mathrm{\\boldsymbol{x}_{ligand}})
+        \\mathrm{G_{ligand}} &= \\phi_{\\mathrm{ligand}}
+        (\\mathrm{\\boldsymbol{x}_{ligand}})
 
-        \mathrm{G_{protein}} &= \phi_{\mathrm{protein}}
-        (\mathrm{\\boldsymbol{x}_{protein}})
+        \\mathrm{G_{protein}} &= \\phi_{\\mathrm{protein}}
+        (\\mathrm{\\boldsymbol{x}_{protein}})
 
-        \Delta \mathrm{G_{pred}} &= \mathrm{G_{complex}}
-        - (\mathrm{G_{ligand}} + \mathrm{G_{protein}})
+        \\Delta \\mathrm{G_{pred}} &= \\mathrm{G_{complex}}
+        - (\\mathrm{G_{ligand}} + \\mathrm{G_{protein}})
     """
 
     def __init__(
@@ -134,6 +134,9 @@ class SplitDeltaStrategy(Strategy):
         """
         super(SplitDeltaStrategy, self).__init__()
         self.complex_energy_func: torch.nn.Module = complex_energy_func
+
+        if not isinstance(complex_energy_func, torch.nn.Module):
+            raise ValueError("Passed complex_energy_func is not a pytorch model.")
 
         if ligand_energy_func is None:
             ligand_energy_func = complex_energy_func
@@ -158,7 +161,7 @@ class SplitDeltaStrategy(Strategy):
         Returns
         -------
         torch.Tensor
-            Predicted :math:`\Delta G` value
+            Predicted :math:`\\Delta G` value
         """
         # Get energy predictions for each representation
         complex_pred = self.complex_energy_func(comp)
@@ -176,22 +179,22 @@ class ConcatStrategy(Strategy):
     in some learned manner, using sum-pooling to ensure permutation-invariance
     of the parts. For 3 n-dimensional input representations (eg complex, protein-only,
     and ligand-only), this ``Strategy`` acts as a function
-    :math:`\phi: \mathbb{R}^{3n} \\rightarrow \mathbb{R}` that predicts a scalar-value
-    :math:`\Delta G` prediction.
+    :math:`\\phi: \\mathbb{R}^{3n} \\rightarrow \\mathbb{R}` that predicts a scalar-value
+    :math:`\\Delta G` prediction.
 
-    The input :math:`\mathrm{\\boldsymbol{x}}` to :math:`\phi` is computed in a
+    The input :math:`\\mathrm{\\boldsymbol{x}}` to :math:`\\phi` is computed in a
     permutation-invariant manner. For a protein-ligand complex, this looks like:
 
     .. math::
 
-        \mathrm{\\boldsymbol{x}_{parts}} &= [\mathrm{\\boldsymbol{x}_{protein}},
-        \mathrm{\\boldsymbol{x}_{ligand}}] + [\mathrm{\\boldsymbol{x}_{ligand}},
-        \mathrm{\\boldsymbol{x}_{protein}}]
+        \\mathrm{\\boldsymbol{x}_{parts}} &= [\\mathrm{\\boldsymbol{x}_{protein}},
+        \\mathrm{\\boldsymbol{x}_{ligand}}] + [\\mathrm{\\boldsymbol{x}_{ligand}},
+        \\mathrm{\\boldsymbol{x}_{protein}}]
 
-        \mathrm{\\boldsymbol{x}} &= [\mathrm{\\boldsymbol{x}_{complex}},
-        \mathrm{\\boldsymbol{x}_{parts}}]
+        \\mathrm{\\boldsymbol{x}} &= [\\mathrm{\\boldsymbol{x}_{complex}},
+        \\mathrm{\\boldsymbol{x}_{parts}}]
 
-        \Delta \mathrm{G_{pred}} &= \phi (\mathrm{\\boldsymbol{x}})
+        \\Delta \\mathrm{G_{pred}} &= \\phi (\\mathrm{\\boldsymbol{x}})
 
     In general, we will sum every permutation of the non-complex representations, and
     then this sum will be concatenated to the complex representation.
@@ -244,7 +247,7 @@ class ConcatStrategy(Strategy):
         Returns
         -------
         torch.Tensor
-            Predicted :math:`\Delta G` value
+            Predicted :math:`\\Delta G` value
         """
         # Extract representation from dict
         if self.extract_key and isinstance(comp, dict):
@@ -274,17 +277,17 @@ class SplitConcatStrategy(Strategy):
     and ligand representations, and so skips the sum-pooling step. If possible, it's
     recommended to use :py:class:ConcatStrategy. For representation sizes of :math:`d`
     for the complex and protein and :math:`l` for the ligand, this ``Strategy`` acts as
-    a function :math:`\phi: \mathbb{R}^{2d+l} \\rightarrow \mathbb{R}` that predicts a
-    scalar-value :math:`\Delta G` prediction.
+    a function :math:`\\phi: \\mathbb{R}^{2d+l} \\rightarrow \\mathbb{R}` that predicts a
+    scalar-value :math:`\\Delta G` prediction.
 
     We concatenate the representations in the order of complex, ligand, protein:
 
     .. math::
 
-        \mathrm{\\boldsymbol{x}} &= [\mathrm{\\boldsymbol{x}_{complex}},
-        \mathrm{\\boldsymbol{x}_{ligand}}, \mathrm{\\boldsymbol{x}_{protein}}]
+        \\mathrm{\\boldsymbol{x}} &= [\\mathrm{\\boldsymbol{x}_{complex}},
+        \\mathrm{\\boldsymbol{x}_{ligand}}, \\mathrm{\\boldsymbol{x}_{protein}}]
 
-        \Delta \mathrm{G_{pred}} &= \phi (\mathrm{\\boldsymbol{x}})
+        \\Delta \\mathrm{G_{pred}} &= \\phi (\\mathrm{\\boldsymbol{x}})
 
     """
 
@@ -343,7 +346,7 @@ class SplitConcatStrategy(Strategy):
         Returns
         -------
         torch.Tensor
-            Predicted :math:`\Delta G` value
+            Predicted :math:`\\Delta G` value
         """
         # Extract representation from dict
         all_reps = []
