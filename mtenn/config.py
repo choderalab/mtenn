@@ -617,7 +617,7 @@ class LigandOnlyModelConfig(ModelConfig):
             conv_model.reduce_output = self.strategy == "concat"
 
         return mtenn.model.LigandOnlyModel(
-            representation=conv_model,
+            model=conv_model,
             readout=mtenn_params.get("pred_readout", None),
             fix_device=True,
         )
