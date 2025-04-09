@@ -822,7 +822,7 @@ class RepresentationConfigBase(BaseModel, abc.ABC):
             Returns an object that is the same type as the calling object
         """
 
-        orig_config = self.dict()
+        orig_config = self.model_dump()
 
         # Get new config by overwriting old stuff with any new stuff
         new_config = orig_config | config_updates
@@ -965,7 +965,7 @@ class GATRepresentationConfig(RepresentationConfigBase):
         Validator to handle unifying all the values into the proper list forms based on
         the rules described in the class docstring.
         """
-        values = self.dict()
+        values = self.model_dump()
 
         # First convert string lists to actual lists
         for param, param_type in self.LIST_PARAMS.items():
@@ -1070,7 +1070,7 @@ class GATRepresentationConfig(RepresentationConfigBase):
         GATRepresentationConfig
             New ``GATRepresentationConfig`` object
         """
-        orig_config = self.dict()
+        orig_config = self.model_dump()
         if self._from_num_layers or ("num_layers" in config_updates):
             # If originally generated from num_layers, want to pull out the first entry
             #  in each list param so it can be re-broadcast with (potentially) new
@@ -1329,8 +1329,8 @@ class E3NNRepresentationConfig(RepresentationConfigBase):
         except ValueError:
             raise ValueError(f"Couldn't parse irreps dict: {orig_irreps}")
 
-        values.irreps_hidden = irreps
-        return values
+        self.irreps_hidden = irreps
+        return self
 
     def build(self):
         """
