@@ -147,6 +147,6 @@ def test_split_delta_strat(
     assert pred == ref_value
 
 
-def test_split_delta_strat_needs_complex_energy_func(energy_func):
+def test_split_delta_strat_needs_complex_energy_func():
     with pytest.raises(ValueError):
         SplitDeltaStrategy(complex_energy_func=None)
