@@ -1234,11 +1234,11 @@ class E3NNRepresentationConfig(RepresentationConfigBase):
             "max atomic number of all input atoms."
         ),
     )
-    irreps_hidden: dict[str, int] | str = Field(
-        {"0": 10, "1": 3, "2": 2, "3": 1},
+    irreps_hidden: str = Field(
+        "10x0o+10x0e+3x1o+3x1e+2x2o+2x2e+1x3o+1x3e",
         description=(
             "``Irreps`` for the hidden layers of the network. "
-            "This can either take the form of an ``Irreps`` string, or a dict mapping "
+            "This can either be passed as an ``Irreps`` string, or a dict mapping "
             ":math:`\\mathcal{l}` levels (parity optional) to the number of ``Irreps`` "
             "of that level. "
             "If parity is not passed for a given level, both parities will be used. If "
@@ -1271,8 +1271,8 @@ class E3NNRepresentationConfig(RepresentationConfigBase):
     num_neighbors: float = Field(25, description="Typical number of neighbor nodes.")
     num_nodes: float = Field(4700, description="Typical number of nodes in a graph.")
 
-    @model_validator(mode="after")
-    def massage_irreps(self):
+    @field_validator("irreps_hidden", mode="before")
+    def massage_irreps(cls, irreps):
         """
         Check that the value given for ``irreps_hidden`` can be converted into an Irreps
         representation, and do so.
@@ -1280,7 +1280,6 @@ class E3NNRepresentationConfig(RepresentationConfigBase):
         from e3nn import o3
 
         # Now deal with irreps
-        irreps = self.irreps_hidden
         # First see if this string should be converted into a dict
         if isinstance(irreps, str):
             if ":" in irreps:
@@ -1302,7 +1301,7 @@ class E3NNRepresentationConfig(RepresentationConfigBase):
                     raise ValueError(f"Invalid irreps string: {irreps}")
 
                 # If already in a good string, can just return
-                return self
+                return irreps
 
         # If we got a dict, need to massage that into an Irreps string
         # First make a copy of the input dict in case of errors
@@ -1329,8 +1328,7 @@ class E3NNRepresentationConfig(RepresentationConfigBase):
         except ValueError:
             raise ValueError(f"Couldn't parse irreps dict: {orig_irreps}")
 
-        self.irreps_hidden = irreps
-        return self
+        return irreps
 
     def build(self):
         """
