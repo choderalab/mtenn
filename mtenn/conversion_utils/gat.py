@@ -91,7 +91,9 @@ class GAT(torch.nn.Module):
             gnn_out_feats = self.gnn.hidden_feats[-1] * self.gnn.num_heads[-1]
         else:
             gnn_out_feats = self.gnn.hidden_feats[-1]
+        # Returns a Tensor 2x length of input (sum and max)
         self.readout = WeightedSumAndMax(gnn_out_feats)
+        self.readout_out_feats = 2 * gnn_out_feats
 
         # Use given hidden feats if supplied, otherwise use 1/2 gnn_out_feats
         if predictor_hidden_feats is None:
@@ -99,7 +101,7 @@ class GAT(torch.nn.Module):
 
         # 2 layer MLP with ReLU activation (borrowed from GATPredictor)
         self.predict = torch.nn.Sequential(
-            torch.nn.Linear(2 * gnn_out_feats, predictor_hidden_feats),
+            torch.nn.Linear(self.readout_out_feats, predictor_hidden_feats),
             torch.nn.ReLU(),
             torch.nn.Linear(predictor_hidden_feats, 1),
         )
@@ -125,6 +127,14 @@ class GAT(torch.nn.Module):
         graph_feats = self.readout(g, node_feats)
         return self.predict(graph_feats)
 
+    @property
+    def output_dim(self):
+        return self.readout_out_feats
+
+    @property
+    def extract_key(self):
+        return None
+
     def _get_representation(self):
         """
         Input model, remove last layer.
@@ -136,11 +146,14 @@ class GAT(torch.nn.Module):
         """
 
         # Copy model so initial model isn't affected
-        model_copy = deepcopy(self.gnn)
+        model_copy = deepcopy(self)
+
+        # Replace predict module with identity module
+        model_copy.predict = torch.nn.Identity()
 
         return model_copy
 
-    def _get_energy_func(self):
+    def _get_energy_func(self, layer_norm=False):
         """
         Return last two layer of the model.
 
@@ -148,9 +161,20 @@ class GAT(torch.nn.Module):
         -------
         torch.nn.Sequential
             Sequential module calling copy of `model`'s last two layers
+        layer_norm: bool, default=False
+            Apply a ``LayerNorm`` normalization before passing through the model's
+            predictor
         """
 
-        return torch.nn.Sequential(deepcopy(self.readout), deepcopy(self.predict))
+        pred_model = deepcopy(self.predict)
+        if layer_norm:
+            energy_func = torch.nn.Sequential(
+                torch.nn.LayerNorm(self.output_dim), pred_model
+            )
+        else:
+            energy_func = pred_model
+
+        return energy_func
 
     @staticmethod
     def get_model(

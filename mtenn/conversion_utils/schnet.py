@@ -7,6 +7,8 @@ torch_geometric.nn.models.SchNet.html#torch_geometric.nn.models.SchNet>`_.
 from copy import deepcopy
 import torch
 from torch_geometric.nn.models import SchNet as PygSchNet
+from torch_geometric.nn.models.schnet import RadiusInteractionGraph
+from typing import Callable, Optional
 
 from mtenn.model import GroupedModel, Model
 from mtenn.strategy import ComplexOnlyStrategy, ConcatStrategy, DeltaStrategy
@@ -78,6 +80,14 @@ class SchNet(PygSchNet):
         """
         return super(SchNet, self).forward(data["z"], data["pos"])
 
+    @property
+    def output_dim(self):
+        return self.lin1.out_features
+
+    @property
+    def extract_key(self):
+        return None
+
     def _get_representation(self):
         """
         Copy model and set last layer as the ``Identity``.
@@ -100,7 +110,7 @@ class SchNet(PygSchNet):
 
         return model_copy
 
-    def _get_energy_func(self):
+    def _get_energy_func(self, layer_norm=False):
         """
         Return copy of last layer of the model.
 
@@ -108,6 +118,8 @@ class SchNet(PygSchNet):
         ----------
         model: mtenn.conversion_utils.schnet.SchNet
             ``SchNet`` model
+        layer_norm: bool, default=False
+            Apply a ``LayerNorm`` normalization before passing through the linear layer
 
         Returns
         -------
@@ -115,12 +127,22 @@ class SchNet(PygSchNet):
             Copy of last layer
         """
 
-        return deepcopy(self.lin2)
+        lin = deepcopy(self.lin2)
+        if layer_norm:
+            energy_func = torch.nn.Sequential(torch.nn.LayerNorm(lin.in_features), lin)
+        else:
+            energy_func = lin
+        return energy_func
 
-    def _get_delta_strategy(self):
+    def _get_delta_strategy(self, layer_norm=False):
         """
         Build a :py:class:`DeltaStrategy <mtenn.strategy.DeltaStrategy>` object based on
         the calling model.
+
+        Parameters
+        ----------
+        layer_norm: bool, default=False
+            Apply a ``LayerNorm`` normalization before passing through the linear layer
 
         Returns
         -------
@@ -128,12 +150,17 @@ class SchNet(PygSchNet):
             ``DeltaStrategy`` built from the model
         """
 
-        return DeltaStrategy(self._get_energy_func())
+        return DeltaStrategy(self._get_energy_func(layer_norm))
 
-    def _get_complex_only_strategy(self):
+    def _get_complex_only_strategy(self, layer_norm=False):
         """
         Build a :py:class:`ComplexOnlyStrategy <mtenn.strategy.ComplexOnlyStrategy>`
         object based on the calling model.
+
+        Parameters
+        ----------
+        layer_norm: bool, default=False
+            Apply a ``LayerNorm`` normalization before passing through the linear layer
 
         Returns
         -------
@@ -141,7 +168,28 @@ class SchNet(PygSchNet):
             ``ComplexOnlyStrategy`` built from the model
         """
 
-        return ComplexOnlyStrategy(self._get_energy_func())
+        return ComplexOnlyStrategy(self._get_energy_func(layer_norm))
+
+    def _get_concat_strategy(self, layer_norm=False):
+        """
+        Build a :py:class:`ConcatStrategy <mtenn.strategy.ConcatStrategy>` object with
+        the appropriate ``input_size``.
+
+        Parameters
+        ----------
+        layer_norm: bool, default=False
+            Apply a ``LayerNorm`` normalization before passing through the linear layer
+
+        Returns
+        -------
+        ConcatStrategy
+            ``ConcatStrategy`` for the model
+        """
+
+        # Calculate input size as 3 * dimensionality of output of Representation
+        #  (ie lin1 layer)
+        input_size = 3 * self.lin1.out_features
+        return ConcatStrategy(input_size=input_size, layer_norm=layer_norm)
 
     @staticmethod
     def get_model(
@@ -149,6 +197,7 @@ class SchNet(PygSchNet):
         grouped=False,
         fix_device=False,
         strategy: str = "delta",
+        layer_norm: bool = False,
         combination=None,
         pred_readout=None,
         comb_readout=None,
@@ -172,6 +221,8 @@ class SchNet(PygSchNet):
         strategy: str, default='delta'
             ``Strategy`` to use to combine representations of the different parts.
             Options are [``delta``, ``concat``, ``complex``]
+        layer_norm: bool, default=False
+            Apply a ``LayerNorm`` normalization before passing through the linear layer
         combination: mtenn.combination.Combination, optional
             ``Combination`` object to use to combine multiple predictions. A value must
             be passed if ``grouped`` is ``True``
@@ -201,11 +252,11 @@ class SchNet(PygSchNet):
         #  representation (if necessary)
         strategy = strategy.lower()
         if strategy == "delta":
-            strategy = model._get_delta_strategy()
+            strategy = model._get_delta_strategy(layer_norm)
         elif strategy == "concat":
-            strategy = ConcatStrategy()
+            strategy = model._get_concat_strategy(layer_norm)
         elif strategy == "complex":
-            strategy = model._get_complex_only_strategy()
+            strategy = model._get_complex_only_strategy(layer_norm)
         else:
             raise ValueError(f"Unknown strategy: {strategy}")
 
@@ -226,3 +277,82 @@ class SchNet(PygSchNet):
             )
         else:
             return Model(representation, strategy, pred_readout, fix_device)
+
+
+class MemoizedRadiusInteractionGraph(RadiusInteractionGraph):
+    """
+    Memoized version of the PyG RadiusInteractionGraph. The lookup function used to
+    map the position and batch tensors to the edge index/weight tensors can be any
+    function with the appropriate signature, but defaults to a string of the number of
+    atoms and the x, y, and z coords of the first and last two atoms to 7 decimal
+    points. Note that this of course relies on the atoms for a given sample being in the
+    same order each time.
+    """
+
+    def __init__(
+        self,
+        lookup_function: Optional[Callable] = None,
+        cutoff: float = 10.0,
+        max_num_neighbors: int = 32,
+    ):
+        """
+        Initialize underlying RadiusInteractionGraph and define lookup function for
+        storing computed results.
+
+        Parameters
+        ----------
+        lookup_function: Callable, optional
+            Function mapping from position and batch tensors to a dict lookup key
+        cutoff: float, default=10.0
+            Cutoff distance for interatomic interactions
+        max_num_neighbors: int, default=32
+            The maximum number of neighbors to collect for each node within the
+            ``cutoff`` distance with the default interaction graph method
+        """
+        super().__init__(cutoff=cutoff, max_num_neighbors=max_num_neighbors)
+
+        if lookup_function is None:
+
+            def lookup_function(pos: torch.Tensor, batch: torch.Tensor):
+                return (
+                    str(len(pos))
+                    + "".join([f"{v:0.7f}" for v in pos[:2, :].flatten()])
+                    + "".join([f"{v:0.7f}" for v in pos[-2:, :].flatten()])
+                )
+
+        self.lookup_function = lookup_function
+        self.lookup_table = {}
+
+    def __repr__(self):
+        return (
+            f"MemoizedRadiusInteractionGraph(cutoff={self.cutoff}, "
+            f"max_num_neighbors={self.max_num_neighbors})"
+        )
+
+    def forward(self, pos: torch.Tensor, batch: torch.Tensor):
+        """
+        Perform forward pass of RadiusInteractionGraph class, first checking to see if
+        this calculation has already been done.
+
+        Parameters
+        ----------
+        pos: torch.Tensor
+            Coordinates of each atom
+        batch: torch.Tensor
+            Batch indices assigning each atom to a separate molecule
+
+        Returns
+        -------
+        torch.Tensor
+            Edge index tensor
+        torch.Tensor
+            Edge weight tensor
+        """
+        lookup_key = self.lookup_function(pos, batch)
+
+        try:
+            return self.lookup_table[lookup_key]
+        except KeyError:
+            edge_index, edge_weight = super().forward(pos, batch)
+            self.lookup_table[lookup_key] = (edge_index, edge_weight)
+            return edge_index, edge_weight
