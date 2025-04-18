@@ -528,12 +528,7 @@ class ModelConfig(ModelConfigBase):
             mtenn_params = {}
 
         conv_model = self.representation.build()
-        if self.representation.representation_type == RepresentationType.e3nn:
-            representation = conv_model._get_representation(
-                reduce_output=(self.strategy == "concat")
-            )
-        else:
-            representation = conv_model._get_representation()
+        representation = conv_model._get_representation()
 
         match self.strategy:
             case StrategyConfig.delta:
@@ -570,12 +565,7 @@ class GroupedModelConfig(ModelConfig):
             mtenn_params = {}
 
         conv_model = self.representation.build()
-        if self.representation.representation_type == RepresentationType.e3nn:
-            representation = conv_model._get_representation(
-                reduce_output=(self.strategy == "concat")
-            )
-        else:
-            representation = conv_model._get_representation()
+        representation = conv_model._get_representation()
 
         match self.strategy:
             case StrategyConfig.delta:
@@ -613,8 +603,6 @@ class LigandOnlyModelConfig(ModelConfig):
             mtenn_params = {}
 
         conv_model = self.representation.build()
-        if self.representation.representation_type == RepresentationType.e3nn:
-            conv_model.reduce_output = self.strategy == "concat"
 
         return mtenn.model.LigandOnlyModel(
             model=conv_model,
@@ -678,12 +666,7 @@ class SplitModelConfig(ModelConfigBase):
                 representations.append(None)
                 continue
 
-            if isinstance(conv_model, E3NN):
-                representation = conv_model._get_representation(
-                    reduce_output=(self.strategy == "concat")
-                )
-            else:
-                representation = conv_model._get_representation()
+            representation = conv_model._get_representation()
             representations.append(representation)
 
         complex_rep, ligand_rep, protein_rep = representations
@@ -1356,11 +1339,10 @@ class E3NNRepresentationConfig(RepresentationConfigBase):
             radial_neurons=self.num_radial_neurons,
             num_neighbors=self.num_neighbors,
             num_nodes=self.num_nodes,
-            reduce_output=False,
+            reduce_output=True,
         )
 
         return model
-        # return model._get_representation(reduce_output=reduce_output)
 
 
 class ViSNetModelConfig(ModelConfigBase):
