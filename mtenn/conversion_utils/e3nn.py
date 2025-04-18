@@ -94,16 +94,9 @@ class E3NN(Network):
     def extract_key(self):
         return "x"
 
-    def _get_representation(self, reduce_output=False):
+    def _get_representation(self):
         """
         Copy model and remove last layer.
-
-        Parameters
-        ----------
-        reduce_output: bool, default=False
-            Whether to reduce output across nodes. This should be set to ``True``
-            if you want a uniform size tensor for every input size (eg when
-            using a ``ConcatStrategy``)
 
         Returns
         -------
@@ -115,7 +108,6 @@ class E3NN(Network):
         model_copy = deepcopy(self)
         # Remove last layer
         model_copy.layers = model_copy.layers[:-1]
-        model_copy.reduce_output = reduce_output
         model_copy.irreps_out = model_copy.layers[-1].irreps_out
 
         return model_copy
