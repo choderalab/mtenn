@@ -115,18 +115,20 @@ class ConcatStrategy(Strategy):
     initialize a one-layer linear network of the appropriate dimensionality.
     """
 
-    def __init__(self, extract_key=None):
+    def __init__(self, input_size, extract_key=None):
         """
         Set the key to use to access vector representations if ``dict`` s are passed to
         the ``forward`` call.
 
         Parameters
         ----------
+        input_size : int
+            Input size of linear model
         extract_key : str, optional
             Key to use to extract representation from a dict
         """
         super(ConcatStrategy, self).__init__()
-        self.reduce_nn: torch.nn.Module = None
+        self.reduce_nn = torch.nn.Linear(input_size, 1)
         self.extract_key = extract_key
 
     def forward(self, comp, *parts):
@@ -158,17 +160,8 @@ class ConcatStrategy(Strategy):
         comp = comp.flatten()
         parts = [p.flatten() for p in parts]
 
-        parts_size = sum([len(p) for p in parts])
-        if self.reduce_nn is None:
-            # If we haven't already, initialize a Linear module with appropriate input
-            #  size
-            input_size = len(comp) + parts_size
-            self.reduce_nn = torch.nn.Linear(input_size, 1)
-
-        # Move self.reduce_nn to appropriate torch device
-        self.reduce_nn = self.reduce_nn.to(comp.device)
-
         # Enumerate all possible permutations of parts and add together
+        parts_size = sum([len(p) for p in parts])
         parts_cat = torch.zeros((parts_size), device=comp.device)
         for idxs in permutations(range(len(parts)), len(parts)):
             parts_cat += torch.cat([parts[i] for i in idxs])

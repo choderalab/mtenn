@@ -143,6 +143,22 @@ class SchNet(PygSchNet):
 
         return ComplexOnlyStrategy(self._get_energy_func())
 
+    def _get_concat_strategy(self):
+        """
+        Build a :py:class:`ConcatStrategy <mtenn.strategy.ConcatStrategy>` object with
+        the appropriate ``input_size``.
+
+        Returns
+        -------
+        ConcatStrategy
+            ``ConcatStrategy`` for the model
+        """
+
+        # Calculate input size as 3 * dimensionality of output of Representation
+        #  (ie lin1 layer)
+        input_size = 3 * self.lin1.out_features
+        return ConcatStrategy(input_size=input_size)
+
     @staticmethod
     def get_model(
         model=None,
@@ -203,7 +219,7 @@ class SchNet(PygSchNet):
         if strategy == "delta":
             strategy = model._get_delta_strategy()
         elif strategy == "concat":
-            strategy = ConcatStrategy()
+            strategy = model._get_concat_strategy()
         elif strategy == "complex":
             strategy = model._get_complex_only_strategy()
         else:
