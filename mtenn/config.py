@@ -333,7 +333,7 @@ class ModelConfigBase(BaseModel, abc.ABC):
         "complex_representation",
         "protein_representation",
         "ligand_representation",
-        when_used="json",
+        when_used="always",
     )
     def serialize_representation(self, representation):
         if representation is None:
@@ -643,8 +643,6 @@ class SplitModelConfig(ModelConfigBase):
         return self
 
     def _build(self, mtenn_params=None):
-        from mtenn.conversion_utils.e3nn import E3NN
-
         if mtenn_params is None:
             mtenn_params = {}
 
