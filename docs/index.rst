@@ -6,6 +6,9 @@
 Welcome to mtenn's documentation!
 =================================
 
+**Note: this documentation is current as of** ``mtenn v0.6.3`` **. We are currently in the
+process of updating for** ``v0.7.0`` **.**
+
 ``mtenn`` is a framework designed to abstract and modularize the task of structure-based machine learning.
 
 .. toctree::

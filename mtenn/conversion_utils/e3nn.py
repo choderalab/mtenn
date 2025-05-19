@@ -86,16 +86,17 @@ class E3NN(Network):
         copy["x"] = torch.clone(x)
         return copy
 
-    def _get_representation(self, reduce_output=False):
+    @property
+    def output_dim(self):
+        return self.irreps_out
+
+    @property
+    def extract_key(self):
+        return "x"
+
+    def _get_representation(self):
         """
         Copy model and remove last layer.
-
-        Parameters
-        ----------
-        reduce_output: bool, default=False
-            Whether to reduce output across nodes. This should be set to ``True``
-            if you want a uniform size tensor for every input size (eg when
-            using a ``ConcatStrategy``)
 
         Returns
         -------
@@ -107,13 +108,18 @@ class E3NN(Network):
         model_copy = deepcopy(self)
         # Remove last layer
         model_copy.layers = model_copy.layers[:-1]
-        model_copy.reduce_output = reduce_output
+        model_copy.irreps_out = model_copy.layers[-1].irreps_out
 
         return model_copy
 
-    def _get_energy_func(self):
+    def _get_energy_func(self, layer_norm=False):
         """
         Return copy of last layer of the model.
+
+        Parameters
+        ----------
+        layer_norm: bool, default=False
+            Apply a ``LayerNorm`` normalization before passing through the linear layer
 
         Returns
         -------
@@ -128,14 +134,23 @@ class E3NN(Network):
 
         new_model = Network(**conv_kwargs)
 
-        new_model.layers[0] = final_conv.layers[-1]
+        if layer_norm:
+            new_model.layers[0] = E3NNLayerNorm(final_conv.layers[-1].irreps_in.dim)
+            new_model.layers.append(final_conv.layers[-1])
+        else:
+            new_model.layers[0] = final_conv.layers[-1]
 
         return new_model
 
-    def _get_delta_strategy(self):
+    def _get_delta_strategy(self, layer_norm=False):
         """
         Build a :py:class:`DeltaStrategy <mtenn.strategy.DeltaStrategy>` object based on
         the calling model.
+
+        Parameters
+        ----------
+        layer_norm: bool, default=False
+            Apply a ``LayerNorm`` normalization before passing through the linear layer
 
         Returns
         -------
@@ -143,12 +158,17 @@ class E3NN(Network):
             ``DeltaStrategy`` built from the model
         """
 
-        return DeltaStrategy(self._get_energy_func())
+        return DeltaStrategy(self._get_energy_func(layer_norm))
 
-    def _get_complex_only_strategy(self):
+    def _get_complex_only_strategy(self, layer_norm=False):
         """
         Build a :py:class:`ComplexOnlyStrategy <mtenn.strategy.ComplexOnlyStrategy>`
         object based on the calling model.
+
+        Parameters
+        ----------
+        layer_norm: bool, default=False
+            Apply a ``LayerNorm`` normalization before passing through the linear layer
 
         Returns
         -------
@@ -156,12 +176,17 @@ class E3NN(Network):
             ``ComplexOnlyStrategy`` built from the model
         """
 
-        return ComplexOnlyStrategy(self._get_energy_func())
+        return ComplexOnlyStrategy(self._get_energy_func(layer_norm))
 
-    def _get_concat_strategy(self):
+    def _get_concat_strategy(self, layer_norm=False):
         """
         Build a :py:class:`ConcatStrategy <mtenn.strategy.ConcatStrategy>` object using
         the key ``"x"`` to extract the tensor representation from the data dict.
+
+        Parameters
+        ----------
+        layer_norm: bool, default=False
+            Apply a ``LayerNorm`` normalization before passing through the linear layer
 
         Returns
         -------
@@ -169,7 +194,12 @@ class E3NN(Network):
             ``ConcatStrategy`` for the model
         """
 
-        return ConcatStrategy(extract_key="x")
+        # Calculate input size as 3 * dimensionality of output of Representation
+        #  (last layer in Representation is 2nd to last in original model)
+        input_size = 3 * self.layers[-2].irreps_out.dim
+        return ConcatStrategy(
+            input_size=input_size, extract_key="x", layer_norm=layer_norm
+        )
 
     @staticmethod
     def get_model(
@@ -178,6 +208,7 @@ class E3NN(Network):
         grouped=False,
         fix_device=False,
         strategy: str = "delta",
+        layer_norm: bool = False,
         combination=None,
         pred_readout=None,
         comb_readout=None,
@@ -204,6 +235,8 @@ class E3NN(Network):
         strategy: str, default='delta'
             ``Strategy`` to use to combine representations of the different parts.
             Options are [``delta``, ``concat``, ``complex``]
+        layer_norm: bool, default=False
+            Apply a ``LayerNorm`` normalization before passing through the linear layer
         combination: mtenn.combination.Combination, optional
             ``Combination`` object to use to combine multiple predictions. A value must
             be passed if ``grouped`` is ``True``
@@ -227,23 +260,20 @@ class E3NN(Network):
         if model is None:
             model = E3NN(model_kwargs)
 
+        # Get representation module
+        representation = model._get_representation(reduce_output=strategy == "concat")
+
         # Construct strategy module based on model and
         #  representation (if necessary)
         strategy = strategy.lower()
         if strategy == "delta":
-            strategy = model._get_delta_strategy()
-            reduce_output = False
+            strategy = model._get_delta_strategy(layer_norm)
         elif strategy == "concat":
-            strategy = model._get_concat_strategy()
-            reduce_output = True
+            strategy = model._get_concat_strategy(layer_norm)
         elif strategy == "complex":
-            strategy = model._get_complex_only_strategy()
-            reduce_output = False
+            strategy = model._get_complex_only_strategy(layer_norm)
         else:
             raise ValueError(f"Unknown strategy: {strategy}")
-
-        # Get representation module
-        representation = model._get_representation(reduce_output=reduce_output)
 
         # Check on `combination`
         if grouped and (combination is None):
@@ -262,3 +292,13 @@ class E3NN(Network):
             )
         else:
             return Model(representation, strategy, pred_readout, fix_device)
+
+
+class E3NNLayerNorm(torch.nn.LayerNorm):
+    """
+    Wrapper class around the torch LayerNorm to match the expected signature in the
+    e3nn model forward pass.
+    """
+
+    def forward(self, x, *args, **kwargs):
+        return super().forward(x)

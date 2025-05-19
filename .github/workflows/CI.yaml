@@ -51,7 +51,7 @@ jobs:
         environment-name: test
         create-args: >-
           python==${{ matrix.python-version }}
-    
+
     - name: Install package
       run: |
         python -m pip install . --no-deps
@@ -71,4 +71,5 @@ jobs:
         file: ./coverage.xml
         flags: unittests
         name: codecov-${{ matrix.os }}-py${{ matrix.python-version }}-env${{ matrix.deps }}
-        fail_ci_if_error: false
+        token: ${{ secrets.CODECOV_TOKEN }}
+        fail_ci_if_error: true

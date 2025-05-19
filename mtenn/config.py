@@ -15,12 +15,22 @@ from __future__ import annotations
 
 import abc
 from enum import Enum
-from pydantic import model_validator, ConfigDict, BaseModel, Field
+import json
+from pathlib import Path
+from pydantic import (
+    field_serializer,
+    field_validator,
+    model_validator,
+    ConfigDict,
+    BaseModel,
+    Field,
+)
 import random
 from typing import Literal, Callable, ClassVar
 import mtenn.combination
-import mtenn.readout
 import mtenn.model
+import mtenn.readout
+import mtenn.strategy
 import numpy as np
 import torch
 
@@ -64,8 +74,35 @@ class StringEnum(str, Enum):
 
 class ModelType(StringEnum):
     """
-    Enum for model types. See :py:mod:`mtenn.conversion_utils` for more details on
-    the models.
+    Enum for model types. See the models in :py:mode:`mtenn.model` for more details on
+    the different types of models.
+
+    * model: Standard model for structure-based predictions
+      (:py:class:`Model <mtenn.model.Model>`)
+
+    * grouped: Model for making multi-pose predictions
+      (:py:class:`GroupedModel <mtenn.model.GroupedModel>`)
+
+    * ligand: Model for making predictions based only on the ligand
+      (:py:class:`LigandOnlyModel <mtenn.model.LigandOnlyModel>`)
+
+    * split: Model with multiple ``Representation``s to treat the complex, ligand, and
+      protein separately (:py:class:`SplitModel <mtenn.model.SplitModel>`)
+
+    * INVALID: Invalid model type to catch instantiation errors
+    """
+
+    model = "model"
+    grouped = "grouped"
+    ligand = "ligand"
+    split = "split"
+    INVALID = "INVALID"
+
+
+class RepresentationType(StringEnum):
+    """
+    Enum for ``Representation`` model types. See :py:mod:`mtenn.conversion_utils` for
+    more details on the models.
 
     * GAT: Graph Attention Network (:py:class:`GAT <mtenn.conversion_utils.gat.GAT>`)
 
@@ -79,7 +116,7 @@ class ModelType(StringEnum):
     * INVALID: Invalid model type to catch instantiation errors
     """
 
-    GAT = "GAT"
+    gat = "gat"
     schnet = "schnet"
     e3nn = "e3nn"
     visnet = "visnet"
@@ -134,7 +171,7 @@ class CombinationConfig(StringEnum):
     max = "max"
 
 
-class ModelConfigBase(BaseModel):
+class ModelConfigBase(BaseModel, abc.ABC):
     """
     Abstract base class that model config classes will subclass. Any subclass needs
     to implement the ``_build`` method in order to be used.
@@ -142,6 +179,8 @@ class ModelConfigBase(BaseModel):
 
     model_type: Literal[ModelType.INVALID] = ModelType.INVALID
 
+    # Model is a grouped (multi-pose) model
+    grouped: Literal[False] = False
 
     # Random seed optional for reproducibility
     rand_seed: int | None = Field(
@@ -149,10 +188,45 @@ class ModelConfigBase(BaseModel):
     )
 
     # Model weights
-    model_weights: dict | None = Field(None, type=dict, description="Model weights.")
+    model_weights: dict | None = Field(
+        None, type=dict, description="Model weights.", exclude=True
+    )
+    weights_path: Path | None = Field(
+        None,
+        type=Path,
+        description="Path to model weights, will be loaded at build time.",
+    )
 
     # Shared parameters for MTENN
-    grouped: bool = Field(False, description="Model is a grouped (multi-pose) model.")
+    representation: RepresentationConfigBase | None = Field(
+        None,
+        description=(
+            "Which underlying ``Representation`` model to use. This field is used for "
+            "``Model``s that use the same ``Representation`` for all inputs (ie not "
+            "``SplitModel``)."
+        ),
+    )
+    complex_representation: RepresentationConfigBase | None = Field(
+        None,
+        description=(
+            "Which underlying ``Representation`` model to use for the complex."
+            "This field is only used for ``SplitModel``."
+        ),
+    )
+    ligand_representation: RepresentationConfigBase | None = Field(
+        None,
+        description=(
+            "Which underlying ``Representation`` model to use for the ligand."
+            "This field is only used for ``SplitModel``."
+        ),
+    )
+    protein_representation: RepresentationConfigBase | None = Field(
+        None,
+        description=(
+            "Which underlying ``Representation`` model to use for the protein."
+            "This field is only used for ``SplitModel``."
+        ),
+    )
     strategy: StrategyConfig = Field(
         StrategyConfig.delta,
         description=(
@@ -160,6 +234,9 @@ class ModelConfigBase(BaseModel):
             "representations in the ``mtenn.Model``. "
             f"Options are [{', '.join(StrategyConfig.get_values())}]."
         ),
+    )
+    strategy_layer_norm: bool = Field(
+        False, description="Apply LayerNorm operation in the Strategy."
     )
     pred_readout: ReadoutConfig | None = Field(
         None,
@@ -243,6 +320,26 @@ class ModelConfigBase(BaseModel):
     )
     model_config = ConfigDict(validate_assignment=True)
 
+    @field_validator("weights_path")
+    def check_weights_path_exists(cls, v):
+        # Just make sure it exists
+        if (v is not None) and (not v.exists()):
+            raise ValueError(f"Weights path does not exist: {v}")
+
+        return v
+
+    @field_serializer(
+        "representation",
+        "complex_representation",
+        "protein_representation",
+        "ligand_representation",
+        when_used="always",
+    )
+    def serialize_representation(self, representation):
+        if representation is None:
+            return None
+        return representation.model_dump()
+
     def build(self) -> mtenn.model.Model:
         """
         Exposed function that first parses all the ``mtenn``-related args, and then
@@ -301,13 +398,22 @@ class ModelConfigBase(BaseModel):
         model = self._build(mtenn_params)
 
         # Set model weights
+        if self.weights_path:
+            if self.model_weights:
+                print("model_weights specified so ignoring weights_path", flush=True)
+            else:
+                print(f"Loading model weights from {self.weights_path}", flush=True)
+                self.model_weights = torch.load(
+                    self.weights_path,
+                    map_location=next(iter(model.parameters())).device,
+                )
         if self.model_weights:
             model.load_state_dict(self.model_weights)
 
         return model
 
     @abc.abstractmethod
-    def _build(self, mtenn_params={}) -> mtenn.model.Model:
+    def _build(self, mtenn_params=None) -> mtenn.model.Model:
         """
         Method that actually builds the :py:class:`Model <mtenn.model.Model>` object.
         Must be implemented for any subclass.
@@ -338,7 +444,323 @@ class ModelConfigBase(BaseModel):
         """
         ...
 
-    def update(self, config_updates={}) -> ModelConfigBase:
+    @model_validator(mode="after")
+    def check_grouped(self):
+        """
+        Makes sure that a Combination method is passed if using a GroupedModel. Only
+        needs to be called for structure-based models.
+        """
+        if self.grouped and (not self.combination):
+            raise ValueError("combination must be specified for a GroupedModel.")
+
+        return self
+
+    @field_validator(
+        "representation",
+        "complex_representation",
+        "ligand_representation",
+        "protein_representation",
+        mode="before",
+    )
+    def check_representation_configs(cls, v, info):
+        if isinstance(v, dict):
+            config_file = v.pop("cache", None)
+            if config_file and config_file.exists():
+                print("loading from cache", info.field_name, flush=True)
+                loaded_kwargs = json.loads(config_file.read_text())
+            else:
+                loaded_kwargs = {}
+
+            # Anything passed explicitly will override anything in the files
+            v = loaded_kwargs | v
+
+            try:
+                rep_type = v["representation_type"]
+
+                match rep_type:
+                    case "gat":
+                        rep_class = GATRepresentationConfig
+                    case "schnet":
+                        rep_class = SchNetRepresentationConfig
+                    case "e3nn":
+                        rep_class = E3NNRepresentationConfig
+                    case other:
+                        raise TypeError(f"Unknown representation_type {other}")
+
+                v = rep_class(**v)
+            except KeyError:
+                if len(v) == 0:
+                    v = None
+                else:
+                    raise ValueError(
+                        (
+                            "Passed dict doesn't match expected format for "
+                            "RepresentationConfigBase."
+                        )
+                    )
+
+        if (v is not None) and (not isinstance(v, RepresentationConfigBase)):
+            raise TypeError(
+                f"Passed value {v} is not an instance of RepresentationConfigBase."
+            )
+
+        return v
+
+
+class ModelConfig(ModelConfigBase):
+    """
+    Class for constructing a standard structure-based
+    :py:class:`Model <mtenn.model.Model>.
+    """
+
+    model_type: Literal[ModelType.model] = ModelType.model
+
+    @field_validator("representation")
+    def check_representation(cls, v):
+        # Make sure it's been passed
+        if v is None:
+            raise ValueError("A value must be passed for `representation`")
+
+        return v
+
+    def _build(self, mtenn_params=None):
+        if mtenn_params is None:
+            mtenn_params = {}
+
+        conv_model = self.representation.build()
+        representation = conv_model._get_representation()
+
+        match self.strategy:
+            case StrategyConfig.delta:
+                strategy = conv_model._get_delta_strategy(self.strategy_layer_norm)
+            case StrategyConfig.concat:
+                strategy = conv_model._get_concat_strategy(self.strategy_layer_norm)
+            case StrategyConfig.complex:
+                strategy = conv_model._get_complex_only_strategy(
+                    self.strategy_layer_norm
+                )
+            case _:
+                raise ValueError(f"Unknown strategy: {self.strategy}")
+
+        return mtenn.model.Model(
+            representation=representation,
+            strategy=strategy,
+            readout=mtenn_params.get("pred_readout", None),
+            fix_device=True,
+        )
+
+
+class GroupedModelConfig(ModelConfig):
+    """
+    Class for constructing a multi-pose
+    :py:class:`GroupedModel <mtenn.model.GroupedModel>`.
+    """
+
+    model_type: Literal[ModelType.grouped] = ModelType.grouped
+
+    grouped: Literal[True] = True
+
+    def _build(self, mtenn_params=None):
+        if mtenn_params is None:
+            mtenn_params = {}
+
+        conv_model = self.representation.build()
+        representation = conv_model._get_representation()
+
+        match self.strategy:
+            case StrategyConfig.delta:
+                strategy = conv_model._get_delta_strategy(self.strategy_layer_norm)
+            case StrategyConfig.concat:
+                strategy = conv_model._get_concat_strategy(self.strategy_layer_norm)
+            case StrategyConfig.complex:
+                strategy = conv_model._get_complex_only_strategy(
+                    self.strategy_layer_norm
+                )
+            case _:
+                raise ValueError(f"Unknown strategy: {self.strategy}")
+
+        # Already validated that the combination key exists so can just grab it
+        return mtenn.model.GroupedModel(
+            representation=representation,
+            strategy=strategy,
+            combination=mtenn_params["combination"],
+            pred_readout=mtenn_params.get("pred_readout", None),
+            comb_readout=mtenn_params.get("comb_readout", None),
+            fix_device=True,
+        )
+
+
+class LigandOnlyModelConfig(ModelConfig):
+    """
+    Class for constructing a ligand only
+    :py:class:`LigandOnlyModel <mtenn.model.LigandOnlyModel>`.
+    """
+
+    model_type: Literal[ModelType.ligand] = ModelType.ligand
+
+    def _build(self, mtenn_params=None):
+        if mtenn_params is None:
+            mtenn_params = {}
+
+        conv_model = self.representation.build()
+
+        return mtenn.model.LigandOnlyModel(
+            model=conv_model,
+            readout=mtenn_params.get("pred_readout", None),
+            fix_device=True,
+        )
+
+
+class SplitModelConfig(ModelConfigBase):
+    """
+    Class for constructing a :py:class:`SplitModel <mtenn.model.SplitModel>`.
+    """
+
+    model_type: Literal[ModelType.split] = ModelType.split
+
+    @model_validator(mode="after")
+    def check_representations(self):
+        # Make sure that an appropriate number of configs have been passed
+        if self.complex_representation is None:
+            raise ValueError(
+                (
+                    "SplitModel doesn't currently support not specifying a "
+                    "complex_representation."
+                )
+            )
+
+        if self.ligand_representation is None:
+            print(
+                "WARNING: No config passed for ligand_representation, the ligand will "
+                "be treated with the same model as is used for the complex."
+            )
+        if self.protein_representation is None:
+            print(
+                "WARNING: No config passed for protein_representation, the protein will "
+                "be treated with the same model as is used for the complex."
+            )
+
+        return self
+
+    def _build(self, mtenn_params=None):
+        if mtenn_params is None:
+            mtenn_params = {}
+
+        complex_conv_model = self.complex_representation.build()
+        ligand_conv_model = (
+            self.ligand_representation.build()
+            if self.ligand_representation is not None
+            else None
+        )
+        protein_conv_model = (
+            self.protein_representation.build()
+            if self.protein_representation is not None
+            else None
+        )
+
+        representations = []
+        for conv_model in [complex_conv_model, ligand_conv_model, protein_conv_model]:
+            if conv_model is None:
+                representations.append(None)
+                continue
+
+            representation = conv_model._get_representation()
+            representations.append(representation)
+
+        complex_rep, ligand_rep, protein_rep = representations
+
+        match self.strategy:
+            case StrategyConfig.delta:
+                complex_energy_func = complex_conv_model._get_energy_func(
+                    self.strategy_layer_norm
+                )
+                ligand_energy_func = (
+                    ligand_conv_model._get_energy_func(self.strategy_layer_norm)
+                    if ligand_conv_model is not None
+                    else None
+                )
+                protein_energy_func = (
+                    protein_conv_model._get_energy_func(self.strategy_layer_norm)
+                    if protein_conv_model is not None
+                    else None
+                )
+
+                strategy = mtenn.strategy.SplitDeltaStrategy(
+                    complex_energy_func=complex_energy_func,
+                    ligand_energy_func=ligand_energy_func,
+                    protein_energy_func=protein_energy_func,
+                )
+            case StrategyConfig.concat:
+                input_size = sum(
+                    [
+                        conv_model.output_dim
+                        if conv_model is not None
+                        else complex_conv_model.output_dim
+                        for conv_model in [
+                            complex_conv_model,
+                            ligand_conv_model,
+                            protein_conv_model,
+                        ]
+                    ]
+                )
+
+                strategy = mtenn.strategy.SplitConcatStrategy(
+                    input_size=input_size,
+                    complex_extract_key=complex_conv_model.extract_key,
+                    ligand_extract_key=(
+                        ligand_conv_model.extract_key
+                        if ligand_conv_model is not None
+                        else complex_conv_model.extract_key
+                    ),
+                    protein_extract_key=(
+                        protein_conv_model.extract_key
+                        if protein_conv_model is not None
+                        else complex_conv_model.extract_key
+                    ),
+                    layer_norm=self.strategy_layer_norm,
+                )
+            case StrategyConfig.complex:
+                strategy = mtenn.strategy.ComplexOnlyStrategy(
+                    complex_conv_model._get_energy_func(self.strategy_layer_norm)
+                )
+            case _:
+                raise ValueError(f"Unknown strategy: {self.strategy}")
+
+        return mtenn.model.SplitModel(
+            complex_representation=complex_rep,
+            strategy=strategy,
+            ligand_representation=ligand_rep,
+            protein_representation=protein_rep,
+            readout=mtenn_params.get("pred_readout", None),
+            fix_device=True,
+        )
+
+
+class RepresentationConfigBase(BaseModel, abc.ABC):
+    """
+    Abstract base class that model config classes will subclass. Any subclass needs
+    to implement the ``build`` method in order to be used.
+    """
+
+    representation_type: Literal[
+        RepresentationType.INVALID
+    ] = RepresentationType.INVALID
+
+    @abc.abstractmethod
+    def build(self: StrategyConfig) -> mtenn.representation.Representation:
+        """
+        Method to construct the
+        :py:class:`Representation <mtenn.representation.Representation>` object. Must be
+        implemented for any subclass
+
+        Returns
+        -------
+        mtenn.representation.Representation
+            Model constructed from the config
+        """
+        ...
+
+    def update(self, config_updates={}) -> RepresentationConfigBase:
         """
         Create a new config object with field values replaced by any given in
         ``config_updates``. Note that this is NOT an in-place operation, and will return
@@ -360,12 +782,13 @@ class ModelConfigBase(BaseModel):
         """
         return self._update(config_updates)
 
-    def _update(self, config_updates={}) -> ModelConfigBase:
+    def _update(self, config_updates={}) -> RepresentationConfigBase:
         """
         Default version of this function. Just update original config with new options,
         and generate new object. Designed to be overloaded if there are specific things
         that a class needs to handle (see
-        :py:class:`GATModelConfig <mtenn.config.GATModelConfig>` as an example).
+        :py:class:`GATRepresentationConfig <mtenn.config.GATRepresentationConfig>` as an
+        example).
 
         :meta public:
 
@@ -380,24 +803,15 @@ class ModelConfigBase(BaseModel):
             Returns an object that is the same type as the calling object
         """
 
-        orig_config = self.dict()
+        orig_config = self.model_dump()
 
         # Get new config by overwriting old stuff with any new stuff
         new_config = orig_config | config_updates
 
         return type(self)(**new_config)
 
-    @staticmethod
-    def _check_grouped(values):
-        """
-        Makes sure that a Combination method is passed if using a GroupedModel. Only
-        needs to be called for structure-based models.
-        """
-        if values.grouped and not values.combination:
-            raise ValueError("combination must be specified for a GroupedModel.")
 
-
-class GATModelConfig(ModelConfigBase):
+class GATRepresentationConfig(RepresentationConfigBase):
     """
     Class for constructing a graph attention ML model. Note that there are two methods
     for defining the size of the model:
@@ -435,7 +849,7 @@ class GATModelConfig(ModelConfigBase):
         "biases": bool,
     }  #: :meta private:
 
-    model_type: Literal[ModelType.GAT] = ModelType.GAT
+    representation_type: Literal[RepresentationType.gat] = RepresentationType.gat
 
     in_feats: int = Field(
         _CanonicalAtomFeaturizer().feat_size(),
@@ -527,12 +941,12 @@ class GATModelConfig(ModelConfigBase):
     _from_num_layers = False
 
     @model_validator(mode="after")
-    def massage_into_lists(self) -> GATModelConfig:
+    def massage_into_lists(self) -> GATRepresentationConfig:
         """
         Validator to handle unifying all the values into the proper list forms based on
         the rules described in the class docstring.
         """
-        values = self.dict()
+        values = self.model_dump()
 
         # First convert string lists to actual lists
         for param, param_type in self.LIST_PARAMS.items():
@@ -580,7 +994,6 @@ class GATModelConfig(ModelConfigBase):
         if num_layers == 1:
             # update self with the new values
             self.__dict__.update(values)
-            
 
         # Adjust any length 1 list to be the right length
         for p, list_len in list_lens.items():
@@ -590,35 +1003,14 @@ class GATModelConfig(ModelConfigBase):
         self.__dict__.update(values)
         return self
 
-    def _build(self, mtenn_params={}):
+    def build(self):
         """
-        Build an ``mtenn`` GAT ``Model`` from this config.
-
-        :meta public:
-
-        Parameters
-        ----------
-        mtenn_params : dict, optional
-            Dictionary that stores the ``Readout`` objects for the individual
-            predictions and for the combined prediction, and the ``Combination`` object
-            in the case of a multi-pose model. These are all constructed the same for all
-            ``Model`` types, so we can just handle them in the base class. Keys in the
-            dict will be:
-
-            * "combination": :py:mod:`Combination <mtenn.combination>`
-
-            * "pred_readout": :py:mod:`Readout <mtenn.readout>` for individual
-              pose predictions
-
-            * "comb_readout": :py:mod:`Readout <mtenn.readout>` for combined
-              prediction (in the case of a multi-pose model)
-
-            although the combination-related entries will be ignore because this is a
-            ligand-only model.
+        Build a :py:class:`GAT <mtenn.conversion_utils.gat.GAT>` ``Representation`` from
+        this config.
 
         Returns
         -------
-        mtenn.model.Model
+        mtenn.conversion_utils.gat.GAT
             Model constructed from the config
         """
         from mtenn.conversion_utils.gat import GAT
@@ -637,10 +1029,10 @@ class GATModelConfig(ModelConfigBase):
             allow_zero_in_degree=self.allow_zero_in_degree,
         )
 
-        pred_readout = mtenn_params.get("pred_readout", None)
-        return GAT.get_model(model=model, pred_readout=pred_readout, fix_device=True)
+        return model
+        # return model._get_representation()
 
-    def _update(self, config_updates={}) -> GATModelConfig:
+    def _update(self, config_updates={}) -> GATRepresentationConfig:
         """
         GAT-specific implementation of updating logic. Need to handle stuff specially
         to make sure that the original method of specifying parameters (either from a
@@ -656,15 +1048,15 @@ class GATModelConfig(ModelConfigBase):
 
         Returns
         -------
-        GATModelConfig
-            New ``GATModelConfig`` object
+        GATRepresentationConfig
+            New ``GATRepresentationConfig`` object
         """
-        orig_config = self.dict()
+        orig_config = self.model_dump()
         if self._from_num_layers or ("num_layers" in config_updates):
             # If originally generated from num_layers, want to pull out the first entry
             #  in each list param so it can be re-broadcast with (potentially) new
             #  num_layers
-            for param_name in GATModelConfig.LIST_PARAMS.keys():
+            for param_name in GATRepresentationConfig.LIST_PARAMS.keys():
                 orig_config[param_name] = orig_config[param_name][0]
 
         # Get new config by overwriting old stuff with any new stuff
@@ -676,16 +1068,16 @@ class GATModelConfig(ModelConfigBase):
         ):
             new_config["activations"] = None
 
-        return GATModelConfig(**new_config)
+        return GATRepresentationConfig(**new_config)
 
 
-class SchNetModelConfig(ModelConfigBase):
+class SchNetRepresentationConfig(RepresentationConfigBase):
     """
     Class for constructing a SchNet ML model. Default values here are the default values
     given in PyG.
     """
 
-    model_type: Literal[ModelType.schnet] = ModelType.schnet
+    representation_type: Literal[RepresentationType.schnet] = RepresentationType.schnet
 
     hidden_channels: int = Field(128, description="Hidden embedding size.")
     num_filters: int = Field(
@@ -695,11 +1087,12 @@ class SchNetModelConfig(ModelConfigBase):
     num_gaussians: int = Field(
         50, description="Number of gaussians to use in the interaction blocks."
     )
-    interaction_graph: Callable | None = Field(
+    interaction_graph: Callable | str | None = Field(
         None,
         description=(
             "Function to compute the pairwise interaction graph and "
-            "interatomic distances."
+            "interatomic distances. If an str is passed it must be one of the "
+            'supported options ["memoized_radius"].'
         ),
     )
     cutoff: float = Field(
@@ -743,47 +1136,50 @@ class SchNetModelConfig(ModelConfigBase):
     )
 
     @model_validator(mode="after")
-    @classmethod
-    def validate(cls, values):
-        # Make sure the grouped stuff is properly assigned
-        ModelConfigBase._check_grouped(values)
-
+    def validate(self):
         # Make sure atomref length is correct (this is required by PyG)
-        atomref = values.atomref
+        atomref = self.atomref
         if (atomref is not None) and (len(atomref) != 100):
             raise ValueError(f"atomref must be length 100 (got {len(atomref)})")
 
-        return values
+        return self
 
-    def _build(self, mtenn_params={}):
+    @field_validator("interaction_graph")
+    def check_interaction_graph_str(cls, v):
         """
-        Build an ``mtenn`` SchNet ``Model`` from this config.
+        Validator to make sure that an appropriate str was passed.
+        """
+        if isinstance(v, str):
+            if v not in {"memoized_radius"}:
+                raise ValueError(f"Unknown value {v} for interaction_graph.")
 
-        :meta public:
+        return v
 
-        Parameters
-        ----------
-        mtenn_params : dict, optional
-            Dictionary that stores the ``Readout`` objects for the individual
-            predictions and for the combined prediction, and the ``Combination`` object
-            in the case of a multi-pose model. These are all constructed the same for all
-            ``Model`` types, so we can just handle them in the base class. Keys in the
-            dict will be:
-
-            * "combination": :py:mod:`Combination <mtenn.combination>`
-
-            * "pred_readout": :py:mod:`Readout <mtenn.readout>` for individual
-              pose predictions
-
-            * "comb_readout": :py:mod:`Readout <mtenn.readout>` for combined
-              prediction (in the case of a multi-pose model)
+    def build(self):
+        """
+        Build a :py:class:`SchNet <mtenn.conversion_utils.schnet.SchNet>`
+        ``Representation`` from this config.
 
         Returns
         -------
-        mtenn.model.Model
+        mtenn.conversion_utils.schnet.SchNet
             Model constructed from the config
         """
-        from mtenn.conversion_utils.schnet import SchNet
+        from mtenn.conversion_utils.schnet import MemoizedRadiusInteractionGraph, SchNet
+
+        # Handle different options for interaction graph
+        if isinstance(self.interaction_graph, str):
+            match self.interaction_graph:
+                case "memoized_radius":
+                    interaction_graph = MemoizedRadiusInteractionGraph(
+                        cutoff=self.cutoff, max_num_neighbors=self.max_num_neighbors
+                    )
+                case _:
+                    raise ValueError(
+                        f"Unknown value {self.interaction_graph} for interaction_graph."
+                    )
+        else:
+            interaction_graph = self.interaction_graph
 
         # Create an MTENN SchNet model from PyG SchNet model
         model = SchNet(
@@ -791,7 +1187,7 @@ class SchNetModelConfig(ModelConfigBase):
             num_filters=self.num_filters,
             num_interactions=self.num_interactions,
             num_gaussians=self.num_gaussians,
-            interaction_graph=self.interaction_graph,
+            interaction_graph=interaction_graph,
             cutoff=self.cutoff,
             max_num_neighbors=self.max_num_neighbors,
             readout=self.readout,
@@ -801,27 +1197,16 @@ class SchNetModelConfig(ModelConfigBase):
             atomref=self.atomref,
         )
 
-        combination = mtenn_params.get("combination", None)
-        pred_readout = mtenn_params.get("pred_readout", None)
-        comb_readout = mtenn_params.get("comb_readout", None)
-
-        return SchNet.get_model(
-            model=model,
-            grouped=self.grouped,
-            fix_device=True,
-            strategy=self.strategy,
-            combination=combination,
-            pred_readout=pred_readout,
-            comb_readout=comb_readout,
-        )
+        return model
+        # return model._get_representation()
 
 
-class E3NNModelConfig(ModelConfigBase):
+class E3NNRepresentationConfig(RepresentationConfigBase):
     """
     Class for constructing an e3nn ML model.
     """
 
-    model_type: Literal[ModelType.e3nn] = ModelType.e3nn
+    representation_type: Literal[RepresentationType.e3nn] = RepresentationType.e3nn
 
     num_atom_types: int = Field(
         100,
@@ -830,11 +1215,11 @@ class E3NNModelConfig(ModelConfigBase):
             "max atomic number of all input atoms."
         ),
     )
-    irreps_hidden: dict[str, int] | str = Field(
-        {"0": 10, "1": 3, "2": 2, "3": 1},
+    irreps_hidden: str = Field(
+        "10x0o+10x0e+3x1o+3x1e+2x2o+2x2e+1x3o+1x3e",
         description=(
             "``Irreps`` for the hidden layers of the network. "
-            "This can either take the form of an ``Irreps`` string, or a dict mapping "
+            "This can either be passed as an ``Irreps`` string, or a dict mapping "
             ":math:`\\mathcal{l}` levels (parity optional) to the number of ``Irreps`` "
             "of that level. "
             "If parity is not passed for a given level, both parities will be used. If "
@@ -867,20 +1252,15 @@ class E3NNModelConfig(ModelConfigBase):
     num_neighbors: float = Field(25, description="Typical number of neighbor nodes.")
     num_nodes: float = Field(4700, description="Typical number of nodes in a graph.")
 
-    @model_validator(mode="after")
-    @classmethod
-    def massage_irreps(cls, values):
+    @field_validator("irreps_hidden", mode="before")
+    def massage_irreps(cls, irreps):
         """
         Check that the value given for ``irreps_hidden`` can be converted into an Irreps
         representation, and do so.
         """
         from e3nn import o3
 
-        # First just check that the grouped stuff is properly assigned
-        ModelConfigBase._check_grouped(values)
-
         # Now deal with irreps
-        irreps = values.irreps_hidden
         # First see if this string should be converted into a dict
         if isinstance(irreps, str):
             if ":" in irreps:
@@ -902,7 +1282,7 @@ class E3NNModelConfig(ModelConfigBase):
                     raise ValueError(f"Invalid irreps string: {irreps}")
 
                 # If already in a good string, can just return
-                return values
+                return irreps
 
         # If we got a dict, need to massage that into an Irreps string
         # First make a copy of the input dict in case of errors
@@ -929,35 +1309,16 @@ class E3NNModelConfig(ModelConfigBase):
         except ValueError:
             raise ValueError(f"Couldn't parse irreps dict: {orig_irreps}")
 
-        values.irreps_hidden = irreps
-        return values
+        return irreps
 
-    def _build(self, mtenn_params={}):
+    def build(self):
         """
-        Build an ``mtenn`` e3nn ``Model`` from this config.
-
-        :meta public:
-
-        Parameters
-        ----------
-        mtenn_params : dict, optional
-            Dictionary that stores the ``Readout`` objects for the individual
-            predictions and for the combined prediction, and the ``Combination`` object
-            in the case of a multi-pose model. These are all constructed the same for all
-            ``Model`` types, so we can just handle them in the base class. Keys in the
-            dict will be:
-
-            * "combination": :py:mod:`Combination <mtenn.combination>`
-
-            * "pred_readout": :py:mod:`Readout <mtenn.readout>` for individual
-              pose predictions
-
-            * "comb_readout": :py:mod:`Readout <mtenn.readout>` for combined
-              prediction (in the case of a multi-pose model)
+        Build a :py:class:`E3NN <mtenn.conversion_utils.e3nn.E3NN>` ``Representation``
+        from this config.
 
         Returns
         -------
-        mtenn.model.Model
+        mtenn.conversion_utils.e3nn.E3NN
             Model constructed from the config
         """
         from e3nn.o3 import Irreps
@@ -979,19 +1340,7 @@ class E3NNModelConfig(ModelConfigBase):
             reduce_output=True,
         )
 
-        combination = mtenn_params.get("combination", None)
-        pred_readout = mtenn_params.get("pred_readout", None)
-        comb_readout = mtenn_params.get("comb_readout", None)
-
-        return E3NN.get_model(
-            model=model,
-            grouped=self.grouped,
-            fix_device=True,
-            strategy=self.strategy,
-            combination=combination,
-            pred_readout=pred_readout,
-            comb_readout=comb_readout,
-        )
+        return model
 
 
 class ViSNetModelConfig(ModelConfigBase):
@@ -1000,7 +1349,7 @@ class ViSNetModelConfig(ModelConfigBase):
     given in PyG.
     """
 
-    model_type: Literal[ModelType.visnet] = ModelType.visnet
+    representation_type: Literal[RepresentationType.visnet] = RepresentationType.visnet
     lmax: int = Field(1, description="The maximum degree of the spherical harmonics.")
     vecnorm_type: str | None = Field(
         None, description="The type of normalization to apply to the vectors."
@@ -1048,22 +1397,19 @@ class ViSNetModelConfig(ModelConfigBase):
     )
 
     @model_validator(mode="after")
-    @classmethod
-    def validate(cls, values):
+    def validate(self):
         """
         Check that ``atomref`` and ``max_z`` agree.
         """
-        # Make sure the grouped stuff is properly assigned
-        ModelConfigBase._check_grouped(values)
 
         # Make sure atomref length is correct (this is required by PyG)
-        atomref = values.atomref
-        if (atomref is not None) and (len(atomref) != values.max_z):
+        atomref = self.atomref
+        if (atomref is not None) and (len(atomref) != self.max_z):
             raise ValueError(
-                f"atomref length must match max_z. (Expected {values.max_z}, got {len(atomref)})"
+                f"atomref length must match max_z. (Expected {self.max_z}, got {len(atomref)})"
             )
 
-        return values
+        return self
 
     def _build(self, mtenn_params={}):
         """

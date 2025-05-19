@@ -70,7 +70,7 @@ def test_representation_is_correct():
     model = GAT(in_feats=10)
     rep = model._get_representation()
 
-    model_params = dict(model.gnn.named_parameters())
+    model_params = dict(model.named_parameters())
     for n, rep_param in rep.named_parameters():
         assert torch.allclose(rep_param, model_params[n])
 
