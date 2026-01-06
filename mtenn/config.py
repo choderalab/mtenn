@@ -299,6 +299,29 @@ class ModelConfigBase(BaseModel, abc.ABC):
             "``pred_substrate``."
         ),
     )
+    pred_squash_preds: bool | None = Field(
+        None,
+        description=(
+            "Apply a sigmoid function to the outputs of a ``PIC50Readout`` or "
+            "``PKiReadout`` for ``pred_readout``. Functionally, this will force "
+            "extreme predictions to resolve to appropriate, user-defined lower and "
+            "upper bounds."
+        ),
+    )
+    pred_squash_lower_bound: float | None = Field(
+        None,
+        description=(
+            "Lower asymptote for ``pred_readout`` sigmoid function (ie bottom of the "
+            "S-curve)."
+        ),
+    )
+    pred_squash_upper_bound: float | None = Field(
+        None,
+        description=(
+            "Upper asymptote for ``pred_readout`` sigmoid function (ie top of the "
+            "S-curve)."
+        ),
+    )
 
     # Parameters for PIC50Readout for comb_readout
     comb_substrate: float | None = Field(
@@ -318,6 +341,30 @@ class ModelConfigBase(BaseModel, abc.ABC):
             "``comb_substrate``."
         ),
     )
+    comb_squash_preds: bool | None = Field(
+        None,
+        description=(
+            "Apply a sigmoid function to the outputs of a ``PIC50Readout`` or "
+            "``PKiReadout`` for ``comb_readout``. Functionally, this will force "
+            "extreme predictions to resolve to appropriate, user-defined lower and "
+            "upper bounds."
+        ),
+    )
+    comb_squash_lower_bound: float | None = Field(
+        None,
+        description=(
+            "Lower asymptote for ``comb_readout`` sigmoid function (ie bottom of the "
+            "S-curve)."
+        ),
+    )
+    comb_squash_upper_bound: float | None = Field(
+        None,
+        description=(
+            "Upper asymptote for ``comb_readout`` sigmoid function (ie top of the "
+            "S-curve)."
+        ),
+    )
+
     model_config = ConfigDict(validate_assignment=True)
 
     @field_validator("weights_path")
