@@ -418,20 +418,36 @@ class ModelConfigBase(BaseModel, abc.ABC):
         match self.pred_readout:
             case ReadoutConfig.pic50:
                 mtenn_pred_readout = mtenn.readout.PIC50Readout(
-                    substrate=self.pred_substrate, Km=self.pred_km
+                    substrate=self.pred_substrate,
+                    Km=self.pred_km,
+                    squash=self.pred_squash_preds,
+                    squash_lower_bound=self.pred_squash_lower_bound,
+                    squash_upper_bound=self.pred_squash_upper_bound,
                 )
             case ReadoutConfig.pki:
-                mtenn_pred_readout = mtenn.readout.PKiReadout()
+                mtenn_pred_readout = mtenn.readout.PKiReadout(
+                    squash=self.pred_squash_preds,
+                    squash_lower_bound=self.pred_squash_lower_bound,
+                    squash_upper_bound=self.pred_squash_upper_bound,
+                )
             case None:
                 mtenn_pred_readout = None
 
         match self.comb_readout:
             case ReadoutConfig.pic50:
                 mtenn_comb_readout = mtenn.readout.PIC50Readout(
-                    substrate=self.comb_substrate, Km=self.comb_km
+                    substrate=self.comb_substrate,
+                    Km=self.comb_km,
+                    squash=self.comb_squash_preds,
+                    squash_lower_bound=self.comb_squash_lower_bound,
+                    squash_upper_bound=self.comb_squash_upper_bound,
                 )
             case ReadoutConfig.pki:
-                mtenn_comb_readout = mtenn.readout.PKiReadout()
+                mtenn_comb_readout = mtenn.readout.PKiReadout(
+                    squash=self.comb_squash_preds,
+                    squash_lower_bound=self.comb_squash_lower_bound,
+                    squash_upper_bound=self.comb_squash_upper_bound,
+                )
             case None:
                 mtenn_comb_readout = None
 

@@ -18,6 +18,21 @@ class Readout(torch.nn.Module, abc.ABC):
     the ``forward`` method in order to be used.
     """
 
+    def __init__(
+        self,
+        squash: bool = False,
+        squash_lower_bound: float = 4.0,
+        squash_upper_bound: float = 10.0,
+    ):
+        """
+        Optional prediction squashing is common between the Readouts.
+        """
+        super(Readout, self).__init__()
+
+        self.squash = squash
+        self.squash_lower_bound = squash_lower_bound
+        self.squash_upper_bound = squash_upper_bound
+
     @abc.abstractmethod
     def forward(self, delta_g):
         """
@@ -29,6 +44,17 @@ class Readout(torch.nn.Module, abc.ABC):
 
     def __str__(self):
         return repr(self)
+
+    def squash_pred(self, pred):
+        """
+        Apply sigmoid squashing function
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+        """
 
 
 class PIC50Readout(Readout):
@@ -80,7 +106,14 @@ class PIC50Readout(Readout):
         \mathrm{pIC_{50}} &= \mathrm{-\\frac{\Delta G}{ln(10)}}
     """
 
-    def __init__(self, substrate: Optional[float] = None, Km: Optional[float] = None):
+    def __init__(
+        self,
+        substrate: Optional[float] = None,
+        Km: Optional[float] = None,
+        squash: bool = False,
+        squash_lower_bound: float = 4.0,
+        squash_upper_bound: float = 10.0,
+    ):
         """
         Initialize conversion with specified substrate concentration and
         :math:`\mathrm{K_m}`. If either is left blank, the :math:`\mathrm{IC_{50}}`
@@ -95,7 +128,11 @@ class PIC50Readout(Readout):
             :math:`\mathrm{K_m}` value for use in the Cheng-Prusoff equation. Assumed to
             be in the same units as substrate
         """
-        super(PIC50Readout, self).__init__()
+        super(PIC50Readout, self).__init__(
+            squash=squash,
+            squash_lower_bound=squash_lower_bound,
+            squash_upper_bound=squash_upper_bound,
+        )
 
         self.substrate = substrate
         self.Km = Km
