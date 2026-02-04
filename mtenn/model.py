@@ -250,14 +250,15 @@ class GroupedModel(Model):
             pred, _ = super().forward(inp)
             pred_list.append(pred.detach())
 
-            # Get gradient per sample
+            # Get gradient per sample (only needed if we're doing training)
             self.zero_grad()
-            pred.backward()
-            for n, p in self.named_parameters():
-                try:
-                    grad_dict[n].append(p.grad.detach())
-                except KeyError:
-                    grad_dict[n] = [p.grad.detach()]
+            if pred.requires_grad:
+                pred.backward()
+                for n, p in self.named_parameters():
+                    try:
+                        grad_dict[n].append(p.grad.detach())
+                    except KeyError:
+                        grad_dict[n] = [p.grad.detach()]
         # Zero grads again just to make sure nothing gets accumulated
         self.zero_grad()
 
