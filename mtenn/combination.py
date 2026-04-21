@@ -542,3 +542,236 @@ class MaxCombinationFunc(torch.autograd.Function):
         #  don't get gradients so we just return None
         return_vals = [None] * 5 + [final_grads[n] for n in ctx.param_names]
         return tuple(return_vals)
+
+
+class BoltzmannCombination(Combination):
+    """
+    Combine a list of :math:`\mathrm{\Delta G}` predictions according to their
+    Boltzmann weight. Treat energy in implicit kT units. See the docs for
+    :py:class:`BoltzmannCombinationFunc <mtenn.combination.BoltzmannCombinationFunc>`
+    for more details.
+    """
+
+    def __repr__(self):
+        return "BoltzmannCombination()"
+
+    def __str__(self):
+        return repr(self)
+
+    def forward(self, pred_list, grad_dict, param_names, *model_params):
+        return BoltzmannCombinationFunc.apply(
+            pred_list, grad_dict, param_names, *model_params
+        )
+
+
+class BoltzmannCombinationFunc(torch.autograd.Function):
+    """
+    Custom autograd function that will handle the gradient math for us for combining
+    :math:`\mathrm{\Delta G}` predictions by Boltzmann weighting.
+
+    .. math::
+
+        \Delta G &= \sum_{n=1}^{N} w_n \Delta G_n
+
+        w_n &= \mathrm{exp} \\left[
+        -\Delta G_n  - \mathrm{ln} \\sum_{i=1}^N \\mathrm{exp} (-\Delta G_i ) \\right]
+
+    See :ref:`boltzmann-comb-imp` for more details on the math.
+    """
+
+    @staticmethod
+    def forward(pred_list, grad_dict, param_names, *model_params):
+        """
+        Find the max/min of all input :math:`\mathrm{\Delta G}` predictions.
+
+        Parameters
+        ----------
+        pred_list: List[torch.Tensor]
+            List of :math:`\mathrm{\Delta G}` predictions to be combined, shape of
+            ``(n_predictions,)``
+        grad_dict: dict[str, List[torch.Tensor]]
+            Dict mapping from parameter name to list of gradients. Should contain
+            ``n_model_parameters`` entries, with each entry mapping to a list of
+            ``n_predictions`` tensors. Each of these tensors is a ``detach`` ed gradient
+            so the shape of each tensor will depend on the model parameter it
+            corresponds to, but the shapes of each tensor in any given entry should be
+            identical
+        param_names: List[str]
+            List of parameter names. Should contain ``n_model_parameters`` entries,
+            corresponding 1:1 with the keys in ``grad_dict``
+        model_params: List[torch.Tensor]
+            Actual parameters that we'll return the gradients for. Each param
+            should be passed directly for the backward pass to
+            work right. These tensors should correspond 1:1 with and should be in the
+            same order as the entries in ``param_names`` (ie the ``i`` th entry in
+            ``param_names`` should be the name of the ``i`` th model parameter in
+            ``model_params``)
+
+        Returns
+        -------
+        torch.Tensor
+            Scalar-value tensor giving the Boltzmann mean of the input
+            :math:`\mathrm{\Delta G}` predictions
+        torch.Tensor
+            Tensor of shape ``(n_predictions,)`` giving the input per-pose predictions
+        """
+        # Save for later so we don't have to keep redoing this
+        adj_preds = -torch.stack(pred_list).flatten().detach()
+
+        # First calculate the normalization factor
+        Q = torch.logsumexp(adj_preds, dim=0)
+
+        # Calculate w
+        w = (adj_preds - Q).exp()
+
+        # Calculate final pred
+        final_pred = torch.dot(w, -adj_preds)
+
+        return final_pred, -adj_preds
+
+    @staticmethod
+    def setup_context(ctx, inputs, output):
+        """
+        Store data for backward pass.
+
+        Parameters
+        ----------
+        ctx
+            Pytorch context manager
+        inputs : List
+            List containing all the parameters that will get passed to ``forward``
+        output : torch.Tensor
+            Values returned from ``forward``
+        """
+        # Unpack the inputs
+        (pred_list, grad_dict, param_names, *model_params) = inputs
+
+        # Break the grad dict up into lists of keys and corresponding lists of gradients
+        grad_dict_keys, grad_dict_tensors = Combination.split_grad_dict(grad_dict)
+
+        # Save non-Tensors for backward
+        ctx.grad_dict_keys = grad_dict_keys
+        ctx.param_names = param_names
+
+        # Save Tensors for backward
+        # Saving:
+        #  * Predictions (1 tensor of shape (n_predictions,))
+        #  * Grad tensors (N params * M poses tensors, where all gradients corresponding
+        #    to a given model parameter are adjacent, ie first M tensors are the
+        #    per-pose gradients for the first model parameter, etc)
+        #  * Model param tensors (N params tensors)
+        ctx.save_for_backward(
+            torch.stack(pred_list).flatten(), *grad_dict_tensors, *model_params
+        )
+
+    @staticmethod
+    def backward(ctx, comb_grad, pose_grads):
+        """
+        Compute and return gradients for each parameter.
+
+        Parameters
+        ----------
+        ctx
+            Pytorch context manager
+        comb_grad : torch.Tensor
+            Scalar-value tensor giving the
+            :math:`\\frac{\\partial L}{\\partial \\Delta \\text{G}}` term from
+            :eq:`comb-grad`
+        pose_grads : torch.Tensor
+            Tensor of shape ``(n_predictions,)``, giving the
+            :math:`\\frac{\\partial L}{\\partial \\Delta \\text{G}_i}` terms from
+            :eq:`pose-grad`
+        """
+        print("grads", comb_grad, pose_grads, flush=True)
+
+        # Unpack saved tensors
+        preds, *other_tensors = ctx.saved_tensors
+
+        # First section of these tensors are the flattened lists of gradients from each
+        #  individual pose or each model parameter
+        grad_dict_tensors = other_tensors[: len(ctx.grad_dict_keys)]
+
+        # Reconstruct dict mapping from model parameter name to list of gradient tensors
+        # The ith entry in each list gives the gradient of the ith pose prediction wrt
+        #  that model parameter
+        grad_dict = Combination.join_grad_dict(ctx.grad_dict_keys, grad_dict_tensors)
+
+        # We use adj_preds here to store the adjusted per-pose prediction values. These
+        #  values have been negated (if we are finding the min), and multiplied by our
+        #  scale value, if given
+        # These values correspond to the values inside the exponential in eqn (5) (and
+        #  subsequent equations)
+        adj_preds = -preds.detach()
+
+        # Calculate our normalizing constant (eqn (6))
+        Q = torch.logsumexp(adj_preds, dim=0)
+
+        # Calc w values
+        boltzmann_weights = (adj_preds - Q).exp()
+
+        # Calculate dQ/d_theta, should be a single tensor for each model parameter
+        # grad_list is list of gradients (one for each input pose -> prediction) for the
+        #  given model_param
+        # Each gradient for the given model_param gets weighted by its pose weight (w_n)
+        dQ = {
+            model_param: -torch.stack(
+                [w_n * grad for w_n, grad in zip(boltzmann_weights, grad_list)],
+                axis=-1,
+            ).sum(axis=-1)
+            for model_param, grad_list in grad_dict.items()
+        }
+
+        # Calculate dw/d_theta, will be a list of tensors for each model parameter
+        # As before, grad_list is list of gradients (one for each
+        #  input pose -> prediction) for the given model_param
+        # Now, we need a list of gradients for each model_param, one for each pose (n)
+        dw = {
+            model_param: [
+                w_n * (-grad - dQ[model_param])
+                for w_n, grad in zip(boltzmann_weights, grad_list)
+            ]
+            for model_param, grad_list in grad_dict.items()
+        }
+
+        # Calculate final gradients for each parameter
+        final_grads = {}
+        for model_param, grad_list in grad_dict.items():
+            # Compute the gradient contributions from any combined prediction loss,
+            #  according to eqns (1), (9)
+            # Stack the tensors for each input pose/prediction, then sum across them
+            # Multiply by the dL/ddG term to get the final dL/dtheta gradients for each
+            #  model parameter
+            cur_final_grad = comb_grad * (
+                torch.stack(
+                    [
+                        w_grad * -pred + w_val * grad
+                        for w_grad, pred, w_val, grad in zip(
+                            dw[model_param], adj_preds, boltzmann_weights, grad_list
+                        )
+                    ],
+                    axis=-1,
+                )
+                .detach()
+                .sum(axis=-1)
+            )
+
+            # Make sure lengths match up (should always be true but just in case)
+            if len(pose_grads) != len(grad_list):
+                raise RuntimeError("Mismatch in gradient lengths.")
+
+            # Compute the gradient contributions from any per-pose prediction loss,
+            #  according to eqn (2)
+            # Will be zero if there was no loss penalty directly applied on the
+            #  individual pose predictions
+            for pose_grad, param_grad in zip(pose_grads, grad_list):
+                cur_final_grad += pose_grad * param_grad
+
+            # Store total gradient for each parameter
+            final_grads[model_param] = cur_final_grad.clone()
+
+        # Return gradients for each of the model parameters that were passed in. Also
+        #  need to return values for the other values that were passed to forward
+        #  (negate_preds, pred_scale, pred_list, grad_dict, param_names), but these
+        #  don't get gradients so we just return None
+        return_vals = [None] * 3 + [final_grads[n] for n in ctx.param_names]
+        return tuple(return_vals)
