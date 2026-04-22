@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 import torch
 
-from mtenn.combination import MeanCombination, MaxCombination
+from mtenn.combination import BoltzmannCombination, MeanCombination, MaxCombination
 from mtenn.conversion_utils.schnet import SchNet
 
 
@@ -74,6 +74,39 @@ def test_max_combination(models_and_inputs):
         grouped=True,
         strategy="complex",
         combination=MaxCombination(negate_preds=False, pred_scale=1.0),
+    )
+
+    # Test GroupedModel
+    pred, _ = model_test(inp_list)
+    loss = loss_func(pred, target)
+    loss.backward()
+
+    # Compare
+    ref_param_dict = dict(model_ref.named_parameters())
+    assert all(
+        [
+            np.allclose(p.grad, ref_param_dict[n].grad, atol=5e-7)
+            for n, p in model_test.named_parameters()
+        ]
+    )
+
+
+def test_boltzmann_combination(models_and_inputs):
+    model_test, model_ref, inp_list, target, loss_func = models_and_inputs
+
+    # Ref calc
+    pred_list = [model_ref(X)[0] for X in inp_list]
+    adj_preds = -torch.stack(pred_list).flatten()
+    Q = torch.logsumexp(adj_preds, dim=0)
+    w = (adj_preds - Q).exp()
+    pred = torch.dot(w, -adj_preds)
+
+    loss = loss_func(pred, target)
+    loss.backward()
+
+    # Finish setting up GroupedModel
+    model_test = SchNet.get_model(
+        model_test, grouped=True, strategy="complex", combination=BoltzmannCombination()
     )
 
     # Test GroupedModel
