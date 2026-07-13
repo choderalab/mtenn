@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 import torch
 
-from mtenn.combination import MeanCombination, MaxCombination
+from mtenn.combination import BoltzmannCombination, MeanCombination, MaxCombination
 from mtenn.conversion_utils.schnet import SchNet
 
 
@@ -25,13 +25,23 @@ def models_and_inputs():
         for _ in range(5)
     ]
     target = torch.rand(1)
-    loss_func = torch.nn.MSELoss()
+    target_pose = torch.randint(0, len(inp_list), ())
+    loss_func_pred = torch.nn.MSELoss()
+    loss_func_pose = torch.nn.CrossEntropyLoss()
 
-    return model_test, model_ref, inp_list, target, loss_func
+    return (
+        model_test,
+        model_ref,
+        inp_list,
+        target,
+        target_pose,
+        loss_func_pred,
+        loss_func_pose,
+    )
 
 
 def test_mean_combination(models_and_inputs):
-    model_test, model_ref, inp_list, target, loss_func = models_and_inputs
+    model_test, model_ref, inp_list, target, _, loss_func, _ = models_and_inputs
 
     # Ref calc
     pred_list = [model_ref(X)[0] for X in inp_list]
@@ -60,7 +70,7 @@ def test_mean_combination(models_and_inputs):
 
 
 def test_max_combination(models_and_inputs):
-    model_test, model_ref, inp_list, target, loss_func = models_and_inputs
+    model_test, model_ref, inp_list, target, _, loss_func, _ = models_and_inputs
 
     # Ref calc
     pred_list = [model_ref(X)[0] for X in inp_list]
@@ -79,6 +89,86 @@ def test_max_combination(models_and_inputs):
     # Test GroupedModel
     pred, _ = model_test(inp_list)
     loss = loss_func(pred, target)
+    loss.backward()
+
+    # Compare
+    ref_param_dict = dict(model_ref.named_parameters())
+    assert all(
+        [
+            np.allclose(p.grad, ref_param_dict[n].grad, atol=5e-7)
+            for n, p in model_test.named_parameters()
+        ]
+    )
+
+
+def test_boltzmann_combination(models_and_inputs):
+    model_test, model_ref, inp_list, target, _, loss_func, _ = models_and_inputs
+
+    # Ref calc
+    pred_list = [model_ref(X)[0] for X in inp_list]
+    adj_preds = -torch.stack(pred_list).flatten()
+    Q = torch.logsumexp(adj_preds, dim=0)
+    w = (adj_preds - Q).exp()
+    pred = torch.dot(w, -adj_preds)
+
+    loss = loss_func(pred, target)
+    loss.backward()
+
+    # Finish setting up GroupedModel
+    model_test = SchNet.get_model(
+        model_test, grouped=True, strategy="complex", combination=BoltzmannCombination()
+    )
+
+    # Test GroupedModel
+    pred, _ = model_test(inp_list)
+    loss = loss_func(pred, target)
+    loss.backward()
+
+    # Compare
+    ref_param_dict = dict(model_ref.named_parameters())
+    assert all(
+        [
+            np.allclose(p.grad, ref_param_dict[n].grad, atol=5e-7)
+            for n, p in model_test.named_parameters()
+        ]
+    )
+
+
+def test_boltzmann_combination_multi_loss(models_and_inputs):
+    (
+        model_test,
+        model_ref,
+        inp_list,
+        target,
+        target_pose,
+        loss_func_pred,
+        loss_func_pose,
+    ) = models_and_inputs
+
+    # Ref calc
+    pred_list = [model_ref(X)[0] for X in inp_list]
+    adj_preds = -torch.stack(pred_list).flatten()
+    Q = torch.logsumexp(adj_preds, dim=0)
+    w = (adj_preds - Q).exp()
+    pred = torch.dot(w, -adj_preds)
+
+    pred_loss = loss_func_pred(pred, target)
+    pose_loss = loss_func_pose(-adj_preds, target_pose)
+    loss = 0.25 * pose_loss + 0.75 * pred_loss
+
+    loss.backward()
+
+    # Finish setting up GroupedModel
+    model_test = SchNet.get_model(
+        model_test, grouped=True, strategy="complex", combination=BoltzmannCombination()
+    )
+
+    # Test GroupedModel
+    pred, preds_list = model_test(inp_list)
+    pred_loss = loss_func_pred(pred, target)
+    pose_loss = loss_func_pose(preds_list, target_pose)
+    loss = 0.25 * pose_loss + 0.75 * pred_loss
+
     loss.backward()
 
     # Compare
