@@ -4,6 +4,7 @@ import pytest
 from mtenn.config import (
     ModelConfig,
     LigandOnlyModelConfig,
+    DGLGATRepresentationConfig,
     GATRepresentationConfig,
     E3NNRepresentationConfig,
     SchNetRepresentationConfig,
@@ -12,10 +13,10 @@ from mtenn.readout import PIC50Readout, PKiReadout
 from mtenn.strategy import ComplexOnlyStrategy, ConcatStrategy, DeltaStrategy
 
 
-def test_random_seed_gat():
-    rand_config = LigandOnlyModelConfig(representation=GATRepresentationConfig())
+def test_random_seed_dgl_gat():
+    rand_config = LigandOnlyModelConfig(representation=DGLGATRepresentationConfig())
     set_config = LigandOnlyModelConfig(
-        representation=GATRepresentationConfig(), rand_seed=10
+        representation=DGLGATRepresentationConfig(), rand_seed=10
     )
 
     rand_model1 = rand_config.build()
@@ -45,9 +46,9 @@ def test_random_seed_gat():
         ("pki", PKiReadout, [None, None]),
     ],
 )
-def test_readout_gat(pred_r, pred_r_class, pred_r_args):
+def test_readout_dgl_gat(pred_r, pred_r_class, pred_r_args):
     model = LigandOnlyModelConfig(
-        representation=GATRepresentationConfig(),
+        representation=DGLGATRepresentationConfig(),
         pred_readout=pred_r,
         pred_substrate=pred_r_args[0],
         pred_km=pred_r_args[1],
@@ -63,10 +64,10 @@ def test_readout_gat(pred_r, pred_r_class, pred_r_args):
         assert model.readout.Km == pred_r_args[1]
 
 
-def test_model_weights_gat():
-    model1 = LigandOnlyModelConfig(representation=GATRepresentationConfig()).build()
+def test_model_weights_dgl_gat():
+    model1 = LigandOnlyModelConfig(representation=DGLGATRepresentationConfig()).build()
     model2 = LigandOnlyModelConfig(
-        representation=GATRepresentationConfig(), model_weights=model1.state_dict()
+        representation=DGLGATRepresentationConfig(), model_weights=model1.state_dict()
     ).build()
 
     test_model_params = dict(model2.named_parameters())
