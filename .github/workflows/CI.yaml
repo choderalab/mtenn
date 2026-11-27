@@ -33,7 +33,7 @@ jobs:
 
     steps:
     - name: Checkout Repository
-      uses: actions/checkout@v3
+      uses: actions/checkout
 
     - name: Additional info about the build
       run: |
@@ -44,7 +44,7 @@ jobs:
 
     # More info on options: https://github.com/conda-incubator/setup-miniconda
     - name: Setup Micromamba
-      uses: mamba-org/setup-micromamba@v1
+      uses: mamba-org/setup-micromamba
       with:
         micromamba-version: '1.5.10-0'
         environment-file: ${{ matrix.deps }}
