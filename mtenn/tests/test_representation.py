@@ -1,27 +1,34 @@
+import importlib.util
 import pydantic
 import pytest
 
 from mtenn.config import (
+    DGLGATRepresentationConfig,
     GATRepresentationConfig,
     E3NNRepresentationConfig,
     SchNetRepresentationConfig,
 )
 
+skip_dgl = importlib.util.find_spec("dgl") is None
 
-def test_no_diff_list_lengths_gat():
+
+@pytest.mark.skipif(skip_dgl, reason="DGL not found, skipping DGL GAT tests.")
+def test_no_diff_list_lengths_dgl_gat():
     with pytest.raises(ValueError):
         # Different length lists should raise error
-        _ = GATRepresentationConfig(hidden_feats=[1, 2, 3], num_heads=[4, 5])
+        _ = DGLGATRepresentationConfig(hidden_feats=[1, 2, 3], num_heads=[4, 5])
 
 
-def test_bad_param_mapping_gat():
+@pytest.mark.skipif(skip_dgl, reason="DGL not found, skipping DGL GAT tests.")
+def test_bad_param_mapping_dgl_gat():
     with pytest.raises(ValueError):
         # Can't convert string to int
-        _ = GATRepresentationConfig(hidden_feats="sdf")
+        _ = DGLGATRepresentationConfig(hidden_feats="sdf")
 
 
-def test_can_pass_lists_gat():
-    model_config = GATRepresentationConfig(hidden_feats=[1, 2, 3])
+@pytest.mark.skipif(skip_dgl, reason="DGL not found, skipping DGL GAT tests.")
+def test_can_pass_lists_dgl_gat():
+    model_config = DGLGATRepresentationConfig(hidden_feats=[1, 2, 3])
     model = model_config.build()
 
     assert len(model.gnn.gnn_layers) == 3

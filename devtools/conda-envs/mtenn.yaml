@@ -3,7 +3,8 @@ channels:
   - conda-forge
 dependencies:
   - pytorch
-  - torchdata <=0.9.0 # removed some stuff that dgl uses
+  # - torchdata <=0.9.0 # removed some stuff that dgl uses
+  - torchdata
   - pytorch_geometric
   - pytorch_cluster
   - pytorch_scatter
@@ -12,8 +13,8 @@ dependencies:
   - numpy
   - h5py
   - e3nn
-  - dgllife
-  - dgl
+  # - dgllife
+  # - dgl
   - rdkit
   - ase
   - fsspec

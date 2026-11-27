@@ -104,7 +104,11 @@ class RepresentationType(StringEnum):
     Enum for ``Representation`` model types. See :py:mod:`mtenn.conversion_utils` for
     more details on the models.
 
-    * GAT: Graph Attention Network (:py:class:`GAT <mtenn.conversion_utils.gat.GAT>`)
+    * gat: PyG-based Graph Attention Network
+      (:py:class:`GAT <mtenn.conversion_utils.gat.GAT>`)
+
+    * dgl_gat: DGL-based Graph Attention Network
+      (:py:class:`DGLGAT <mtenn.conversion_utils.dgl_gat.DGLGAT>`)
 
     * schnet: (:py:class:`SchNet <mtenn.conversion_utils.schnet.SchNet>`)
 
@@ -117,6 +121,7 @@ class RepresentationType(StringEnum):
     """
 
     gat = "gat"
+    dgl_gat = "dgl_gat"
     schnet = "schnet"
     e3nn = "e3nn"
     visnet = "visnet"
@@ -165,10 +170,13 @@ class CombinationConfig(StringEnum):
     * mean: :py:class:`MeanCombination <mtenn.combination.MeanCombination>`
 
     * max: :py:class:`MaxCombination <mtenn.combination.MaxCombination>`
+
+    * boltzmann: :py:class:`BoltzmannCombination <mtenn.combination.BoltzmannCombination>`
     """
 
     mean = "mean"
     max = "max"
+    boltzmann = "boltzmann"
 
 
 class ModelConfigBase(BaseModel, abc.ABC):
@@ -365,6 +373,8 @@ class ModelConfigBase(BaseModel, abc.ABC):
                 mtenn_combination = mtenn.combination.MaxCombination(
                     negate_preds=self.max_comb_neg, pred_scale=self.max_comb_scale
                 )
+            case CombinationConfig.boltzmann:
+                mtenn_combination = mtenn.combination.BoltzmannCombination()
             case None:
                 mtenn_combination = None
 
@@ -480,6 +490,8 @@ class ModelConfigBase(BaseModel, abc.ABC):
                 match rep_type:
                     case "gat":
                         rep_class = GATRepresentationConfig
+                    case "dgl_gat":
+                        rep_class = DGLGATRepresentationConfig
                     case "schnet":
                         rep_class = SchNetRepresentationConfig
                     case "e3nn":
@@ -813,8 +825,78 @@ class RepresentationConfigBase(BaseModel, abc.ABC):
 
 class GATRepresentationConfig(RepresentationConfigBase):
     """
-    Class for constructing a graph attention ML model. Note that there are two methods
-    for defining the size of the model:
+    Class for constructing a PyG-based graph attention ML model. Default values here are
+    based on the values in DGL-LifeSci.
+    """
+
+    representation_type: Literal[RepresentationType.gat] = RepresentationType.gat
+
+    in_channels: int = Field(
+        -1,
+        description=(
+            "Input size. Can be left as -1 (default) to interpret based on "
+            "first forward call."
+        ),
+    )
+    hidden_channels: int = Field(32, description="Hidden embedding size.")
+    num_layers: int = Field(2, description="Number of GAT layers.")
+    v2: bool = Field(False, description="Use GATv2Conv layer instead of GATConv.")
+    dropout: float = Field(0, description="Dropout probability.")
+    heads: int = Field(4, description="Number of attention heads for each GAT layer.")
+    negative_slope: float = Field(
+        0.2, description="LeakyReLU angle of the negative slope."
+    )
+
+    def build(self, mtenn_params={}):
+        """
+        Build an ``mtenn`` GAT ``Model`` from this config.
+
+        :meta public:
+
+        Parameters
+        ----------
+        mtenn_params : dict, optional
+            Dictionary that stores the ``Readout`` objects for the individual
+            predictions and for the combined prediction, and the ``Combination`` object
+            in the case of a multi-pose model. These are all constructed the same for all
+            ``Model`` types, so we can just handle them in the base class. Keys in the
+            dict will be:
+
+            * "combination": :py:mod:`Combination <mtenn.combination>`
+
+            * "pred_readout": :py:mod:`Readout <mtenn.readout>` for individual
+              pose predictions
+
+            * "comb_readout": :py:mod:`Readout <mtenn.readout>` for combined
+              prediction (in the case of a multi-pose model)
+
+            although the combination-related entries will be ignore because this is a
+            ligand-only model.
+
+        Returns
+        -------
+        mtenn.conversion_utils.gat.GAT
+            Model constructed from the config
+        """
+        from mtenn.conversion_utils.gat import GAT
+
+        model = GAT(
+            in_channels=self.in_channels,
+            hidden_channels=self.hidden_channels,
+            num_layers=self.num_layers,
+            v2=self.v2,
+            dropout=self.dropout,
+            heads=self.heads,
+            negative_slope=self.negative_slope,
+        )
+
+        return model
+
+
+class DGLGATRepresentationConfig(RepresentationConfigBase):
+    """
+    Class for constructing a DGL-based graph attention ML model. Note that there are two
+    methods for defining the size of the model:
 
     * If single values are passed for all parameters, the value of ``num_layers`` will
       be used as the size of the model, and each layer will have the parameters given
@@ -849,7 +931,9 @@ class GATRepresentationConfig(RepresentationConfigBase):
         "biases": bool,
     }  #: :meta private:
 
-    representation_type: Literal[RepresentationType.gat] = RepresentationType.gat
+    representation_type: Literal[
+        RepresentationType.dgl_gat
+    ] = RepresentationType.dgl_gat
 
     in_feats: int = Field(
         _CanonicalAtomFeaturizer().feat_size(),
@@ -941,7 +1025,7 @@ class GATRepresentationConfig(RepresentationConfigBase):
     _from_num_layers = False
 
     @model_validator(mode="after")
-    def massage_into_lists(self) -> GATRepresentationConfig:
+    def massage_into_lists(self) -> DGLGATRepresentationConfig:
         """
         Validator to handle unifying all the values into the proper list forms based on
         the rules described in the class docstring.
@@ -1005,17 +1089,22 @@ class GATRepresentationConfig(RepresentationConfigBase):
 
     def build(self):
         """
-        Build a :py:class:`GAT <mtenn.conversion_utils.gat.GAT>` ``Representation`` from
+        Build a :py:class:`DGLGAT <mtenn.conversion_utils.dgl_gat.DGLGAT>` ``Representation`` from
         this config.
 
         Returns
         -------
-        mtenn.conversion_utils.gat.GAT
+        mtenn.conversion_utils.dgl_gat.DGLGAT
             Model constructed from the config
         """
-        from mtenn.conversion_utils.gat import GAT
+        try:
+            from mtenn.conversion_utils.dgl_gat import DGLGAT
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError(
+                "DGL not installed, can't use DGL-based GAT model."
+            )
 
-        model = GAT(
+        model = DGLGAT(
             in_feats=self.in_feats,
             hidden_feats=self.hidden_feats,
             num_heads=self.num_heads,
@@ -1032,7 +1121,7 @@ class GATRepresentationConfig(RepresentationConfigBase):
         return model
         # return model._get_representation()
 
-    def _update(self, config_updates={}) -> GATRepresentationConfig:
+    def _update(self, config_updates={}) -> DGLGATRepresentationConfig:
         """
         GAT-specific implementation of updating logic. Need to handle stuff specially
         to make sure that the original method of specifying parameters (either from a
@@ -1048,15 +1137,15 @@ class GATRepresentationConfig(RepresentationConfigBase):
 
         Returns
         -------
-        GATRepresentationConfig
-            New ``GATRepresentationConfig`` object
+        DGLGATRepresentationConfig
+            New ``DGLGATRepresentationConfig`` object
         """
         orig_config = self.model_dump()
         if self._from_num_layers or ("num_layers" in config_updates):
             # If originally generated from num_layers, want to pull out the first entry
             #  in each list param so it can be re-broadcast with (potentially) new
             #  num_layers
-            for param_name in GATRepresentationConfig.LIST_PARAMS.keys():
+            for param_name in DGLGATRepresentationConfig.LIST_PARAMS:
                 orig_config[param_name] = orig_config[param_name][0]
 
         # Get new config by overwriting old stuff with any new stuff
@@ -1068,7 +1157,7 @@ class GATRepresentationConfig(RepresentationConfigBase):
         ):
             new_config["activations"] = None
 
-        return GATRepresentationConfig(**new_config)
+        return DGLGATRepresentationConfig(**new_config)
 
 
 class SchNetRepresentationConfig(RepresentationConfigBase):
