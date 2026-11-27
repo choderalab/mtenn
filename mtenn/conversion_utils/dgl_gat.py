@@ -4,10 +4,13 @@ architecture. The underlying model that we use is the implementation in the
 `DGL-LifeSCi <https://lifesci.dgl.ai/api/model.gnn.html#module-dgllife.model.gnn.gat>`_
 package.
 """
+try:
+    from dgllife.model import GAT as GAT_dgl
+    from dgllife.model import WeightedSumAndMax
+except ModuleNotFoundError:
+    raise ModuleNotFoundError("DGL not installed, can't use DGL-based GAT model.")
 from copy import deepcopy
 import torch
-from dgllife.model import GAT as GAT_dgl
-from dgllife.model import WeightedSumAndMax
 
 from mtenn.model import LigandOnlyModel
 

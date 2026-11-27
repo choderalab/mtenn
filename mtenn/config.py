@@ -1097,7 +1097,12 @@ class DGLGATRepresentationConfig(RepresentationConfigBase):
         mtenn.conversion_utils.dgl_gat.DGLGAT
             Model constructed from the config
         """
-        from mtenn.conversion_utils.dgl_gat import DGLGAT
+        try:
+            from mtenn.conversion_utils.dgl_gat import DGLGAT
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError(
+                "DGL not installed, can't use DGL-based GAT model."
+            )
 
         model = DGLGAT(
             in_feats=self.in_feats,

@@ -1,3 +1,4 @@
+import importlib.util
 import pydantic
 import pytest
 
@@ -11,6 +12,9 @@ from mtenn.config import (
 )
 from mtenn.readout import PIC50Readout, PKiReadout
 from mtenn.strategy import ComplexOnlyStrategy, ConcatStrategy, DeltaStrategy
+
+
+skip_dgl = importlib.util.find_spec("dgl") is None
 
 
 def test_random_seed_gat():
@@ -80,6 +84,7 @@ def test_model_weights_gat():
         assert (ref_param == test_model_params[n]).all()
 
 
+@pytest.mark.skipif(skip_dgl, reason="DGL not found, skipping DGL GAT tests.")
 def test_random_seed_dgl_gat():
     rand_config = LigandOnlyModelConfig(representation=DGLGATRepresentationConfig())
     set_config = LigandOnlyModelConfig(
@@ -113,6 +118,7 @@ def test_random_seed_dgl_gat():
         ("pki", PKiReadout, [None, None]),
     ],
 )
+@pytest.mark.skipif(skip_dgl, reason="DGL not found, skipping DGL GAT tests.")
 def test_readout_dgl_gat(pred_r, pred_r_class, pred_r_args):
     model = LigandOnlyModelConfig(
         representation=DGLGATRepresentationConfig(),
@@ -131,6 +137,7 @@ def test_readout_dgl_gat(pred_r, pred_r_class, pred_r_args):
         assert model.readout.Km == pred_r_args[1]
 
 
+@pytest.mark.skipif(skip_dgl, reason="DGL not found, skipping DGL GAT tests.")
 def test_model_weights_dgl_gat():
     model1 = LigandOnlyModelConfig(representation=DGLGATRepresentationConfig()).build()
     model2 = LigandOnlyModelConfig(

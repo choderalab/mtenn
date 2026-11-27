@@ -13,8 +13,8 @@ dependencies:
   - numpy
   - h5py
   - e3nn
-  - dgllife
-  - dgl
+  # - dgllife
+  # - dgl
   - rdkit
   - ase
   - fsspec

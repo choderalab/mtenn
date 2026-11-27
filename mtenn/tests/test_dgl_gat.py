@@ -1,9 +1,14 @@
+try:
+    from dgllife.model import GAT as GAT_dgl
+    from dgllife.utils import CanonicalAtomFeaturizer, SMILESToBigraph
+    from mtenn.conversion_utils.dgl_gat import DGLGAT
+except ModuleNotFoundError:
+    import pytest
+
+    pytest.skip("DGL not found, skipping DGL GAT tests.", allow_module_level=True)
+
 import pytest
 import torch
-
-from dgllife.model import GAT as GAT_dgl
-from dgllife.utils import CanonicalAtomFeaturizer, SMILESToBigraph
-from mtenn.conversion_utils.dgl_gat import DGLGAT
 
 
 @pytest.fixture
